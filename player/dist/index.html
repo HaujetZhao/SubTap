@@ -383,10 +383,15 @@ audio.hidden { display: none; }
 
   // --- 点句子 ---
   function onSentenceClick(sentence) {
+    var container = document.getElementById('sentences');
+
+    // 切换句子时先清掉上一句的播放态（避免视觉残留）
+    if (state.currentId != null && state.currentId !== sentence.id) {
+      App.markPlaying(container, state.currentId, false);
+    }
     state.currentId = sentence.id;
 
     // 高亮
-    var container = document.getElementById('sentences');
     App.highlightSentence(container, sentence.id);
 
     // 刷右栏
@@ -408,7 +413,14 @@ audio.hidden { display: none; }
   }
 
   // --- 初始化播放器 ---
-  state.player = new App.Player(document.getElementById('audio'));
+  var audioEl = document.getElementById('audio');
+  state.player = new App.Player(audioEl);
+  // 音频解码失败时提示（如浏览器不支持的编码）
+  audioEl.addEventListener('error', function () {
+    if (audioEl.error && state.audioName) {
+      App.setStatus('音频无法播放（编码不支持），建议改用 mp3', true);
+    }
+  });
   state.player.onStop(function () {
     if (state.currentId != null) {
       App.markPlaying(document.getElementById('sentences'), state.currentId, false);
