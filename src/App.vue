@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
 import { buildVocab, classifyWords, tokenizeForRender } from './word-lookup.js';
@@ -133,6 +133,11 @@ function onMediaFile(file) {
 }
 
 function onSentenceClick(sentence) {
+  playSentence(sentence);
+}
+
+// 播放指定句子（点击与键盘共用）：选中 + 区间播放
+function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
   if (!mediaName.value) {
@@ -145,6 +150,37 @@ function onSentenceClick(sentence) {
   player.playSegment(r.effStart, r.effEnd);
 }
 
+// 当前选中句在列表中的索引（未选为 -1）
+const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
+
+// 方向键播放控制。焦点在输入框时不拦截，避免影响微调数字输入。
+function onKeydown(e) {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  if (!sentences.value.length) return;
+  const n = sentences.value.length;
+  const idx = currentIdx.value;
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      if (idx < 0) playSentence(sentences.value[0]);            // 未选 → 第一句
+      else if (idx < n - 1) playSentence(sentences.value[idx + 1]); // 下一句
+      break; // 末句 → 不操作
+    case 'ArrowUp':
+      e.preventDefault();
+      if (idx > 0) playSentence(sentences.value[idx - 1]);      // 上一句
+      break; // 未选/首句 → 不操作
+    case 'ArrowLeft':
+      e.preventDefault();
+      if (idx >= 0) playSentence(sentences.value[idx]);          // 重读当前句
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      if (player) player.stop();                                 // 结束当前句
+      break;
+  }
+}
+
 onMounted(() => {
   player = new Player(mediaEl.value);
   player.onStop(() => { isPlaying.value = false; });
@@ -155,6 +191,11 @@ onMounted(() => {
       statusError.value = true;
     }
   });
+  window.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown);
 });
 </script>
 
