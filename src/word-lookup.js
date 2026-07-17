@@ -1,4 +1,17 @@
 // 单词查询（纯函数）
+import { lemmatize } from './lemmatize.js';
+
+// 解析 token → { level, def, lemma } 或 null。
+// 原词先查词库；未命中再试 lemmatize 生成的原形候选，命中即用其级别/释义/原形。
+function resolve(tok, vocab) {
+  const direct = vocab[tok];
+  if (direct) return { level: direct.level, def: direct.def, lemma: tok };
+  for (const cand of lemmatize(tok)) {
+    const e = vocab[cand];
+    if (e) return { level: e.level, def: e.def, lemma: cand };
+  }
+  return null;
+}
 
 // 词库（两级 {level: {word: def}}）→ 合并大表 {word: {level, def}}；重复词保留首个分级
 export function buildVocab(vocabObj) {
@@ -13,19 +26,19 @@ export function buildVocab(vocabObj) {
   return table;
 }
 
-// 句子文本 + 大表 → Word[]（按句中首次出现顺序、去重、只返回命中的）
+// 句子文本 + 大表 → Word[]（按句中首次出现顺序、按原形去重、只返回命中的）
+// 命中项 word 字段存【原形】（如 raises → word='raise'）；直接命中时 word 即原词小写。
 export function lookupWords(text, vocab) {
   const lower = (text || '').toLowerCase();
   const tokens = lower.split(/[^a-z']+/).filter(Boolean);
   const seen = {};
   const result = [];
   for (const tok of tokens) {
-    if (seen[tok]) continue;
-    const entry = vocab[tok];
-    if (entry) {
-      seen[tok] = true;
-      result.push({ word: tok, level: entry.level, def: entry.def });
-    }
+    const r = resolve(tok, vocab);
+    if (!r) continue;
+    if (seen[r.lemma]) continue;
+    seen[r.lemma] = true;
+    result.push({ word: r.lemma, level: r.level, def: r.def });
   }
   return result;
 }
