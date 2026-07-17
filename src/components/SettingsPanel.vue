@@ -7,7 +7,7 @@ const props = defineProps({
   offset: { type: Number, default: 0 },
   extend: { type: Number, default: 0 },
   linkNext: { type: Boolean, default: false },
-  linkNextOffset: { type: Number, default: 0 },
+  linkNextOffset: { type: Number, default: -0.1 },
   highlightOn: { type: Boolean, default: true }
 });
 const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight']);

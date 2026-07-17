@@ -37,7 +37,7 @@ const statusError = ref(false);
 const offset = ref(0);
 const extend = ref(0);
 const linkNext = ref(false);
-const linkNextOffset = ref(0);
+const linkNextOffset = ref(-0.1);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
