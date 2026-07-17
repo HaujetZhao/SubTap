@@ -1,27 +1,27 @@
-// 音频播放器：区间播放 + 到点自动停
+// 媒体播放器（驱动 <audio> 或 <video>）：区间播放 + 到点自动停
 
 export class Player {
-  constructor(audioEl) {
-    this.audio = audioEl;
+  constructor(mediaEl) {
+    this.media = mediaEl;
     this._endHandler = null;
     this._stopCb = null;
     this._pauseBound = false;
 
-    this.audio.addEventListener('timeupdate', () => {
-      if (this._endHandler && this.audio.currentTime >= this._endHandler.end) {
-        this.audio.pause();
+    this.media.addEventListener('timeupdate', () => {
+      if (this._endHandler && this.media.currentTime >= this._endHandler.end) {
+        this.media.pause();
       }
     });
   }
 
   setSrc(url) {
-    this.audio.src = url;
+    this.media.src = url;
   }
 
   onStop(cb) {
     this._stopCb = cb;
     if (!this._pauseBound) {
-      this.audio.addEventListener('pause', () => {
+      this.media.addEventListener('pause', () => {
         if (this._stopCb) this._stopCb();
       });
       this._pauseBound = true;
@@ -31,22 +31,22 @@ export class Player {
   playSegment(start, end) {
     this._endHandler = { end };
     const go = () => {
-      this.audio.currentTime = start;
-      this.audio.play().catch(() => {}); // 忽略自动播放策略报错
+      this.media.currentTime = start;
+      this.media.play().catch(() => {}); // 忽略自动播放策略报错
     };
-    if (this.audio.readyState >= 1) {
+    if (this.media.readyState >= 1) {
       go();
     } else {
       const onReady = () => {
-        this.audio.removeEventListener('loadedmetadata', onReady);
+        this.media.removeEventListener('loadedmetadata', onReady);
         go();
       };
-      this.audio.addEventListener('loadedmetadata', onReady);
+      this.media.addEventListener('loadedmetadata', onReady);
     }
   }
 
   stop() {
     this._endHandler = null;
-    this.audio.pause();
+    this.media.pause();
   }
 }

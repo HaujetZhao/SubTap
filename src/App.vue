@@ -73,6 +73,7 @@ function onTweak(key, val) {
   if (key === 'offset') offset.value = val;
   else if (key === 'extend') extend.value = val;
   else if (key === 'linkNext') linkNext.value = val;
+  else console.warn('未知微调参数：', key);
 }
 let player = null;
 

@@ -79,7 +79,6 @@ body {
 .word .def { font-size: 13px; color: #444; margin-top: 1px; }
 
 .placeholder { color: #9ca3af; font-size: 14px; }
-audio.hidden { display: none; }
 
 /* 视频区控件 */
 .video-bar { display: flex; justify-content: flex-end; padding: 2px 6px; background: #1f2937; }
