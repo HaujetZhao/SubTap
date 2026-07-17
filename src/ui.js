@@ -1,81 +1,107 @@
-(function (App) {
-  'use strict';
+// UI 渲染（纯 DOM 操作，无业务状态）
 
-  function fmtTime(sec) {
-    var m = Math.floor(sec / 60);
-    var s = Math.floor(sec % 60);
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+export function fmtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+export function renderSentences(container, sentences, onClick) {
+  container.innerHTML = '';
+  for (const s of sentences) {
+    const div = document.createElement('div');
+    div.className = 'sentence';
+    div.dataset.id = s.id;
+    div.innerHTML =
+      '<span class="play-icon">▶</span>' +
+      '<span class="time">[' + fmtTime(s.start) + ']</span>' +
+      '<span class="text"></span>';
+    div.querySelector('.text').textContent = s.text.replace(/\n/g, ' ');
+    div.addEventListener('click', () => onClick(s));
+    container.appendChild(div);
   }
+}
 
-  function renderSentences(container, sentences, onClick) {
-    container.innerHTML = '';
-    for (var i = 0; i < sentences.length; i++) {
-      (function (s) {
-        var div = document.createElement('div');
-        div.className = 'sentence';
-        div.dataset.id = s.id;
-        div.innerHTML =
-          '<span class="play-icon">▶</span>' +
-          '<span class="time">[' + fmtTime(s.start) + ']</span>' +
-          '<span class="text"></span>';
-        div.querySelector('.text').textContent = s.text.replace(/\n/g, ' ');
-        div.addEventListener('click', function () { onClick(s); });
-        container.appendChild(div);
-      })(sentences[i]);
-    }
+export function highlightSentence(container, id) {
+  for (const el of container.querySelectorAll('.sentence')) {
+    el.classList.toggle('active', String(el.dataset.id) === String(id));
   }
+}
 
-  function clearSentences(container) {
-    container.innerHTML = '<div class="placeholder">选择字幕后，句子列表会显示在这里</div>';
+export function markPlaying(container, id, playing) {
+  const el = container.querySelector('.sentence[data-id="' + id + '"]');
+  if (!el) return;
+  el.classList.toggle('playing', playing);
+  el.querySelector('.play-icon').textContent = playing ? '⏸' : '▶';
+}
+
+// 设置面板：渲染分级勾选项（store 提供分级与状态）
+export function renderSettings(container, store, onChange) {
+  container.innerHTML = '';
+  for (const level of store.getLevels()) {
+    const label = document.createElement('label');
+    label.className = 'level-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = store.isEnabled(level);
+    cb.addEventListener('change', () => onChange(level, cb.checked));
+    const span = document.createElement('span');
+    span.textContent = level;
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
   }
+}
 
-  function highlightSentence(container, id) {
-    var all = container.querySelectorAll('.sentence');
-    for (var i = 0; i < all.length; i++) {
-      all[i].classList.toggle('active', String(all[i].dataset.id) === String(id));
-    }
-  }
+// 右栏分栏：groups = {level: Word[]}；按 store 分级顺序渲染
+export function renderWordGroups(container, store, groups) {
+  let any = false;
+  container.innerHTML = '';
+  container.className = 'word-groups';
 
-  function markPlaying(container, id, playing) {
-    var el = container.querySelector('.sentence[data-id="' + id + '"]');
-    if (!el) return;
-    el.classList.toggle('playing', playing);
-    el.querySelector('.play-icon').textContent = playing ? '⏸' : '▶';
-  }
+  for (const level of store.getLevels()) {
+    const words = groups[level];
+    if (!words || words.length === 0) continue;
+    any = true;
 
-  function renderWordPanel(panelEl, words) {
-    if (!words || words.length === 0) {
-      panelEl.className = 'placeholder';
-      panelEl.textContent = '当前句没有词库中的单词';
-      return;
-    }
-    panelEl.className = '';
-    panelEl.innerHTML = '';
-    for (var i = 0; i < words.length; i++) {
-      var w = words[i];
-      var div = document.createElement('div');
+    const group = document.createElement('div');
+    group.className = 'word-group';
+    const h4 = document.createElement('h4');
+    h4.textContent = level + ' (' + words.length + ')';
+    group.appendChild(h4);
+
+    for (const w of words) {
+      const div = document.createElement('div');
       div.className = 'word';
-      div.innerHTML =
-        '<div class="head"><span class="w"></span><span class="level"></span></div>' +
-        '<div class="def"></div>';
-      div.querySelector('.w').textContent = w.word;
-      div.querySelector('.level').textContent = w.level;
-      div.querySelector('.def').textContent = w.def;
-      panelEl.appendChild(div);
+      const wspan = document.createElement('div');
+      wspan.className = 'w';
+      wspan.textContent = w.word;
+      const dspan = document.createElement('div');
+      dspan.className = 'def';
+      dspan.textContent = w.def;
+      div.appendChild(wspan);
+      div.appendChild(dspan);
+      group.appendChild(div);
     }
+    container.appendChild(group);
   }
 
-  function setStatus(text, isError) {
-    var el = document.getElementById('status');
-    el.textContent = text;
-    el.classList.toggle('error', !!isError);
+  if (!any) {
+    container.className = 'placeholder';
+    container.textContent = '当前句没有词库中的单词';
   }
+}
 
-  App.fmtTime = fmtTime;
-  App.renderSentences = renderSentences;
-  App.clearSentences = clearSentences;
-  App.highlightSentence = highlightSentence;
-  App.markPlaying = markPlaying;
-  App.renderWordPanel = renderWordPanel;
-  App.setStatus = setStatus;
-})(window.App);
+export function setVocabStatus(text, isError) {
+  const el = document.getElementById('vocab-status');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+  el.classList.toggle('placeholder', !isError);
+}
+
+export function setStatus(text, isError) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+}
