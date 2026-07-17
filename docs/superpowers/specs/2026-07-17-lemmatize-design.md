@@ -56,35 +56,31 @@ function resolve(tok, vocab) {
 }
 ```
 
-### 3. `Word` 结构
+### 3. `Word` 结构（不新增字段）
 
-新增 `lemma` 字段（命中原形；直接命中时 `lemma === tok`）：
-
-```ts
-{ word: string, level: string, def: string, lemma: string }
-```
+复用现有 `{ word, level, def }`。约定：**命中项的 `word` 字段直接存"原形"**（如 `raise`），不再存原文 token。这样 `WordPanel`（显示 `w.word`）零改动即可显示原形。超纲项 `word` 仍存文中形式。YAGNI——不引入冗余的 `lemma` 字段。
 
 ### 4. 三个函数改动
 
 | 函数 | 改动 |
 |------|------|
-| `lookupWords(text, vocab)` | 用 `resolve`；命中 → `{word:tok, level, def, lemma}`；未命中（含还原失败）不返回 |
+| `lookupWords(text, vocab)` | 用 `resolve`；命中 → `{word:lemma, level, def}`（按 `lemma` 去重）；未命中（含还原失败）不返回 |
 | `tokenizeForRender(text, vocab)` | 用 `resolve` 取命中级别；`resolve` 返回 null → `level='超纲'`；`text` 仍显示原文 token |
-| `classifyWords(text, vocab)` | 去重 key 从 `tok` 改为 **`lemma`**：命中项显示 `lemma`、释义取原形；同原形多个变形合并一条；超纲项去重 key 用 `tok`、显示文中形式、`def=''` |
+| `classifyWords(text, vocab)` | 命中去重 key 从 `tok` 改为 **原形（lemma）**：命中项 `word=lemma`、释义取原形；同原形多个变形合并一条；超纲项去重 key 用 `tok`、`word=tok`、`def=''` |
 
 `vocab-store.js` 接口不变，**不动**。
 
 ### 5. UI 层体现
 
 - **中栏**（`SentenceList.vue`）：渲染逻辑不变（`tokenizeForRender` 返回的 `level` 已是还原后级别），背景色自动跟着原形级别。
-- **右栏**（`WordPanel.vue`）：命中项的显示字段从 `word` 切到 `lemma`。
+- **右栏**（`WordPanel.vue`）：**零改动**——命中项 `word` 已是原形，现有 `w.word` 显示即为原形。
 - 顺序：按文中首次出现（首次遇到某原形时登记）。
 
 ### 6. 边界与不变量
 
 - 含撇号 token（`don't`）：`lemmatize` 返回 `[]` → 不还原 → 原样查表 → 通常未命中归超纲，显示原文。不崩溃。
 - 纯超纲生僻词：还原后仍查不到 → 归"超纲"，显示文中形式。
-- 直接命中的词（如 `state` 本身在词库）：不触发还原，`lemma===tok`。
+- 直接命中的词（如 `state` 本身在词库）：不触发还原，`word===tok`。
 - 纯逻辑层无 Vue/DOM 依赖。
 
 ## 测试计划（追加到 `test.html`）
@@ -108,5 +104,4 @@ function resolve(tok, vocab) {
 
 - 新增：`src/lemmatize.js`
 - 改：`src/word-lookup.js`（helper + 三函数）
-- 改：`src/components/WordPanel.vue`（显示字段 `word`→`lemma`）
-- 改：`test.html`（追加断言）
+- 改：`test.html`（追加断言；`WordPanel.vue` 无需改动）
