@@ -47,7 +47,7 @@ function startResize(e) {
 }
 function onResize(e) {
   if (!dragging) return;
-  const delta = dragStartY - e.clientY; // 向上拖增大高度
+  const delta = e.clientY - dragStartY; // 鼠标向下→手柄向下→视频变高
   const maxH = window.innerHeight * 0.7;
   let h = dragStartH + delta;
   if (h < 100) h = 100;
@@ -152,15 +152,12 @@ onMounted(() => {
       @tweak="onTweak"
     />
     <main class="panel-center">
-      <div class="video-slot" :class="{ empty: !mediaName }">
-        <div class="video-bar">
-          <button class="collapse-btn" @click="toggleCollapse">
-            {{ videoCollapsed ? '展开视频' : '收起视频' }}
-          </button>
-        </div>
+      <div class="video-slot" :class="{ empty: !mediaName, collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
-               preload="metadata" controls :style="{ height: videoHeight + 'px' }"></video>
+               preload="metadata" :style="{ height: videoHeight + 'px' }"></video>
+        <button v-show="!videoCollapsed" class="collapse-btn" @click="toggleCollapse">收起</button>
         <div v-show="!videoCollapsed" class="resize-handle" @mousedown="startResize"></div>
+        <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
       </div>
       <SentenceList
         :sentences="sentences"

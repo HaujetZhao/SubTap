@@ -81,9 +81,20 @@ body {
 .placeholder { color: #9ca3af; font-size: 14px; }
 
 /* 视频区控件 */
-.video-bar { display: flex; justify-content: flex-end; padding: 2px 6px; background: #1f2937; }
-.collapse-btn { background: none; border: none; color: #d1d5db; font-size: 12px; cursor: pointer; padding: 2px 6px; }
-.collapse-btn:hover { color: #fff; }
+.video-slot { position: relative; }
+.video-slot.collapsed { background: transparent; }
+.collapse-btn {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,.5); color: #fff; border: none;
+  font-size: 12px; cursor: pointer; padding: 2px 8px; border-radius: 4px;
+}
+.collapse-btn:hover { background: rgba(0,0,0,.75); }
+.expand-btn {
+  display: block; width: 100%; text-align: center;
+  background: #1f2937; color: #d1d5db; border: none;
+  font-size: 12px; cursor: pointer; padding: 4px;
+}
+.expand-btn:hover { background: #374151; color: #fff; }
 .resize-handle { height: 6px; cursor: ns-resize; background: #374151; }
 .resize-handle:hover { background: #4b5563; }
 
