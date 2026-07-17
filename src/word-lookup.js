@@ -63,18 +63,27 @@ export function tokenizeForRender(text, vocab) {
 }
 
 // 右栏分组用：句子 → {level: Word[]}（去重，含超纲组；超纲词 def=''）
+// 命中项按【原形】去重：同原形的多个变形（raises/raising）合并为一条，word=原形、def=原形释义。
+// 超纲项按文中形式去重，word=文中形式、def=''。
 export function classifyWords(text, vocab) {
   const lower = (text || '').toLowerCase();
   const tokens = lower.split(/[^a-z']+/).filter(Boolean);
-  const seen = {};
+  const seenLemma = {};
+  const seenTok = {};
   const groups = {};
   for (const tok of tokens) {
-    if (seen[tok]) continue;
-    seen[tok] = true;
-    const entry = vocab[tok];
-    const level = entry ? entry.level : '超纲';
-    if (!groups[level]) groups[level] = [];
-    groups[level].push({ word: tok, level, def: entry ? entry.def : '' });
+    const r = resolve(tok, vocab);
+    if (r) {
+      if (seenLemma[r.lemma]) continue;
+      seenLemma[r.lemma] = true;
+      if (!groups[r.level]) groups[r.level] = [];
+      groups[r.level].push({ word: r.lemma, level: r.level, def: r.def });
+    } else {
+      if (seenTok[tok]) continue;
+      seenTok[tok] = true;
+      if (!groups['超纲']) groups['超纲'] = [];
+      groups['超纲'].push({ word: tok, level: '超纲', def: '' });
+    }
   }
   return groups;
 }
