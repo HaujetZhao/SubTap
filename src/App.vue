@@ -58,6 +58,18 @@ function onAudioFile(file) {
   statusError.value = false;
 }
 
+function onSentenceClick(sentence) {
+  currentId.value = sentence.id;
+  currentText.value = sentence.text;
+  if (!audioName.value) {
+    statusText.value = '请先选择音频文件';
+    statusError.value = true;
+    return;
+  }
+  isPlaying.value = true;
+  player.playSegment(sentence.start, sentence.end);
+}
+
 onMounted(() => {
   player = new Player(audioEl.value);
   player.onStop(() => { isPlaying.value = false; });
@@ -79,6 +91,7 @@ onMounted(() => {
         :sentences="sentences"
         :current-id="currentId"
         :is-playing="isPlaying"
+        @click="onSentenceClick"
       />
       <span class="status" :class="{ error: statusError }">{{ statusText }}</span>
     </main>
