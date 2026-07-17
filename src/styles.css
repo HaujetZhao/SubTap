@@ -87,3 +87,11 @@ audio.hidden { display: none; }
 .collapse-btn:hover { color: #fff; }
 .resize-handle { height: 6px; cursor: ns-resize; background: #374151; }
 .resize-handle:hover { background: #4b5563; }
+
+/* 字幕微调 */
+.tweak { display: flex; flex-direction: column; gap: 6px; }
+.tweak-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; gap: 8px;
+}
+.tweak-row input { width: 70px; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; }

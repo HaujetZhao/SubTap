@@ -1,10 +1,11 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
 import { buildVocab, lookupWords } from './word-lookup.js';
 import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
+import { computeEffectiveRanges } from './subtitle-tweak.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
@@ -25,6 +26,11 @@ const isPlaying = ref(false);
 const mediaName = ref('');
 const statusText = ref('请选择文件');
 const statusError = ref(false);
+
+// 字幕微调参数
+const offset = ref(0);
+const extend = ref(0);
+const linkNext = ref(false);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -55,6 +61,18 @@ function stopResize() {
 }
 function toggleCollapse() {
   videoCollapsed.value = !videoCollapsed.value;
+}
+
+const effectiveRanges = computed(() => computeEffectiveRanges(sentences.value, {
+  offset: offset.value,
+  extend: extend.value,
+  linkNext: linkNext.value
+}));
+
+function onTweak(key, val) {
+  if (key === 'offset') offset.value = val;
+  else if (key === 'extend') extend.value = val;
+  else if (key === 'linkNext') linkNext.value = val;
 }
 let player = null;
 
@@ -101,8 +119,9 @@ function onSentenceClick(sentence) {
     statusError.value = true;
     return;
   }
+  const r = effectiveRanges.value.get(sentence.id) || { effStart: sentence.start, effEnd: sentence.end };
   isPlaying.value = true;
-  player.playSegment(sentence.start, sentence.end);
+  player.playSegment(r.effStart, r.effEnd);
 }
 
 onMounted(() => {
@@ -123,9 +142,13 @@ onMounted(() => {
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
+      :offset="offset"
+      :extend="extend"
+      :link-next="linkNext"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
+      @tweak="onTweak"
     />
     <main class="panel-center">
       <div class="video-slot" :class="{ empty: !mediaName }">
