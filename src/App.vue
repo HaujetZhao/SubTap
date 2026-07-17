@@ -1,9 +1,18 @@
 <script setup>
-// 占位：后续 Task 填充三栏与状态
+import SettingsPanel from './components/SettingsPanel.vue';
+import SentenceList from './components/SentenceList.vue';
+import WordPanel from './components/WordPanel.vue';
 </script>
 
 <template>
   <div class="layout">
-    <div style="padding:20px">脚手架验证中…</div>
+    <SettingsPanel />
+    <main class="panel-center">
+      <div class="video-slot"></div>
+      <SentenceList />
+      <span class="status">请选择文件</span>
+    </main>
+    <WordPanel />
   </div>
+  <audio class="hidden" preload="metadata"></audio>
 </template>
