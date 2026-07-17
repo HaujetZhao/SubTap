@@ -4,7 +4,8 @@ import { computed } from 'vue';
 const props = defineProps({
   store: { type: Object, required: true },
   enabled: { type: Object, required: true },
-  currentText: { type: String, default: '' }
+  currentText: { type: String, default: '' },
+  colors: { type: Object, required: true }
 });
 
 // 命中单词分组（按级）。显式读取 enabled 各属性以建立响应式依赖，
@@ -27,6 +28,8 @@ const visibleLevels = computed(() =>
     props.enabled[lv] && groups.value[lv] && groups.value[lv].length > 0
   )
 );
+
+function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
 </script>
 
 <template>
@@ -37,10 +40,10 @@ const visibleLevels = computed(() =>
     <div v-else-if="!visibleLevels.length" class="placeholder">当前句没有词库中的单词</div>
     <div v-else class="word-groups">
       <div v-for="lv in visibleLevels" :key="lv" class="word-group">
-        <h4>{{ lv }} ({{ groups[lv].length }})</h4>
+        <h4 :style="{ color: titleColor(lv) }">{{ lv }} ({{ groups[lv].length }})</h4>
         <div v-for="w in groups[lv]" :key="w.word" class="word">
           <div class="w">{{ w.word }}</div>
-          <div class="def">{{ w.def }}</div>
+          <div v-if="w.def" class="def">{{ w.def }}</div>
         </div>
       </div>
     </div>
