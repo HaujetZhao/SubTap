@@ -27,7 +27,8 @@ npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlef
 | 文件 | 职责 |
 |------|------|
 | `srt-parser.js` | `parseSRT(text)`→`Sentence[]`、`timestampToSeconds(ts)` |
-| `word-lookup.js` | `buildVocab`、`lookupWords`、`tokenizeForRender`（中栏渲染，保留标点+超纲）、`classifyWords`（右栏分组，去重+超纲） |
+| `word-lookup.js` | `buildVocab`、`lookupWords`、`tokenizeForRender`（中栏渲染，保留标点+超纲）、`classifyWords`（右栏分组，去重+超纲）；内部 `resolve(tok,vocab)` 先查原词、未命中再试 `lemmatize` 候选，命中项 `word` 存**原形** |
+| `lemmatize.js` | `lemmatize(word)→string[]`：不规则动词表 + 后缀规则把变形（raises/running/studies/went）还原成原形候选（移植自 `分级单词提取.py`）；含撇号返回 `[]` |
 | `vocab-store.js` | `createVocabStore(buildVocab, classifyWords)` 工厂：词库+分级(含超纲)+勾选+`getVocab()`+`lookupByLevel` |
 | `player.js` | `Player` 类：区间播放，**用 `requestAnimationFrame` 精准停播**（一帧精度，非 timeupdate 的 ~250ms） |
 | `subtitle-tweak.js` | `computeEffectiveRanges(sentences,{offset,extend,linkNext})` 有效区间 |
