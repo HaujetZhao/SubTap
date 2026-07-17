@@ -40,6 +40,11 @@ function onSrtFile(file) {
   reader.onload = () => {
     try {
       sentences.value = parseSRT(reader.result);
+      // 重置选中/播放态，避免新字幕的同 id 句子预高亮、旧单词面板残留
+      if (player) player.stop();
+      currentId.value = null;
+      currentText.value = '';
+      isPlaying.value = false;
       statusText.value = '已载入 ' + sentences.value.length + ' 句字幕';
       statusError.value = false;
     } catch (e) {
@@ -73,6 +78,14 @@ function onSentenceClick(sentence) {
 onMounted(() => {
   player = new Player(audioEl.value);
   player.onStop(() => { isPlaying.value = false; });
+  // 音频解码失败时提示（如浏览器不支持的编码）
+  audioEl.value.addEventListener('error', () => {
+    if (audioEl.value.error && audioName.value) {
+      isPlaying.value = false;
+      statusText.value = '音频无法播放（编码不支持），建议改用 mp3';
+      statusError.value = true;
+    }
+  });
 });
 </script>
 
