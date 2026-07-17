@@ -236,15 +236,18 @@ DEFAULT_INPUT = os.path.join(
 # 用于切分单词的正则：匹配连续的英文字母（含撇号，如 don't），其余字符都当作分隔符
 WORD_RE = re.compile(r"[A-Za-z']+")
 
-# 英文常见缩写（其中的点不是句末）：分句时避免在这些点处误切
+# 英文常见缩写（其中的点不是句末）：统一存【无点】形式，分句时把点前词去点后比对一次即可。
 _ABBREV = {
     "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc",
-    "fig", "no", "vol", "pp", "al", "inc", "ltd", "co", "u.s", "u.k",
-    "e.g", "i.e", "a.m", "p.m",
+    "fig", "no", "vol", "pp", "al", "inc", "ltd", "co", "us", "uk",
+    "eg", "ie", "am", "pm",
 }
-# 单个大写字母（首字母缩写中的点），如 U. S. A. —— 用"点前是单个字母"判断
 # 中文句末标点：。！？
 _CN_SENT_END = "。！？"
+# 句末标点（点/感叹号/问号）
+_SENT_PUNCT = ".!?"
+# 句末标点后、判断"是否新句起点"前要跳过的字符（空白与成对的右引号/右括号）
+_PUNCT_SKIP = " \t'\"\")”、"
 
 
 def split_sentences(text):
@@ -256,88 +259,88 @@ def split_sentences(text):
       - 中文：在 。！？ 处切分。
       - 其它换行：原样当作分隔符，避免把跨行的句子硬拼成一行。
 
+    用下标 [start:i] 切片生成句子，不维护字符缓冲区。
     返回 list[str]，每个元素是一个去首尾空白后的句子（可能为空，调用方过滤）。
     """
     sentences = []
-    buf = []          # 当前正在累积的字符
-    i = 0
     n = len(text)
+    start = 0          # 当前句子在 text 中的起点下标
+    i = 0
 
-    def flush():
-        s = "".join(buf).strip()
+    def cut(end):
+        """把 text[start:end] 作为一个句子收尾，重置 start。"""
+        nonlocal start
+        s = text[start:end].strip()
         if s:
             sentences.append(s)
-        buf.clear()
+        start = end
 
     while i < n:
         ch = text[i]
 
-        # 中文句末标点：直接成句
+        # 中文句末标点：包含标点本身，直接成句
         if ch in _CN_SENT_END:
-            buf.append(ch)
-            flush()
+            cut(i + 1)
             i += 1
             continue
 
         # 英文句末候选：. ! ?
-        if ch in ".!?":
-            buf.append(ch)
-            # 判断这个点是不是真的句末：
-            #   1) 看点前面的"词"是不是缩写/小数/单字母 —— 若是，则不是句末
-            #   2) 看 ! ? 总是句末候选（但同样要看后面是否跟空白）
-            #   3) 看点后面是否跟 空白/换行/中文/结尾
-            is_sent_end = False
-            if ch == ".":
-                is_sent_end = _dot_is_sentence_end(text, i, buf)
-            else:  # ! ?
-                is_sent_end = True
+        if ch in _SENT_PUNCT and _punct_is_boundary(text, i, n):
+            cut(i + 1)
 
-            if is_sent_end:
-                # 还要看点/!?后面是否真的接一个"新句子起点"：
-                # 跳过空白与右引号/右括号，若遇到 大写字母/中文/数字/换行/结尾 则切
-                j = i + 1
-                while j < n and text[j] in " \t'\"\")”、":
-                    j += 1
-                nxt = text[j] if j < n else ""
-                if nxt == "" or nxt == "\n" or nxt.isupper() or _is_cjk(nxt) or nxt.isdigit():
-                    flush()
-            i += 1
-            continue
-
-        buf.append(ch)
         i += 1
 
-    flush()
+    cut(n)
     return sentences
 
 
-def _dot_is_sentence_end(text, i, buf):
-    """判断 text[i] 处的 '.' 是否为句末（而非小数/缩写的一部分）。"""
-    # 回看 buf 里最后一个"词"（连续的字母数字和点）
-    # 取点之前的连续 token
-    word = []
-    k = len(buf) - 2  # buf[-1] 是这个 '.' 本身
-    while k >= 0 and (buf[k].isalnum() or buf[k] == "."):
-        word.append(buf[k])
+def _punct_is_boundary(text, i, n):
+    """
+    判断 text[i] 处的句末标点(. ! ?)是否构成句界。
+      - ! ? 视为句末候选（仍要看后继是否为新句起点）；
+      - . 需排除小数(3.14)、常见缩写(Mr./e.g.)、单字母缩写(U.S.A.)。
+    句末标点之后，跳过空白与右引号/右括号，若遇到
+    大写字母/中文/数字/换行/结尾，则确认是句界。
+    纯函数：只依赖 text 与位置 i，与调用方的内部状态无关，可独立单测。
+    """
+    ch = text[i]
+    if ch == "." and not _dot_is_real_end(text, i):
+        return False
+
+    # 跳过空白与右引号/右括号，看后面是不是"新句起点"
+    j = i + 1
+    while j < len(text) and text[j] in _PUNCT_SKIP:
+        j += 1
+    nxt = text[j] if j < len(text) else ""
+    return (
+        nxt == "" or nxt == "\n"
+        or nxt.isupper() or _is_cjk(nxt) or nxt.isdigit()
+    )
+
+
+def _dot_is_real_end(text, i):
+    """
+    判断 text[i] 处的 '.' 是否为真正的句末（而非小数/缩写的一部分）。
+    纯函数：向左回扫原始 text 取点前的连续 token（字母数字与点），据此判定。
+    """
+    # 向左回扫：取点之前连续的 字母/数字/点
+    k = i - 1
+    while k >= 0 and (text[k].isalnum() or text[k] == "."):
         k -= 1
-    word_str = "".join(reversed(word)).lower()
+    # token 区间为 (k, i)，去点并小写后查缩写表
+    token = text[k + 1:i].replace(".", "").lower()
+    left_char = text[i - 1] if i >= 1 else ""
+    right_char = text[i + 1] if i + 1 < len(text) else ""
 
-    # 小数：3.14 / .5 —— 点两侧都是数字则不是句末
-    left_is_digit = bool(word) and word[-1].isdigit()
-    right_is_digit = (i + 1 < len(text)) and text[i + 1].isdigit()
-    if left_is_digit or right_is_digit:
+    # 小数：3.14 / .5 —— 点两侧任一为数字则不是句末
+    if left_char.isdigit() or right_char.isdigit():
         return False
-
-    # 单字母缩写：U. S. A. —— 点前只有一个字母，视为不是句末
-    if len(word_str) == 1:
+    # 单字母缩写：U. S. A.
+    if len(token) == 1:
         return False
-
-    # 常见缩写词：mr. / e.g. / etc.
-    # word_str 可能含点（如 "e.g"），去掉点再比对
-    compact = word_str.replace(".", "")
-    if compact in _ABBREV or word_str in _ABBREV:
+    # 常见缩写：mr. / e.g. / etc.
+    if token in _ABBREV:
         return False
-
     return True
 
 
@@ -358,6 +361,11 @@ def enabled_levels():
     return [name for name, on in LEVELS if on]
 
 
+def disabled_levels():
+    """返回当前关闭（False）的等级名列表，顺序与 LEVELS 一致。"""
+    return [name for name, on in LEVELS if not on]
+
+
 def is_level_enabled(level_name):
     """查询某等级是否启用（LEVELS 第二列开关）。"""
     for name, on in LEVELS:
@@ -375,6 +383,7 @@ def load_levels():
 
     vocabulary.json 结构：{等级名: {单词(小写): 释义}}，由 merge_vocab_lite.py 生成。
     只加载 LEVELS 中声明的等级；json 里多余的等级忽略。
+    一趟遍历内同时完成"小写归一建表"与"分配最低等级"，避免对同一批词条扫两遍。
     """
     if not os.path.exists(VOCAB_PATH):
         print(f"[错误] 词库文件不存在：{VOCAB_PATH}")
@@ -388,17 +397,18 @@ def load_levels():
     word_to_level = {}
 
     for level_name, _enabled in LEVELS:
-        defs = raw.get(level_name)
-        if defs is None:
+        src = raw.get(level_name)
+        if src is None:
             print(f"[警告] vocabulary.json 里没有等级「{level_name}」，跳过")
             continue
-        # 防御：确保单词 key 是小写（与匹配逻辑一致）
-        defs = {w.lower(): m for w, m in defs.items()}
+        # 一趟遍历：小写归一建表 + 分配最低等级（先到的等级占据该词）
+        defs = {}
+        for word, meaning in src.items():
+            wl = word.lower()
+            defs[wl] = meaning
+            if wl not in word_to_level:
+                word_to_level[wl] = level_name
         level_defs[level_name] = defs
-        # 归到最低等级：若该词尚未被更低等级收录，则归入当前等级
-        for word in defs:
-            if word not in word_to_level:
-                word_to_level[word] = level_name
         print(f"[加载] {level_name:<4} {len(defs):>6} 词  <- vocabulary.json[{level_name}]")
 
     return level_defs, word_to_level
@@ -408,28 +418,26 @@ def extract_word_sentences(text):
     """
     先对全文分句，再在【每个句子内】提取英文单词。
     返回：
-      - tokens: list of (order, 原始形式, 小写形式, 所在句子)，按文中首次出现顺序，
-                同一 (原始形式, 小写形式) 只保留第一次出现的那次及其句子。
-      - sentences: list[str]，所有句子（按出现顺序），供调试/统计用。
+      - tokens: list of (原始形式, 小写形式, 所在句子)，按文中首次出现顺序；
+                同一小写形式只保留第一次出现的那次及其句子（大小写变体不再各记一条）。
+      - n_sentences: 句子总数（仅供日志）。
 
-    设计：因为先分句再提词，每个单词天然带着它所在的句子；同一单词取首次出现的那句。
+    设计：因为先分句再提词，每个单词天然带着它所在的句子；同一小写形式取首次出现的那句。
+    tokens 按 append 顺序天然有序，无需额外的 order 字段。
     """
     sentences = split_sentences(text)
     tokens = []
-    seen = set()  # (原始形式, 小写形式)
-    order = 0
+    seen = set()  # 小写形式：同一词的大小写变体只保留首次出现
     for sent in sentences:
         for token in WORD_RE.findall(sent):
             lower = token.lower().strip("'")
             if not lower:
                 continue
-            key = (token, lower)
-            if key in seen:
+            if lower in seen:
                 continue
-            seen.add(key)
-            tokens.append((order, token, lower, sent))
-            order += 1
-    return tokens, sentences
+            seen.add(lower)
+            tokens.append((token, lower, sent))
+    return tokens, len(sentences)
 
 
 def classify(tokens, word_to_level, level_defs):
@@ -441,15 +449,18 @@ def classify(tokens, word_to_level, level_defs):
 
     返回：
       - by_level: dict, {等级名: [(单词显示形式, 释义, 例句), ...]}  （按出现顺序）
-      - unknown: list，未被词表收录的词（按出现顺序，已去重、去过短项）
+      - unknown: list，未被词表收录的词（按出现顺序，已去重）
     """
     by_level = {name: [] for name in enabled_levels()}
     unknown = []
 
-    # 已收录的"原形" -> 已登记标记，避免同一原形的多个变形重复入列
+    # 已见过的"原形" -> 已登记标记，避免同一原形的多个变形重复入列
     seen_lemma = set()
-    # tokens 现在是 (order, token, lower, sentence) 四元组
-    for order, token, lower, sentence in tokens:
+    for token, lower, sentence in tokens:
+        # 单字母等噪声：对所有出口统一预过滤（不必只在 unknown 分支里处理）
+        if len(lower) <= 1:
+            continue
+
         level = word_to_level.get(lower)
         matched = lower  # 实际命中词表的原形
 
@@ -463,13 +474,11 @@ def classify(tokens, word_to_level, level_defs):
                     break
 
         if level is None:
-            # 仍未命中：过滤掉单字母等噪声，归入超纲（同样按原形去重）
-            if len(lower) <= 1:
-                continue
+            # 仍未命中：归入超纲（按原形去重）
             if matched in seen_lemma:
                 continue
             seen_lemma.add(matched)
-            unknown.append((order, lower))
+            unknown.append(lower)
             continue
 
         # 命中的等级若被关闭：视为已掌握，直接跳过，不进任何区块、也不进超纲
@@ -482,17 +491,9 @@ def classify(tokens, word_to_level, level_defs):
             continue
         seen_lemma.add(matched)
 
-        # 展示形式：统一用小写（去掉句首大写等原文大小写差异）
-        display = token.lower()
+        # 展示形式：统一用小写（去掉句首大写等原文大小写差异），与匹配键的归一规则一致
         meaning = level_defs[level].get(matched, "")
-        by_level[level].append((order, display, meaning, sentence))
-
-    # 把 order 排序信息剥掉，转为 (display, meaning, sentence) 列表
-    for level in by_level:
-        by_level[level].sort(key=lambda x: x[0])
-        by_level[level] = [(disp, mean, sent) for _, disp, mean, sent in by_level[level]]
-    unknown.sort(key=lambda x: x[0])
-    unknown = [w for _, w in unknown]
+        by_level[level].append((lower, meaning, sentence))
 
     return by_level, unknown
 
@@ -508,11 +509,11 @@ def render_word_cell(meaning, sentence):
       <details><summary>释义</summary>例句</details>
     - 释义进 summary（默认可见），例句进 details（点击释义才展开）。
     - 转义 | 以免破坏 Markdown 表格；转义 HTML 特殊字符以免破坏标签。
-    - 无例句时退化为纯释义文本（不再套折叠块，保持简洁）。
+
+    经过分句再提词的流程，每个单词必然带着它所在的句子，故 sentence 不为空；
+    释义缺失时填占位文本，保持单元格结构恒定（永远是一个 details 块）。
     """
-    safe_meaning = _escape_cell(meaning) if meaning else "（无释义）"
-    if not sentence:
-        return safe_meaning
+    safe_meaning = _escape_cell(meaning) or "（无释义）"
     safe_sentence = _escape_cell(sentence)
     return f'<details><summary>{safe_meaning}</summary>{safe_sentence}</details>'
 
@@ -539,7 +540,7 @@ def render_markdown(by_level, unknown, source_name):
     )
 
     # 提示被关闭（隐去）的等级
-    disabled = [name for name, on in LEVELS if not on]
+    disabled = disabled_levels()
     if disabled:
         lines.append(
             "> 已关闭的等级（视为已掌握，不出现在结果中）：" + "、".join(disabled) + "\n"
@@ -612,8 +613,8 @@ def main():
         text = f.read()
 
     # 3. 提取并归类（先分句，再在句内提词，每个单词天然带上所在句子）
-    tokens, sentences = extract_word_sentences(text)
-    print(f"[分析] 共分出 {len(sentences)} 个句子，文本中出现 {len(tokens)} 个不同单词\n")
+    tokens, n_sentences = extract_word_sentences(text)
+    print(f"[分析] 共分出 {n_sentences} 个句子，文本中出现 {len(tokens)} 个不同单词\n")
 
     by_level, unknown = classify(tokens, word_to_level, level_defs)
 
@@ -626,7 +627,7 @@ def main():
     print(f"        各等级词数：" + " / ".join(
         f"{name} {len(by_level[name])}" for name in enabled_levels()
     ) + f"  | 超纲 {len(unknown)}")
-    disabled = [name for name, on in LEVELS if not on]
+    disabled = disabled_levels()
     if disabled:
         print(f"        已关闭（隐去）：" + "、".join(disabled))
 
