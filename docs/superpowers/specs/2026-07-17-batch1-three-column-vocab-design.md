@@ -30,10 +30,12 @@
 延续第一版的**多文件开发 + 构建为单文件**架构，文件结构基本不变，新增/调整少量模块：
 
 ```
-player/
+（项目根目录）
 ├── index.html              # 开发页：三栏布局骨架（重写 body 结构）
 ├── build.js                # 构建：新增「词库内置」步骤
+├── test.html               # 纯函数测试页
 ├── src/
+│   ├── vocabulary.json     # 词库数据（构建期内置进 dist）
 │   ├── styles.css          # 样式：三栏 + 设置面板 + 分栏（大改）
 │   ├── srt-parser.js       # 不变
 │   ├── word-lookup.js      # 不变（buildVocab/lookupWords 纯函数复用）
@@ -76,7 +78,7 @@ player/
 <script>window.__VOCAB__ = { ... }; </script>
 ```
 
-开发期（`player/index.html` 直接打开）没有这段注入，故 vocab-store 需兼容：若 `window.__VOCAB__` 不存在，则**回退到 fetch 本地 `vocabulary.json`**（开发体验）；存在则直接用。这样开发页和 dist 都能跑。
+开发期（`index.html` 直接打开）没有这段注入，故 vocab-store 需兼容：若 `window.__VOCAB__` 不存在，则**回退到 fetch 本地 `vocabulary.json`**（开发体验）；存在则直接用。这样开发页和 dist 都能跑。
 
 > 注：dist 里 fetch 本地文件会被 `file://` 协议限制，所以**内置注入是 dist 的唯一可靠来源**；开发页靠 fetch 兜底。
 
@@ -139,33 +141,33 @@ player/
 
 ## 8. 测试
 
-- **纯函数**（vocab-store 的按级分组逻辑）：扩展 `player/test.html`，新增断言：给定扁平 Word[] 和勾选集合，分组结果正确、顺序正确、未勾选级被过滤。
+- **纯函数**（vocab-store 的按级分组逻辑）：扩展 `test.html`，新增断言：给定扁平 Word[] 和勾选集合，分组结果正确、顺序正确、未勾选级被过滤。
 - **浏览器手动验收**：见 §9。
 - buildVocab/lookupWords/parseSRT 沿用第一版已有断言，不重测。
 
 ## 9. 验收标准（手动，用真实文件）
 
-1. 打开 `player/dist/index.html`（无需选词库——已内置）。
+1. 打开 `dist/index.html`（无需选词库——已内置）。
 2. 页面呈三栏；左栏有 7 个分级勾选项（默认全选）。
 3. 选 SRT + 音频 → 中栏出句子列表。
 4. 点句子 → 播放 + 高亮 + 右栏按级分栏显示命中词（无分级小标签，分级名作栏标题）。
 5. 在左栏取消勾选"四级" → 右栏立即不再显示四级那栏（若当前句有四级词）。
 6. 取消所有勾选 → 右栏显示"未勾选任何分级"。
-7. 开发页 `player/index.html`（未内置词库）能通过 fetch 兜底加载词库，功能一致。
+7. 开发页 `index.html`（未内置词库）能通过 fetch 兜底加载词库，功能一致。
 8. dist/index.html 单文件可独立拷走使用（不依赖 vocabulary.json）。
 
 ## 10. 文件产出
 
-- 改：`player/index.html`、`player/src/styles.css`、`player/src/ui.js`、`player/src/main.js`、`player/build.js`
-- 新增：`player/src/vocab-store.js`
-- 不变：`player/src/srt-parser.js`、`player/src/word-lookup.js`、`player/src/player.js`
-- 构建产物：`player/dist/index.html`（含内置词库，预计 ~1.7MB）
+- 改：`index.html`、`src/styles.css`、`src/ui.js`、`src/main.js`、`build.js`
+- 新增：`src/vocab-store.js`
+- 不变：`src/srt-parser.js`、`src/word-lookup.js`、`src/player.js`
+- 构建产物：`dist/index.html`（含内置词库，预计 ~1.7MB）
 
 ## 11. 构建与使用
 
-- 开发：浏览器打开 `player/index.html`（词库靠 fetch `vocabulary.json` 兜底）。
-- 构建：`node player/build.js` → 注入词库 + 内联 css/js → `player/dist/index.html`。
-- 日常/托管：用 `player/dist/index.html`，单文件可托管到 GitHub Pages。
+- 开发：浏览器打开 `index.html`（词库靠 fetch `vocabulary.json` 兜底）。
+- 构建：`node build.js` → 注入词库 + 内联 css/js → `dist/index.html`。
+- 日常/托管：用 `dist/index.html`，单文件可托管到 GitHub Pages。
 
 ## 12. 与批次二的衔接
 

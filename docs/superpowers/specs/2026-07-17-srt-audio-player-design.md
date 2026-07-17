@@ -54,7 +54,28 @@ it's often nice to use as little data as possible
 
 ## 4. 架构
 
-单文件 `index.html`，内含 HTML + CSS + JS（无外部依赖、无构建步骤）。
+**多文件开发 + 构建为单文件交付。**
+
+开发期：HTML / CSS / JS 按模块拆成独立文件，便于迭代、独立测试每个纯函数模块。
+交付期：用 Node 写一个极简构建脚本（`build.js`），把 JS/CSS 内联进 `index.html`，
+生成一个**无依赖的单文件 `dist/index.html`**——双击即可用，符合"单文件可移植"的目标。
+
+源文件结构：
+
+```
+player/
+├── index.html          # 开发用页面，引用各 src 文件（直接用浏览器打开也能跑）
+├── build.js            # 构建脚本：内联 JS/CSS → dist/index.html
+├── src/
+│   ├── styles.css      # 样式
+│   ├── srt-parser.js   # 模块2：SRT 解析（纯函数）
+│   ├── word-lookup.js  # 模块5：单词查询（纯函数）
+│   ├── player.js       # 模块4：播放器
+│   ├── ui.js           # 模块1+3+6：FileLoader + SentenceList + PanelRenderer + 事件绑定
+│   └── main.js         # 入口：组装各模块、绑定事件
+└── dist/
+    └── index.html      # 构建产物（交付/日常使用的就是这个）
+```
 
 JS 按职责拆成 **6 个模块（闭包/对象）**，每个职责单一、可独立测试：
 
@@ -177,7 +198,7 @@ JS 按职责拆成 **6 个模块（闭包/对象）**，每个职责单一、可
 
 用项目里的真实文件测试：
 
-1. 打开 `index.html`，依次选 `.srt`、`.mp3`、`vocabulary.json`。
+1. 打开 `player/dist/index.html`（或开发期的 `player/index.html`），依次选 `.srt`、`.mp3`、`vocabulary.json`。
 2. 左侧出现句子列表，每条带 `[mm:ss]` 前缀。
 3. 点第一句 → 从第 0 秒开始播，到该句结束自动停。
 4. 点中间某句 → 跳到对应时间播，到结束自动停；当前句高亮。
@@ -187,5 +208,13 @@ JS 按职责拆成 **6 个模块（闭包/对象）**，每个职责单一、可
 
 ## 10. 文件产出
 
-- `index.html`（唯一交付物，含全部 HTML/CSS/JS）。
+- 开发源文件：`player/index.html` + `player/src/*.js` + `player/src/styles.css`。
+- 构建脚本：`player/build.js`（Node 运行）。
+- 交付物：`player/dist/index.html`（构建后的单文件，日常使用这个）。
 - 测试时用现有文件：`【官方双语】压缩即智能：Part1，重新发明熵.{srt,mp3}` + `vocabulary.json`。
+
+## 11. 构建与使用
+
+- **开发**：直接用浏览器打开 `player/index.html` 即可（各 src 通过 `<script>` 引入，无需构建）。
+- **构建单文件**：`node player/build.js` → 生成 `player/dist/index.html`。
+- **日常使用**：打开 `player/dist/index.html`。
