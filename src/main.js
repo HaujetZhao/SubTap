@@ -1,98 +1,119 @@
-(function (App) {
-  'use strict';
+// 入口：组装模块、绑定事件、三栏联动
+import { parseSRT } from './srt-parser.js';
+import { buildVocab, lookupWords } from './word-lookup.js';
+import { Player } from './player.js';
+import { createVocabStore } from './vocab-store.js';
+import * as ui from './ui.js';
 
-  var state = {
-    sentences: [],
-    vocab: null,        // 合并后的大表
-    currentId: null,
-    player: null
-  };
+const store = createVocabStore(buildVocab, lookupWords);
 
-  // --- 文件载入 ---
-  document.getElementById('srt-input').addEventListener('change', function (e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        state.sentences = App.parseSRT(reader.result);
-        App.renderSentences(document.getElementById('sentences'), state.sentences, onSentenceClick);
-        App.setStatus('已载入 ' + state.sentences.length + ' 句字幕');
-      } catch (err) {
-        App.setStatus('字幕解析失败：' + err.message, true);
-      }
-    };
-    reader.readAsText(file, 'utf-8');
-  });
+const state = {
+  sentences: [],
+  currentId: null,
+  player: null,
+  currentText: ''
+};
 
-  document.getElementById('audio-input').addEventListener('change', function (e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var url = URL.createObjectURL(file);
-    state.player.setSrc(url);
-    state.audioName = file.name;
-    App.setStatus('已载入音频：' + file.name);
-  });
-
-  document.getElementById('vocab-input').addEventListener('change', function (e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        var obj = JSON.parse(reader.result);
-        state.vocab = App.buildVocab(obj);
-        App.setStatus('已载入词库：' + Object.keys(obj).length + ' 个分级');
-      } catch (err) {
-        App.setStatus('词库解析失败：' + err.message, true);
-      }
-    };
-    reader.readAsText(file, 'utf-8');
-  });
-
-  // --- 点句子 ---
-  function onSentenceClick(sentence) {
-    var container = document.getElementById('sentences');
-
-    // 切换句子时先清掉上一句的播放态（避免视觉残留）
-    if (state.currentId != null && state.currentId !== sentence.id) {
-      App.markPlaying(container, state.currentId, false);
-    }
-    state.currentId = sentence.id;
-
-    // 高亮
-    App.highlightSentence(container, sentence.id);
-
-    // 刷右栏
-    var panel = document.getElementById('word-panel');
-    if (state.vocab) {
-      App.renderWordPanel(panel, App.lookupWords(sentence.text, state.vocab));
-    } else {
-      panel.className = 'placeholder';
-      panel.textContent = '请先上传词库 .json';
-    }
-
-    // 播放
-    if (!state.audioName) {
-      App.setStatus('请先选择音频文件', true);
-      return;
-    }
-    App.markPlaying(container, sentence.id, true);
-    state.player.playSegment(sentence.start, sentence.end);
+// --- 初始化词库（内置 or fetch 兜底） ---
+function initVocab() {
+  if (window.__VOCAB__) {
+    store.init(window.__VOCAB__);
+    ui.setVocabStatus('词库已内置：' + store.getLevels().length + ' 个分级', false);
+    setupSettings();
+  } else {
+    ui.setVocabStatus('正在加载词库…', false);
+    fetch('src/vocabulary.json')
+      .then(r => r.json())
+      .then(obj => {
+        store.init(obj);
+        ui.setVocabStatus('词库已加载：' + store.getLevels().length + ' 个分级', false);
+        setupSettings();
+      })
+      .catch(() => ui.setVocabStatus('词库加载失败', true));
   }
+}
 
-  // --- 初始化播放器 ---
-  var audioEl = document.getElementById('audio');
-  state.player = new App.Player(audioEl);
-  // 音频解码失败时提示（如浏览器不支持的编码）
-  audioEl.addEventListener('error', function () {
-    if (audioEl.error && state.audioName) {
-      App.setStatus('音频无法播放（编码不支持），建议改用 mp3', true);
-    }
+function setupSettings() {
+  ui.renderSettings(document.getElementById('levels'), store, (level, enabled) => {
+    store.setEnabled(level, enabled);
+    if (state.currentText) refreshWordPanel(state.currentText);
   });
-  state.player.onStop(function () {
-    if (state.currentId != null) {
-      App.markPlaying(document.getElementById('sentences'), state.currentId, false);
+}
+
+function refreshWordPanel(text) {
+  const panel = document.getElementById('word-panel');
+  if (!store.isReady()) {
+    panel.className = 'placeholder';
+    panel.textContent = '词库未就绪';
+    return;
+  }
+  const levels = store.getLevels();
+  const anyEnabled = levels.some(l => store.isEnabled(l));
+  if (!anyEnabled) {
+    panel.className = 'placeholder';
+    panel.textContent = '未勾选任何分级';
+    return;
+  }
+  ui.renderWordGroups(panel, store, store.lookupByLevel(text));
+}
+
+// --- 文件载入 ---
+document.getElementById('srt-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      state.sentences = parseSRT(reader.result);
+      ui.renderSentences(document.getElementById('sentences'), state.sentences, onSentenceClick);
+      ui.setStatus('已载入 ' + state.sentences.length + ' 句字幕');
+    } catch (err) {
+      ui.setStatus('字幕解析失败：' + err.message, true);
     }
-  });
-})(window.App);
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+document.getElementById('audio-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.player.setSrc(URL.createObjectURL(file));
+  state.audioName = file.name;
+  ui.setStatus('已载入音频：' + file.name);
+});
+
+// --- 点句子 ---
+function onSentenceClick(sentence) {
+  const container = document.getElementById('sentences');
+  if (state.currentId != null && state.currentId !== sentence.id) {
+    ui.markPlaying(container, state.currentId, false);
+  }
+  state.currentId = sentence.id;
+  state.currentText = sentence.text;
+
+  ui.highlightSentence(container, sentence.id);
+  refreshWordPanel(sentence.text);
+
+  if (!state.audioName) {
+    ui.setStatus('请先选择音频文件', true);
+    return;
+  }
+  ui.markPlaying(container, sentence.id, true);
+  state.player.playSegment(sentence.start, sentence.end);
+}
+
+// --- 初始化 ---
+state.player = new Player(document.getElementById('audio'));
+const audioEl = document.getElementById('audio');
+audioEl.addEventListener('error', () => {
+  if (audioEl.error && state.audioName) {
+    ui.setStatus('音频无法播放（编码不支持），建议改用 mp3', true);
+  }
+});
+state.player.onStop(() => {
+  if (state.currentId != null) {
+    ui.markPlaying(document.getElementById('sentences'), state.currentId, false);
+  }
+});
+
+initVocab();
