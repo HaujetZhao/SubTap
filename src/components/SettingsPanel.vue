@@ -3,15 +3,15 @@ defineProps({
   levels: { type: Array, required: true },
   enabled: { type: Object, required: true }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'audio-file']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file']);
 
 function onSrtChange(e) {
   const f = e.target.files[0];
   if (f) emit('srt-file', f);
 }
-function onAudioChange(e) {
+function onMediaChange(e) {
   const f = e.target.files[0];
-  if (f) emit('audio-file', f);
+  if (f) emit('media-file', f);
 }
 </script>
 
@@ -33,8 +33,8 @@ function onAudioChange(e) {
       <label class="file-btn">字幕 .srt
         <input type="file" accept=".srt" @change="onSrtChange" />
       </label>
-      <label class="file-btn">音频
-        <input type="file" accept="audio/*" @change="onAudioChange" />
+      <label class="file-btn">音/视频
+        <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
       </label>
     </section>
   </aside>

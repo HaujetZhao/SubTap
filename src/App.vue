@@ -22,11 +22,11 @@ const sentences = ref([]);
 const currentId = ref(null);
 const currentText = ref('');
 const isPlaying = ref(false);
-const audioName = ref('');
+const mediaName = ref('');
 const statusText = ref('请选择文件');
 const statusError = ref(false);
 
-const audioEl = ref(null);
+const mediaEl = ref(null);
 let player = null;
 
 function onToggleLevel(level, val) {
@@ -40,7 +40,6 @@ function onSrtFile(file) {
   reader.onload = () => {
     try {
       sentences.value = parseSRT(reader.result);
-      // 重置选中/播放态，避免新字幕的同 id 句子预高亮、旧单词面板残留
       if (player) player.stop();
       currentId.value = null;
       currentText.value = '';
@@ -55,19 +54,21 @@ function onSrtFile(file) {
   reader.readAsText(file, 'utf-8');
 }
 
-function onAudioFile(file) {
+function onMediaFile(file) {
   if (!file) return;
+  if (player) player.stop();
+  isPlaying.value = false;
   player.setSrc(URL.createObjectURL(file));
-  audioName.value = file.name;
-  statusText.value = '已载入音频：' + file.name;
+  mediaName.value = file.name;
+  statusText.value = '已载入：' + file.name;
   statusError.value = false;
 }
 
 function onSentenceClick(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
-  if (!audioName.value) {
-    statusText.value = '请先选择音频文件';
+  if (!mediaName.value) {
+    statusText.value = '请先选择音/视频文件';
     statusError.value = true;
     return;
   }
@@ -76,13 +77,12 @@ function onSentenceClick(sentence) {
 }
 
 onMounted(() => {
-  player = new Player(audioEl.value);
+  player = new Player(mediaEl.value);
   player.onStop(() => { isPlaying.value = false; });
-  // 音频解码失败时提示（如浏览器不支持的编码）
-  audioEl.value.addEventListener('error', () => {
-    if (audioEl.value.error && audioName.value) {
+  mediaEl.value.addEventListener('error', () => {
+    if (mediaEl.value.error && mediaName.value) {
       isPlaying.value = false;
-      statusText.value = '音频无法播放（编码不支持），建议改用 mp3';
+      statusText.value = '音/视频无法播放（编码不支持），建议改用 mp4/mp3';
       statusError.value = true;
     }
   });
@@ -96,10 +96,12 @@ onMounted(() => {
       :enabled="enabled"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
-      @audio-file="onAudioFile"
+      @media-file="onMediaFile"
     />
     <main class="panel-center">
-      <div class="video-slot"></div>
+      <div class="video-slot" :class="{ empty: !mediaName }">
+        <video ref="mediaEl" class="media-video" preload="metadata" controls></video>
+      </div>
       <SentenceList
         :sentences="sentences"
         :current-id="currentId"
@@ -114,5 +116,4 @@ onMounted(() => {
       :current-text="currentText"
     />
   </div>
-  <audio ref="audioEl" class="hidden" preload="metadata"></audio>
 </template>
