@@ -15,6 +15,7 @@
 import { parseSRT, timestampToSeconds } from './src/srt-parser.js';
 import { buildVocab, lookupWords } from './src/word-lookup.js';
 import { createVocabStore } from './src/vocab-store.js';
+import { computeEffectiveRanges } from './src/subtitle-tweak.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
@@ -68,6 +69,22 @@ check('VocabStore: 取消后 false', store.isEnabled('四级') === false);
 const g2 = store.lookupByLevel('When you ENCODE text into binary compress');
 check('lookupByLevel: 取消后无四级栏', g2['四级'] === undefined && g2['初中'].length === 2);
 check('lookupByLevel: 无命中空对象', JSON.stringify(store.lookupByLevel('hello world')) === '{}');
+
+  // --- subtitle-tweak ---
+  const ss = [{ id: 1, start: 0, end: 1 }, { id: 2, start: 2, end: 3 }, { id: 3, start: 5, end: 6 }];
+  const m0 = computeEffectiveRanges(ss, {});
+  check('tweak: 默认 effStart=start/effEnd=end', m0.get(1).effStart === 0 && m0.get(1).effEnd === 1);
+  const mo = computeEffectiveRanges(ss, { offset: 1 });
+  check('tweak: offset 影响 start', mo.get(1).effStart === 1);
+  const me = computeEffectiveRanges(ss, { extend: 0.5 });
+  check('tweak: extend 影响 end', me.get(1).effEnd === 1.5);
+  const ml = computeEffectiveRanges(ss, { linkNext: true });
+  check('tweak: linkNext 连下一句 start', ml.get(1).effEnd === 2);
+  check('tweak: linkNext 末句用 end', ml.get(3).effEnd === 6);
+  const ml2 = computeEffectiveRanges(ss, { linkNext: true, extend: 0.5 });
+  check('tweak: linkNext 末句 end+extend', ml2.get(3).effEnd === 6.5);
+  const mc = computeEffectiveRanges([{ id: 1, start: 5, end: 6 }], { offset: 10 });
+  check('tweak: effEnd<=effStart 夹到 +0.05', mc.get(1).effStart === 15 && mc.get(1).effEnd === 15.05);
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>
