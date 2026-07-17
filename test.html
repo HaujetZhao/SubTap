@@ -56,10 +56,10 @@ check('lookup: 重复去重', lookupWords('text text text', v).length === 1);
 check('lookup: 未命中不返回', lookupWords('hello world', v).length === 0);
 
 // --- VocabStore ---
-const store = createVocabStore(buildVocab, lookupWords);
+const store = createVocabStore(buildVocab, classifyWords);
 store.init(vo);
 check('VocabStore: isReady', store.isReady() === true);
-check('VocabStore: levels 顺序', JSON.stringify(store.getLevels()) === '["初中","四级"]');
+check('VocabStore: levels 顺序(含超纲)', JSON.stringify(store.getLevels()) === '["初中","四级","超纲"]');
 check('VocabStore: 默认全选 四级', store.isEnabled('四级') === true);
 const g1 = store.lookupByLevel('When you ENCODE text into binary compress');
 check('lookupByLevel: 初中 2 词', g1['初中'] && g1['初中'].length === 2);
@@ -70,6 +70,17 @@ check('VocabStore: 取消后 false', store.isEnabled('四级') === false);
 const g2 = store.lookupByLevel('When you ENCODE text into binary compress');
 check('lookupByLevel: 取消后无四级栏', g2['四级'] === undefined && g2['初中'].length === 2);
 check('lookupByLevel: 无命中空对象', JSON.stringify(store.lookupByLevel('hello world')) === '{}');
+  // 超纲分级
+  const sg = store.lookupByLevel('encode compress zzz'); // encode/text→初中, compress→四级, zzz→超纲
+  check('VocabStore: 超纲组存在', !!sg['超纲'] && sg['超纲'].length === 1);
+  store.setEnabled('超纲', false);
+  check('VocabStore: 取消超纲后无超纲栏', store.lookupByLevel('encode zzz')['超纲'] === undefined);
+  store.setEnabled('超纲', true);
+  // 默认勾选状态
+  const s2 = createVocabStore(buildVocab, classifyWords);
+  s2.init(vo);
+  check('VocabStore: 初中默认不勾选', s2.isEnabled('初中') === false);
+  check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
 
   // --- subtitle-tweak ---
   const ss = [{ id: 1, start: 0, end: 1 }, { id: 2, start: 2, end: 3 }, { id: 3, start: 5, end: 6 }];
