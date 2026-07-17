@@ -17,6 +17,7 @@ import { buildVocab, lookupWords } from './src/word-lookup.js';
 import { createVocabStore } from './src/vocab-store.js';
 import { computeEffectiveRanges } from './src/subtitle-tweak.js';
 import { tokenizeForRender, classifyWords } from './src/word-lookup.js';
+import { lemmatize } from './src/lemmatize.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
@@ -115,6 +116,22 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('classify: 初中去重=1', grps['初中'] && grps['初中'].length === 1);
   check('classify: 超纲=1', grps['超纲'] && grps['超纲'].length === 1);
   check('classify: 超纲 def 空', grps['超纲'][0].def === '');
+
+  // --- lemmatize ---
+  check('lem: raises→含 raise', lemmatize('raises').includes('raise'));
+  check('lem: running→含 run', lemmatize('running').includes('run'));
+  check('lem: studies→含 study', lemmatize('studies').includes('study'));
+  check('lem: went→含 go', lemmatize('went').includes('go'));
+  check('lem: happily→含 happy', lemmatize('happily').includes('happy'));
+  check("lem: don't→空（撇号）", lemmatize("don't").length === 0);
+
+  // --- 词形还原查词（端到端） ---
+  const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习' } };
+  const lv = buildVocab(lvo);
+  check('lookup: raises 还原命中 raise', lookupWords('He raises his hand', lv)[0].word === 'raise');
+  check('classify: raises→raise 显示原形', classifyWords('raises', lv)['初中'][0].word === 'raise');
+  check('classify: raises+raising 合并一条', classifyWords('raises raising raised', lv)['初中'].length === 1);
+  check('classify: 超纲词还原失败仍超纲', !!classifyWords('zzzz', lv)['超纲']);
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>
