@@ -12,7 +12,8 @@
 
 **关键约束（所有子代理必须遵守）：**
 - 用户偏好：注释/总结用中文。Windows 10，但 shell 是 bash（正斜杠、Unix 语法）。
-- 模块用 IIFE 挂 `window.App` 命名空间，ES5 语法（与现有代码一致，`var`、`function`，不用 ES6 模块/import）。
+- **模块机制**：用 IIFE 挂 `window.App` 命名空间（不用 ES6 `import`/`export` 模块系统）。原因：ES6 模块在 `file://` 协议下无法直接打开，而本项目要求"双击 dist/index.html 即用 + 托管 GitHub Pages"，必须靠 build.js 内联 `<script>` 实现零运行时依赖。
+- **语法**：可用现代 ES6+ 语法（`const`/`let`、箭头函数、模板字符串、解构）以提升可读性。**本批新增模块（vocab-store.js）用现代语法**；ui.js/main.js 本批是整文件重写，也用现代语法。**不要求与第一版 ES5 风格保持一致**——哪种清晰用哪种。
 - 现有 `App.lookupWords(text, vocab大表)` 返回扁平 `Word[]`（每项 `{word, level, def}`）；现有 `App.buildVocab(vocabObj)` 把两级词库 `{level:{word:def}}` 合并成大表 `{word:{level,def}}`。这俩在 `src/word-lookup.js`，**本批不动，直接复用**。
 
 ---
