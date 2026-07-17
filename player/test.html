@@ -13,6 +13,7 @@
 <div id="out"></div>
 <script>window.App = window.App || {};</script>
 <script src="src/srt-parser.js"></script>
+<script src="src/word-lookup.js"></script>
 <script>
 (function () {
   var out = document.getElementById('out');
@@ -48,6 +49,22 @@
     + '2\n00:00:02,000 --> 00:00:03,000\nworld\n';
   var sb = App.parseSRT(withBad);
   check('容错：坏块跳过，得 2 句', sb.length === 2);
+
+  // --- WordLookup ---
+  var vocabObj = {
+    '初中': { 'encode': 'v. 编码', 'text': 'n. 文本' },
+    '四级': { 'compress': 'v. 压缩', 'binary': 'n. 二进制' }
+  };
+  var v = App.buildVocab(vocabObj);
+  check('buildVocab: encode 命中', v['encode'] && v['encode'].level === '初中' && v['encode'].def === 'v. 编码');
+  check('buildVocab: compress 命中', v['compress'] && v['compress'].level === '四级');
+
+  var words = App.lookupWords('When you ENCODE text into binary!', v);
+  check('lookup: 数量=3 (encode/text/binary)', words.length === 3);
+  check('lookup: 大小写归一化（encode）', words[0].word === 'encode');
+  check('lookup: 去标点（binary 不带!）', words[2].word === 'binary');
+  check('lookup: 重复词去重', App.lookupWords('text text text', v).length === 1);
+  check('lookup: 未命中词不返回', App.lookupWords('hello world', v).length === 0);
 
   out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 })();
