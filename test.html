@@ -100,6 +100,12 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('tweak: linkNext 末句用 end', ml.get(3).effEnd === 6);
   const ml2 = computeEffectiveRanges(ss, { linkNext: true, extend: 0.5 });
   check('tweak: linkNext 末句 end+extend', ml2.get(3).effEnd === 6.5);
+  const mlo = computeEffectiveRanges(ss, { linkNext: true, linkNextOffset: -0.3 });
+  check('tweak: linkNextOffset -0.3 提前结束', mlo.get(1).effEnd === 1.7);
+  const mlo2 = computeEffectiveRanges(ss, { linkNext: true, linkNextOffset: 0.5 });
+  check('tweak: linkNextOffset +0.5 延后', mlo2.get(1).effEnd === 2.5);
+  const mlo3 = computeEffectiveRanges(ss, { linkNext: true, offset: 1, linkNextOffset: -0.3 });
+  check('tweak: offset+linkNextOffset 叠加', mlo3.get(1).effEnd === 2.7);
   const mc = computeEffectiveRanges([{ id: 1, start: 5, end: 6 }], { offset: 10 });
   check('tweak: effEnd<=effStart 夹到 +0.05', mc.get(1).effStart === 15 && mc.get(1).effEnd === 15.05);
 

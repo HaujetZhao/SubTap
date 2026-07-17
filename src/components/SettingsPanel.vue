@@ -7,6 +7,7 @@ const props = defineProps({
   offset: { type: Number, default: 0 },
   extend: { type: Number, default: 0 },
   linkNext: { type: Boolean, default: false },
+  linkNextOffset: { type: Number, default: 0 },
   highlightOn: { type: Boolean, default: true }
 });
 const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight']);
@@ -59,6 +60,10 @@ function onTweak(key, val) {
         <input type="checkbox" :checked="linkNext"
                @change="onTweak('linkNext', $event.target.checked)" />
         <span>句末连接(播到下一句开头)</span>
+      </label>
+      <label v-show="linkNext" class="tweak-row">句末连接偏移(秒)
+        <input type="number" min="-5" max="5" step="0.1" :value="linkNextOffset"
+               @change="onTweak('linkNextOffset', parseFloat($event.target.value) || 0)" />
       </label>
     </section>
 

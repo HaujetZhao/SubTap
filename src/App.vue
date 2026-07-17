@@ -37,6 +37,7 @@ const statusError = ref(false);
 const offset = ref(0);
 const extend = ref(0);
 const linkNext = ref(false);
+const linkNextOffset = ref(0);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -77,13 +78,15 @@ const renderedSentences = computed(() =>
 const effectiveRanges = computed(() => computeEffectiveRanges(sentences.value, {
   offset: offset.value,
   extend: extend.value,
-  linkNext: linkNext.value
+  linkNext: linkNext.value,
+  linkNextOffset: linkNextOffset.value
 }));
 
 function onTweak(key, val) {
   if (key === 'offset') offset.value = val;
   else if (key === 'extend') extend.value = val;
   else if (key === 'linkNext') linkNext.value = val;
+  else if (key === 'linkNextOffset') linkNextOffset.value = val;
   else console.warn('未知微调参数：', key);
 }
 let player = null;
@@ -163,6 +166,7 @@ onMounted(() => {
       :offset="offset"
       :extend="extend"
       :link-next="linkNext"
+      :link-next-offset="linkNextOffset"
       :highlight-on="highlightOn"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
