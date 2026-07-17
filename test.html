@@ -16,6 +16,7 @@ import { parseSRT, timestampToSeconds } from './src/srt-parser.js';
 import { buildVocab, lookupWords } from './src/word-lookup.js';
 import { createVocabStore } from './src/vocab-store.js';
 import { computeEffectiveRanges } from './src/subtitle-tweak.js';
+import { tokenizeForRender, classifyWords } from './src/word-lookup.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
@@ -85,6 +86,20 @@ check('lookupByLevel: 无命中空对象', JSON.stringify(store.lookupByLevel('h
   check('tweak: linkNext 末句 end+extend', ml2.get(3).effEnd === 6.5);
   const mc = computeEffectiveRanges([{ id: 1, start: 5, end: 6 }], { offset: 10 });
   check('tweak: effEnd<=effStart 夹到 +0.05', mc.get(1).effStart === 15 && mc.get(1).effEnd === 15.05);
+
+  // --- tokenizeForRender / classifyWords ---
+  const tv = { 'hello': { level: '初中', def: 'x' } };
+  const toks = tokenizeForRender('Hello, world!', tv);
+  check('tokenize: 片段数=4', toks.length === 4);
+  check('tokenize: 词片段带级别', toks[0].text === 'Hello' && toks[0].level === '初中');
+  check('tokenize: 非词片段 level=null', toks[1].text === ', ' && toks[1].level === null);
+  check('tokenize: 未命中词=超纲', toks[2].text === 'world' && toks[2].level === '超纲');
+  check('tokenize: 末尾标点', toks[3].text === '!' && toks[3].level === null);
+
+  const grps = classifyWords('Hello hello world', tv);
+  check('classify: 初中去重=1', grps['初中'] && grps['初中'].length === 1);
+  check('classify: 超纲=1', grps['超纲'] && grps['超纲'].length === 1);
+  check('classify: 超纲 def 空', grps['超纲'][0].def === '');
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>
