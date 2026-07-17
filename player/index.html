@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>字幕音频句段播放器</title>
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div class="toolbar">
+    <label>字幕 .srt <input type="file" id="srt-input" accept=".srt"></label>
+    <label>音频 <input type="file" id="audio-input" accept="audio/*"></label>
+    <label>词库 .json <input type="file" id="vocab-input" accept=".json"></label>
+    <span class="status" id="status">请选择文件</span>
+  </div>
+  <div class="main">
+    <div class="sentences" id="sentences">
+      <div class="placeholder">选择字幕后，句子列表会显示在这里</div>
+    </div>
+    <div class="sidebar" id="sidebar">
+      <h3>当前句单词</h3>
+      <div class="placeholder" id="word-panel">点击左侧句子查看单词</div>
+    </div>
+  </div>
+  <audio class="hidden" id="audio" preload="metadata"></audio>
+
+  <!-- 模块按依赖顺序引入（后续 Task 逐步添加） -->
+  <script>window.App = window.App || {};</script>
+  <script src="src/srt-parser.js"></script>
+  <script src="src/word-lookup.js"></script>
+  <script src="src/player.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
