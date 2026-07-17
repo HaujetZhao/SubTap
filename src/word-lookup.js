@@ -2,13 +2,22 @@
 import { lemmatize } from './lemmatize.js';
 
 // 解析 token → { level, def, lemma } 或 null。
-// 原词先查词库；未命中再试 lemmatize 生成的原形候选，命中即用其级别/释义/原形。
+// 原词先查词库；未命中再试 lemmatize 生成的原形候选；仍无命中则对第一层候选再还原
+// 一层（双层：encodings → encoding → encode；surprisingly → surprising → surprise）。
 function resolve(tok, vocab) {
   const direct = vocab[tok];
   if (direct) return { level: direct.level, def: direct.def, lemma: tok };
-  for (const cand of lemmatize(tok)) {
+  const cands = lemmatize(tok);
+  for (const cand of cands) {
     const e = vocab[cand];
     if (e) return { level: e.level, def: e.def, lemma: cand };
+  }
+  // 第二层：对第一层候选再走一遍 lemmatize（处理 -ings/-ingly 等双重后缀）
+  for (const cand of cands) {
+    for (const cand2 of lemmatize(cand)) {
+      const e = vocab[cand2];
+      if (e) return { level: e.level, def: e.def, lemma: cand2 };
+    }
   }
   return null;
 }

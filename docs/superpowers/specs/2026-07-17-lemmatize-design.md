@@ -28,6 +28,14 @@
 > - **单字母过滤**（`s/n/p/o/h/b`）：`word-lookup.js` 三函数跳过 `len<2` 的 token，不进超纲、中栏不着色。
 >
 > 补齐后实测 SRT 超纲降至 **65**（比 Python 70 还少 5，差额即 JS 额外正确还原的 5 个名词所有格 `robot's/student's/receiver's/symbol's/bar's`）。
+>
+> **迭代追加二（2026-07-18）：** 处理"-ing 复数 / 副词 / 比较级 / 最高级 / 不规则过去式"五类未还原词（用户举例 `encodings/inexorably/heard/surprisingly/easiest`）：
+> - **双层还原**：`resolve` 对第一层候选未命中时，再对候选走一遍 `lemmatize`（`encodings→encoding→encode`、`surprisingly→surprising→surprise`）。
+> - **补后缀规则**：`('iest','y')` 最高级、`('ier','y')` 比较级、`('ably','able')`/`('ibly','ible')` 副词、`('er',null)` 双写比较级（bigger→big）。
+> - **补不规则动词**：`heard→hear`。
+> - 经验证 `carrier/soldier/barrier/teacher` 等 -er/-ier 名词均直接命中词库（不走还原），故 `('ier','y')` 无误伤风险。
+>
+> 实测 SRT 超纲再降至 **58**。
 
 ## 方案：方案 A —— 独立模块 + 查询时按需还原
 

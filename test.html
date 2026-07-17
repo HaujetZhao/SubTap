@@ -132,6 +132,11 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check("lem: letters'→letter", lemmatize("letters'").includes('letter'));
   // 单字母不处理
   check('lem: 单字母 s→空', lemmatize('s').length === 0);
+  // 比较级 / 最高级 / 副词
+  check('lem: easier→easy', lemmatize('easier').includes('easy'));
+  check('lem: easiest→easy', lemmatize('easiest').includes('easy'));
+  check('lem: inexorably→inexorable', lemmatize('inexorably').includes('inexorable'));
+  check('lem: heard→hear（不规则）', lemmatize('heard').includes('hear'));
 
   // --- 词形还原查词（端到端） ---
   const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习', letter: 'n. 字母' } };
@@ -145,6 +150,8 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check("classify: letters'→letter 命中", classifyWords("letters'", lv)['初中'][0].word === 'letter');
   check('classify: 单字母不进超纲', classifyWords('a s b', lv)['超纲'] === undefined);
   check('tokenize: 单字母不着色（level=null）', tokenizeForRender('a x', lv)[0].level === null);
+  // 双层还原：encodings → encoding → encode
+  check('classify: encodings→encode（双层）', classifyWords('encodings', buildVocab({ '初中': { encode: 'v. 编码' } }))['初中'][0].word === 'encode');
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>

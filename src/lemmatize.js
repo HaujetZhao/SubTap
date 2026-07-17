@@ -81,6 +81,7 @@ const IRREGULAR_VERBS = {
   forgave: 'forgive', forgiven: 'forgive',
   hid: 'hide', hidden: 'hide', hiding: 'hide',
   rode: 'ride', ridden: 'ride', riding: 'ride', rides: 'ride',
+  heard: 'hear',
 };
 
 // 后缀还原规则（按优先级）：[后缀, 替换为]
@@ -88,6 +89,8 @@ const IRREGULAR_VERBS = {
 const LEMMATIZE_RULES = [
   ['ies', 'y'],   // studies -> study
   ['ied', 'y'],   // applied -> apply
+  ['iest', 'y'],  // easiest -> easy（最高级 -iest）
+  ['ier', 'y'],   // easier -> easy / happier -> happy（比较级 -ier）
   ['ying', 'ie'], // dying -> die
   ['ying', 'y'],
   ['ing', ''],    // encoding -> encod（再由补 e 候选补成 encode）
@@ -103,6 +106,9 @@ const LEMMATIZE_RULES = [
   ['est', 'e'],
   ['er', ''],
   ['er', 'e'],
+  ['er', null],   // bigger -> bigg -> 去1 -> big（比较级双写）
+  ['ably', 'able'], // inexorably -> inexorable（副词 -ably）
+  ['ibly', 'ible'], // terribly -> terrible（副词 -ibly）
   ['ely', 'e'],
   ['ily', 'y'],   // happily -> happy
   ['ly', ''],     // quickly -> quick
