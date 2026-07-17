@@ -2,21 +2,26 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
-import { buildVocab, lookupWords } from './word-lookup.js';
+import { buildVocab, classifyWords, tokenizeForRender } from './word-lookup.js';
 import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
 import { computeEffectiveRanges } from './subtitle-tweak.js';
+import { LEVEL_COLORS } from './level-colors.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
 
 // 词库 store（框架无关，非响应式）
-const store = createVocabStore(buildVocab, lookupWords);
+const store = createVocabStore(buildVocab, classifyWords);
 store.init(vocab);
+const vocabTable = store.getVocab();
 
-// 响应式勾选镜像：驱动 UI 重算
+// 响应式勾选镜像：从 store 默认值读取（初中/高中/四级=false，其余=true）
 const enabled = reactive({});
-for (const lv of store.getLevels()) enabled[lv] = true;
+for (const lv of store.getLevels()) enabled[lv] = store.isEnabled(lv);
+
+// 高亮总开关（默认开，只控中栏）
+const highlightOn = ref(true);
 
 // 全局状态
 const sentences = ref([]);
@@ -24,6 +29,7 @@ const currentId = ref(null);
 const currentText = ref('');
 const isPlaying = ref(false);
 const mediaName = ref('');
+const mediaKind = ref(null); // 'video' | 'audio' | null
 const statusText = ref('请选择文件');
 const statusError = ref(false);
 
@@ -62,6 +68,11 @@ function stopResize() {
 function toggleCollapse() {
   videoCollapsed.value = !videoCollapsed.value;
 }
+
+// 中栏渲染用：每句附加 tokens（仅依赖 sentences，缓存）
+const renderedSentences = computed(() =>
+  sentences.value.map(s => ({ ...s, tokens: tokenizeForRender(s.text, vocabTable) }))
+);
 
 const effectiveRanges = computed(() => computeEffectiveRanges(sentences.value, {
   offset: offset.value,
@@ -108,6 +119,12 @@ function onMediaFile(file) {
   isPlaying.value = false;
   player.setSrc(URL.createObjectURL(file));
   mediaName.value = file.name;
+  const isVideo = (file.type || '').startsWith('video/');
+  mediaKind.value = isVideo ? 'video' : 'audio';
+  if (isVideo) {
+    videoCollapsed.value = false;
+    videoHeight.value = Math.round(window.innerHeight / 2);
+  }
   statusText.value = '已载入：' + file.name;
   statusError.value = false;
 }
@@ -146,13 +163,15 @@ onMounted(() => {
       :offset="offset"
       :extend="extend"
       :link-next="linkNext"
+      :highlight-on="highlightOn"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
       @tweak="onTweak"
+      @toggle-highlight="val => highlightOn = val"
     />
     <main class="panel-center">
-      <div class="video-slot" :class="{ empty: !mediaName, collapsed: videoCollapsed }">
+      <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
                preload="metadata" :style="{ height: videoHeight + 'px' }"></video>
         <button v-show="!videoCollapsed" class="collapse-btn" @click="toggleCollapse">收起</button>
@@ -160,9 +179,12 @@ onMounted(() => {
         <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
       </div>
       <SentenceList
-        :sentences="sentences"
+        :sentences="renderedSentences"
         :current-id="currentId"
         :is-playing="isPlaying"
+        :enabled="enabled"
+        :highlight-on="highlightOn"
+        :colors="LEVEL_COLORS"
         @click="onSentenceClick"
       />
       <span class="status" :class="{ error: statusError }">{{ statusText }}</span>
@@ -171,6 +193,7 @@ onMounted(() => {
       :store="store"
       :enabled="enabled"
       :current-text="currentText"
+      :colors="LEVEL_COLORS"
     />
   </div>
 </template>

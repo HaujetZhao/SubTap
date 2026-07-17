@@ -105,3 +105,13 @@ body {
   font-size: 13px; gap: 8px;
 }
 .tweak-row input { width: 70px; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; }
+
+/* 分级圆点 + 高亮开关 */
+.level-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.highlight-toggle { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb; }
+
+/* 视频区：非视频时隐藏（audio 元素仍在 DOM 可播声音） */
+.video-slot.no-video { display: none; }
+
+/* 中栏词 span 圆角（背景色由内联 style 设） */
+.sentence .text span { border-radius: 2px; }

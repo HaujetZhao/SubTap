@@ -1,12 +1,17 @@
 <script setup>
+import { LEVEL_COLORS } from '../level-colors.js';
+
 const props = defineProps({
   levels: { type: Array, required: true },
   enabled: { type: Object, required: true },
   offset: { type: Number, default: 0 },
   extend: { type: Number, default: 0 },
-  linkNext: { type: Boolean, default: false }
+  linkNext: { type: Boolean, default: false },
+  highlightOn: { type: Boolean, default: true }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight']);
+
+function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
 
 function onSrtChange(e) {
   const f = e.target.files[0];
@@ -25,14 +30,19 @@ function onTweak(key, val) {
   <aside class="panel-left">
     <section class="settings">
       <h3 class="panel-title">词库分级</h3>
-      <div class="vocab-status">共 {{ levels.length }} 个分级</div>
       <div class="levels">
         <label v-for="lv in levels" :key="lv" class="level-item">
           <input type="checkbox" :checked="enabled[lv]"
                  @change="emit('toggle-level', lv, $event.target.checked)" />
+          <span class="level-dot" :style="{ background: dotColor(lv) }"></span>
           <span>{{ lv }}</span>
         </label>
       </div>
+      <label class="level-item highlight-toggle">
+        <input type="checkbox" :checked="highlightOn"
+               @change="emit('toggle-highlight', $event.target.checked)" />
+        <span>用背景色突出单词</span>
+      </label>
     </section>
 
     <section class="tweak">
