@@ -28,8 +28,6 @@ body {
   font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
 }
 
-.vocab-status { font-size: 12px; margin-bottom: 8px; }
-.vocab-status.error { color: #dc2626; }
 .levels { display: flex; flex-direction: column; gap: 4px; }
 .level-item {
   display: flex; align-items: center; gap: 6px;
@@ -46,7 +44,6 @@ body {
 .file-btn:hover { background: #e5e7eb; }
 
 .video-slot { flex-shrink: 0; background: #000; }
-.video-slot.empty { display: none; }
 .media-video { display: block; width: 100%; background: #000; }
 
 .sentences { flex: 1; overflow-y: auto; padding: 8px 12px; }
