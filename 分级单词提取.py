@@ -15,27 +15,32 @@
 """
 
 
+import json
 import os
 import re
 import sys
 
 # ═════════════════════════════════════════════════════════════
-#                          【用户配置区】                       
-#                                                              
-#   每个等级第三列 True/False 控制是否输出该等级区块：          
-#     True  = 正常输出该等级的单词表                           
-#     False = 不输出该等级；其单词也不会被归入"超纲/未收录词"   
-#             （相当于这些词被视为"已掌握"，从结果中完全隐去）  
-#                                                              
-#   直接修改下面的 True/False 即可，无需改动其它代码。         
+#                          【用户配置区】
+#
+#   词库数据来源：根目录下的 vocabulary.json（由 merge_vocab_lite.py 从
+#   各分级 txt 合并而成），结构为 {等级名: {单词(小写): 释义}}。
+#
+#   每个等级第二列 True/False 控制是否输出该等级区块：
+#     True  = 正常输出该等级的单词表
+#     False = 不输出该等级；其单词也不会被归入"超纲/未收录词"
+#             （相当于这些词被视为"已掌握"，从结果中完全隐去）
+#
+#   顺序即难度由低到高（决定"归入最低等级"的去重优先级），请勿打乱。
+#   直接修改下面的 True/False 即可，无需改动其它代码。
 LEVELS = [
-    ("1 初中-乱序.txt", "初中", False),
-    ("2 高中-乱序.txt", "高中", True),
-    ("3 四级-乱序.txt", "四级", True),
-    ("4 六级-乱序.txt", "六级", True),
-    ("5 考研-乱序.txt", "考研", True),
-    ("6 托福-乱序.txt", "托福", True),
-    ("7 SAT-乱序.txt",  "SAT",  True),
+    ("初中", False),
+    ("高中", True),
+    ("四级", True),
+    ("六级", True),
+    ("考研", True),
+    ("托福", True),
+    ("SAT",  True),
 ]
 # ═════════════════════════════════════════════════════════════
 
@@ -217,9 +222,9 @@ def lemmatize(word):
     out.sort(key=len, reverse=True)
     return out
 
-# 词库目录（与脚本同级的 english-vocabulay 文件夹）
+# 词库数据文件：根目录下的 vocabulary.json（由 merge_vocab_lite.py 合并生成）
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DICT_DIR = os.path.join(SCRIPT_DIR, "english-vocabulay")
+VOCAB_PATH = os.path.join(SCRIPT_DIR, "vocabulary.json")
 
 
 
@@ -350,12 +355,12 @@ def _is_cjk(ch):
 
 def enabled_levels():
     """返回当前启用（True）的等级名列表，顺序与 LEVELS 一致。"""
-    return [name for _file, name, on in LEVELS if on]
+    return [name for name, on in LEVELS if on]
 
 
 def is_level_enabled(level_name):
-    """查询某等级是否启用（LEVELS 第三列开关）。"""
-    for _file, name, on in LEVELS:
+    """查询某等级是否启用（LEVELS 第二列开关）。"""
+    for name, on in LEVELS:
         if name == level_name:
             return on
     return False
@@ -363,38 +368,38 @@ def is_level_enabled(level_name):
 
 def load_levels():
     """
-    加载各等级词表，返回两个结构：
+    从 vocabulary.json 加载各等级词表，返回两个结构：
       - level_defs: dict, {等级名: {单词(小写): 释义}}  （释义用于表格右列）
       - word_to_level: dict, {单词(小写): 最低难度等级名}
-    归类规则：从低到高遍历，先到的等级"占据"该词，后续更高等级不再覆盖。
+    归类规则：按 LEVELS 从低到高遍历，先到的等级"占据"该词，后续更高等级不再覆盖。
+
+    vocabulary.json 结构：{等级名: {单词(小写): 释义}}，由 merge_vocab_lite.py 生成。
+    只加载 LEVELS 中声明的等级；json 里多余的等级忽略。
     """
+    if not os.path.exists(VOCAB_PATH):
+        print(f"[错误] 词库文件不存在：{VOCAB_PATH}")
+        print(f"        请先运行 merge_vocab_lite.py 生成它。")
+        sys.exit(1)
+
+    with open(VOCAB_PATH, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+
     level_defs = {}
     word_to_level = {}
 
-    for filename, level_name, _enabled in LEVELS:
-        path = os.path.join(DICT_DIR, filename)
-        if not os.path.exists(path):
-            print(f"[警告] 词表文件不存在，跳过：{path}")
+    for level_name, _enabled in LEVELS:
+        defs = raw.get(level_name)
+        if defs is None:
+            print(f"[警告] vocabulary.json 里没有等级「{level_name}」，跳过")
             continue
-
-        defs = {}
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                # 格式：单词 \t 释义
-                if "\t" not in line:
-                    continue
-                parts = line.rstrip("\n").split("\t", 1)
-                word = parts[0].strip().lower()
-                meaning = parts[1].strip() if len(parts) > 1 else ""
-                if not word:
-                    continue
-                defs[word] = meaning
-                # 归到最低等级：若该词尚未被更低等级收录，则归入当前等级
-                if word not in word_to_level:
-                    word_to_level[word] = level_name
-
+        # 防御：确保单词 key 是小写（与匹配逻辑一致）
+        defs = {w.lower(): m for w, m in defs.items()}
         level_defs[level_name] = defs
-        print(f"[加载] {level_name:<4} {len(defs):>6} 词  <- {filename}")
+        # 归到最低等级：若该词尚未被更低等级收录，则归入当前等级
+        for word in defs:
+            if word not in word_to_level:
+                word_to_level[word] = level_name
+        print(f"[加载] {level_name:<4} {len(defs):>6} 词  <- vocabulary.json[{level_name}]")
 
     return level_defs, word_to_level
 
@@ -534,7 +539,7 @@ def render_markdown(by_level, unknown, source_name):
     )
 
     # 提示被关闭（隐去）的等级
-    disabled = [name for _f, name, on in LEVELS if not on]
+    disabled = [name for name, on in LEVELS if not on]
     if disabled:
         lines.append(
             "> 已关闭的等级（视为已掌握，不出现在结果中）：" + "、".join(disabled) + "\n"
@@ -621,7 +626,7 @@ def main():
     print(f"        各等级词数：" + " / ".join(
         f"{name} {len(by_level[name])}" for name in enabled_levels()
     ) + f"  | 超纲 {len(unknown)}")
-    disabled = [name for _f, name, on in LEVELS if not on]
+    disabled = [name for name, on in LEVELS if not on]
     if disabled:
         print(f"        已关闭（隐去）：" + "、".join(disabled))
 
