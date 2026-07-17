@@ -28,12 +28,14 @@ export function buildVocab(vocabObj) {
 
 // 句子文本 + 大表 → Word[]（按句中首次出现顺序、按原形去重、只返回命中的）
 // 命中项 word 字段存【原形】（如 raises → word='raise'）；直接命中时 word 即原词小写。
+// 单字母 token（噪声）整体跳过，不进任何结果。
 export function lookupWords(text, vocab) {
   const lower = (text || '').toLowerCase();
   const tokens = lower.split(/[^a-z']+/).filter(Boolean);
   const seen = {};
   const result = [];
   for (const tok of tokens) {
+    if (tok.length < 2) continue;
     const r = resolve(tok, vocab);
     if (!r) continue;
     if (seen[r.lemma]) continue;
@@ -54,8 +56,9 @@ export function tokenizeForRender(text, vocab) {
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) result.push({ text: text.slice(last, m.index), level: null });
     const w = m[0].toLowerCase();
-    const r = resolve(w, vocab);
-    result.push({ text: m[0], level: r ? r.level : '超纲' });
+    // 单字母 token（噪声）：显示原文但不着色（既非命中也非超纲）
+    const r = w.length < 2 ? null : resolve(w, vocab);
+    result.push({ text: m[0], level: r ? r.level : (w.length < 2 ? null : '超纲') });
     last = m.index + m[0].length;
   }
   if (last < (text || '').length) result.push({ text: (text || '').slice(last), level: null });
@@ -72,6 +75,7 @@ export function classifyWords(text, vocab) {
   const seenTok = {};
   const groups = {};
   for (const tok of tokens) {
+    if (tok.length < 2) continue; // 单字母噪声：不进任何分组（含超纲）
     const r = resolve(tok, vocab);
     if (r) {
       if (seenLemma[r.lemma]) continue;

@@ -123,15 +123,28 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('lem: studies→含 study', lemmatize('studies').includes('study'));
   check('lem: went→含 go', lemmatize('went').includes('go'));
   check('lem: happily→含 happy', lemmatize('happily').includes('happy'));
-  check("lem: don't→空（撇号）", lemmatize("don't").length === 0);
+  // 缩约形式还原
+  check("lem: don't→do", lemmatize("don't").includes('do'));
+  check("lem: can't→can", lemmatize("can't").includes('can'));
+  check("lem: it's→it", lemmatize("it's").includes('it'));
+  check("lem: let's→let", lemmatize("let's").includes('let'));
+  // 撇号所有格：取撇号前 base 再还原（letters' → letters → letter）
+  check("lem: letters'→letter", lemmatize("letters'").includes('letter'));
+  // 单字母不处理
+  check('lem: 单字母 s→空', lemmatize('s').length === 0);
 
   // --- 词形还原查词（端到端） ---
-  const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习' } };
+  const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习', letter: 'n. 字母' } };
   const lv = buildVocab(lvo);
   check('lookup: raises 还原命中 raise', lookupWords('He raises his hand', lv)[0].word === 'raise');
   check('classify: raises→raise 显示原形', classifyWords('raises', lv)['初中'][0].word === 'raise');
   check('classify: raises+raising 合并一条', classifyWords('raises raising raised', lv)['初中'].length === 1);
   check('classify: 超纲词还原失败仍超纲', !!classifyWords('zzzz', lv)['超纲']);
+  // 缩约/所有格/单字母在查词链路的行为
+  check("classify: don't→do 命中（库含 do）", classifyWords("don't", buildVocab({ '初中': { do: 'v. 做' } }))['初中'][0].word === 'do');
+  check("classify: letters'→letter 命中", classifyWords("letters'", lv)['初中'][0].word === 'letter');
+  check('classify: 单字母不进超纲', classifyWords('a s b', lv)['超纲'] === undefined);
+  check('tokenize: 单字母不着色（level=null）', tokenizeForRender('a x', lv)[0].level === null);
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>

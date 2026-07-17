@@ -20,8 +20,14 @@
 
 ## 非目标（YAGNI）
 
-- 不移植 Python 里的**缩约形式**还原（`don't→do`、`she's→she`）。代词/助动词缩约不在分级词库目标里，命中概率极低。
 - 不做 `buildVocab` 构建期反向展开（成本高、不规则动词无法靠后缀反推）。
+
+> **迭代追加（2026-07-18）：** 初版按 YAGNI 未移植缩约形式，导致 JS 超纲（98）比 Python（70）多出 28 个（21 缩约 + 6 单字母 + 1 所有格）。已补齐：
+> - **缩约还原**（`don't→do`、`can't→can`、`it's→it`、`let's→let`…）：否定缩约走 `NEG_CONTRACTIONS` 完整映射，代词/指示词缩约走 `PRO_BASES` base 命中。
+> - **撇号所有格**（`letters'→letters→letter`、`robot's→robot`）：取撇号前 base，再对 base 走一遍还原。比 Python 更彻底（Python 对所有格返回空→归超纲，JS 能命中原形）。
+> - **单字母过滤**（`s/n/p/o/h/b`）：`word-lookup.js` 三函数跳过 `len<2` 的 token，不进超纲、中栏不着色。
+>
+> 补齐后实测 SRT 超纲降至 **65**（比 Python 70 还少 5，差额即 JS 额外正确还原的 5 个名词所有格 `robot's/student's/receiver's/symbol's/bar's`）。
 
 ## 方案：方案 A —— 独立模块 + 查询时按需还原
 
