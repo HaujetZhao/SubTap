@@ -1,10 +1,48 @@
 <script setup>
-// 占位：Task 5 填分栏单词
+import { computed } from 'vue';
+
+const props = defineProps({
+  store: { type: Object, required: true },
+  enabled: { type: Object, required: true },
+  currentText: { type: String, default: '' }
+});
+
+// 命中单词分组（按级）。显式读取 enabled 各属性以建立响应式依赖，
+// 使勾选变化时（store 内部状态非响应式，靠 enabled 镜像触发重算）。
+const groups = computed(() => {
+  for (const lv of props.store.getLevels()) {
+    void props.enabled[lv]; // touch 响应式属性
+  }
+  return props.store.lookupByLevel(props.currentText);
+});
+
+// 是否有任何分级被勾选
+const hasAnyEnabled = computed(() =>
+  props.store.getLevels().some(lv => props.enabled[lv])
+);
+
+// 按 store 分级顺序，只列出已勾选且有命中的级
+const visibleLevels = computed(() =>
+  props.store.getLevels().filter(lv =>
+    props.enabled[lv] && groups.value[lv] && groups.value[lv].length > 0
+  )
+);
 </script>
 
 <template>
   <aside class="panel-right">
     <h3 class="panel-title">当前句单词</h3>
-    <div class="placeholder">（待实现）</div>
+    <div v-if="!currentText" class="placeholder">点击中间句子查看单词</div>
+    <div v-else-if="!hasAnyEnabled" class="placeholder">未勾选任何分级</div>
+    <div v-else-if="!visibleLevels.length" class="placeholder">当前句没有词库中的单词</div>
+    <div v-else class="word-groups">
+      <div v-for="lv in visibleLevels" :key="lv" class="word-group">
+        <h4>{{ lv }} ({{ groups[lv].length }})</h4>
+        <div v-for="w in groups[lv]" :key="w.word" class="word">
+          <div class="w">{{ w.word }}</div>
+          <div class="def">{{ w.def }}</div>
+        </div>
+      </div>
+    </div>
   </aside>
 </template>
