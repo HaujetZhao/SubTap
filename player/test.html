@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>纯函数测试</title>
+<style>
+  body { font-family: monospace; padding: 20px; white-space: pre-wrap; }
+  .pass { color: #16a34a; }
+  .fail { color: #dc2626; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>window.App = window.App || {};</script>
+<script src="src/srt-parser.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out');
+  var pass = 0, fail = 0;
+  function check(name, cond) {
+    if (cond) { pass++; out.innerHTML += '<span class="pass">✓ ' + name + '</span>\n'; }
+    else { fail++; out.innerHTML += '<span class="fail">✗ ' + name + '</span>\n'; }
+  }
+
+  // --- timestampToSeconds ---
+  check('ts: 00:00:01,480 → 1.48', App.timestampToSeconds('00:00:01,480') === 1.48);
+  check('ts: 00:01:02,500 → 62.5', App.timestampToSeconds('00:01:02,500') === 62.5);
+  check('ts: 点分隔 00:00:05.000 → 5', App.timestampToSeconds('00:00:05.000') === 5);
+  check('ts: 非法返回 null', App.timestampToSeconds('abc') === null);
+
+  // --- parseSRT ---
+  var sample = '1\n00:00:00,080 --> 00:00:01,480\nWhen you encode text into binary\n\n'
+    + '2\n00:00:02,080 --> 00:00:04,200\nit\'s often nice\nto use as little data as possible\n\n'
+    + '3\n00:00:04,720 --> 00:00:10,600\nSo you might naturally wonder\n';
+  var s = App.parseSRT(sample);
+
+  check('解析出 3 句', s.length === 3);
+  check('第1句 start=0.08', s[0].start === 0.08);
+  check('第1句 end=1.48', s[0].end === 1.48);
+  check('第1句 id=1', s[0].id === 1);
+  check('第1句文本正确', s[0].text === 'When you encode text into binary');
+  check('第2句多行文本合并', s[1].text === "it's often nice\nto use as little data as possible");
+  check('序号行被跳过（第3句文本不含"3"）', s[2].text === 'So you might naturally wonder');
+
+  // 容错：混入一个坏块
+  var withBad = '1\n00:00:00,080 --> 00:00:01,480\nhello\n\n'
+    + '坏块没有时间轴\n\n'
+    + '2\n00:00:02,000 --> 00:00:03,000\nworld\n';
+  var sb = App.parseSRT(withBad);
+  check('容错：坏块跳过，得 2 句', sb.length === 2);
+
+  out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
+})();
+</script>
+</body>
+</html>
