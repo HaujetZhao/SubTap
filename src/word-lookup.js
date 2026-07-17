@@ -44,7 +44,8 @@ export function lookupWords(text, vocab) {
 }
 
 // 中栏渲染用：句子 → 片段数组（按位置，保留标点/空格，不去重）
-// 每片段 { text, level }；level = 命中级 / '超纲'（未命中词）/ null（非词标点空格）
+// 每片段 { text, level }；level = 还原后命中级别 / '超纲'（还原后仍未命中）/ null（非词标点空格）
+// text 始终保留原文形式（raises 仍显示 raises），仅级别随还原结果走。
 export function tokenizeForRender(text, vocab) {
   const result = [];
   const re = /[a-z']+/gi;
@@ -53,8 +54,8 @@ export function tokenizeForRender(text, vocab) {
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) result.push({ text: text.slice(last, m.index), level: null });
     const w = m[0].toLowerCase();
-    const entry = vocab[w];
-    result.push({ text: m[0], level: entry ? entry.level : '超纲' });
+    const r = resolve(w, vocab);
+    result.push({ text: m[0], level: r ? r.level : '超纲' });
     last = m.index + m[0].length;
   }
   if (last < (text || '').length) result.push({ text: (text || '').slice(last), level: null });
