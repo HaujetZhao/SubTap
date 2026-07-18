@@ -12,7 +12,10 @@
 
 ## 用法
 
-**直接用**：下载 [`dist/index.html`](./dist/index.html)，双击打开，载入字幕 + 音视频即可。
+**直接用**（任选其一）：
+
+- 在线用：访问 [SubTap Pages](https://haujetzhao.github.io/SubTap/dist/)
+- 离线用：或下载 [`dist/index.html`](./dist/index.html)，双击打开
 
 **本地开发**：
 
@@ -21,8 +24,6 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # 产出单文件 dist/index.html
 ```
-
-**部署到 GitHub Pages**：`dist/index.html` 已内置全部资源，push 后在仓库 Settings → Pages 指向即可。若部署到 `用户名.github.io/仓库名/` 子路径，在 `vite.config.js` 设 `base: '/仓库名/'`。
 
 ## 快捷键
 
