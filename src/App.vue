@@ -131,6 +131,7 @@ function onSrtFile(file) {
     try {
       sentences.value = parseSRT(reader.result);
       if (player) player.stop();
+      stopSpeech();
       currentId.value = null;
       currentText.value = '';
       isPlaying.value = false;
@@ -145,6 +146,7 @@ function onSrtFile(file) {
 function onMediaFile(file) {
   if (!file) return;
   if (player) player.stop();
+  stopSpeech();
   isPlaying.value = false;
   player.setSrc(URL.createObjectURL(file));
   mediaName.value = file.name;
@@ -161,12 +163,32 @@ function onSentenceClick(sentence) {
   playSentence(sentence);
 }
 
-// 播放指定句子（点击与键盘共用）：选中 + 区间播放
+// 浏览器语音朗读(Web Speech API)。无媒体时作为播放替代。
+function stopSpeech() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+function speakSentence(text) {
+  if (!('speechSynthesis' in window)) {
+    notify('当前浏览器不支持语音朗读', 'error');
+    return;
+  }
+  stopSpeech();
+  const english = (text.split('\n')[0] || text).trim();   // 双语字幕取首行英文
+  if (!english) return;
+  const u = new SpeechSynthesisUtterance(english);
+  u.lang = 'en-US';
+  u.onend = () => { isPlaying.value = false; };
+  u.onerror = () => { isPlaying.value = false; };
+  window.speechSynthesis.speak(u);
+  isPlaying.value = true;
+}
+
+// 播放指定句子（点击与键盘共用）：选中 + 区间播放(无媒体时改用语音朗读)
 function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
   if (!mediaName.value) {
-    notify('请先选择音/视频文件', 'error');
+    speakSentence(sentence.text);
     return;
   }
   const r = effectiveRanges.value.get(sentence.id) || { effStart: sentence.start, effEnd: sentence.end };
@@ -208,7 +230,9 @@ function onKeydown(e) {
     case ' ':              // 空格 = 结束播放（同 →）
     case 'Spacebar':
       e.preventDefault();
-      if (player) player.stop();                                 // 结束当前句
+      if (player) player.stop();                                 // 结束媒体播放
+      stopSpeech();                                              // 结束语音朗读
+      isPlaying.value = false;
       break;
   }
 }
