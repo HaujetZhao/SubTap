@@ -30,8 +30,29 @@ const currentText = ref('');
 const isPlaying = ref(false);
 const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
-const statusText = ref('请选择文件');
-const statusError = ref(false);
+
+// toast:自动消失的状态消息(成功/错误均 2.5s)
+const toasts = reactive([]);
+let toastSeq = 0;
+function notify(message, type = 'success') {
+  const t = { id: ++toastSeq, message, type, key: 0 };
+  toasts.push(t);
+  t.key++;                        // 触发进度条动画重启
+  t.timer = setTimeout(() => dismiss(t.id), 2500);
+}
+function dismiss(id) {
+  const i = toasts.findIndex(x => x.id === id);
+  if (i < 0) return;
+  clearTimeout(toasts[i].timer);
+  toasts.splice(i, 1);
+}
+function pauseToast(t) {
+  clearTimeout(t.timer);
+}
+function resumeToast(t) {
+  t.key++;                        // 重启进度条动画
+  t.timer = setTimeout(() => dismiss(t.id), 2500);
+}
 
 // 字幕微调参数
 const offset = ref(0);
@@ -106,11 +127,9 @@ function onSrtFile(file) {
       currentId.value = null;
       currentText.value = '';
       isPlaying.value = false;
-      statusText.value = '已载入 ' + sentences.value.length + ' 句字幕';
-      statusError.value = false;
+      notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
-      statusText.value = '字幕解析失败：' + e.message;
-      statusError.value = true;
+      notify('字幕解析失败：' + e.message, 'error');
     }
   };
   reader.readAsText(file, 'utf-8');
@@ -128,8 +147,7 @@ function onMediaFile(file) {
     videoCollapsed.value = false;
     videoHeight.value = Math.round(window.innerHeight / 2);
   }
-  statusText.value = '已载入：' + file.name;
-  statusError.value = false;
+  notify('已载入：' + file.name);
 }
 
 function onSentenceClick(sentence) {
@@ -141,8 +159,7 @@ function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
   if (!mediaName.value) {
-    statusText.value = '请先选择音/视频文件';
-    statusError.value = true;
+    notify('请先选择音/视频文件', 'error');
     return;
   }
   const r = effectiveRanges.value.get(sentence.id) || { effStart: sentence.start, effEnd: sentence.end };
@@ -195,8 +212,7 @@ onMounted(() => {
   mediaEl.value.addEventListener('error', () => {
     if (mediaEl.value.error && mediaName.value) {
       isPlaying.value = false;
-      statusText.value = '音/视频无法播放（编码不支持），建议改用 mp4/mp3';
-      statusError.value = true;
+      notify('音/视频无法播放（编码不支持），建议改用 mp4/mp3', 'error');
     }
   });
   window.addEventListener('keydown', onKeydown);
@@ -241,7 +257,6 @@ onUnmounted(() => {
         :colors="LEVEL_COLORS"
         @click="onSentenceClick"
       />
-      <span class="status" :class="{ error: statusError }">{{ statusText }}</span>
     </main>
     <WordPanel
       :store="store"
@@ -249,5 +264,15 @@ onUnmounted(() => {
       :current-text="currentText"
       :colors="LEVEL_COLORS"
     />
+  </div>
+  <div class="toast-container">
+    <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
+         @click="dismiss(t.id)"
+         @mouseenter="pauseToast(t)" @mouseleave="resumeToast(t)">
+      <span class="ico">{{ t.type === 'error' ? '!' : '✓' }}</span>
+      <span class="msg">{{ t.message }}</span>
+      <span class="dismiss">×</span>
+      <span :key="t.key" class="bar"></span>
+    </div>
   </div>
 </template>

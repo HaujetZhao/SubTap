@@ -55,12 +55,6 @@ body {
 .media-video { display: block; width: 100%; background: #000; }
 
 .sentences { flex: 1; overflow-y: auto; padding: 14px 18px; scroll-behavior: smooth; }
-.status {
-  position: absolute; bottom: 8px; right: 12px;
-  font-size: 12px; color: #6b7280; background: rgba(255,255,255,.8);
-  padding: 2px 8px; border-radius: 4px;
-}
-.status.error { color: #dc2626; font-weight: 600; }
 
 .sentence {
   display: flex; align-items: flex-start; gap: 10px;
@@ -173,3 +167,39 @@ body {
   color: var(--ink);
 }
 .tweak-row input[type="number"]:focus { outline: none; border-color: var(--accent-2); }
+
+/* ===== Toast ===== */
+.toast-container {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  z-index: 50; pointer-events: none;
+}
+.toast {
+  position: relative; pointer-events: auto;
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 18px; padding-right: 14px;
+  border-radius: var(--r-lg); font-size: 13.5px; font-weight: 500;
+  background: rgba(255,255,255,.96); color: var(--ink);
+  box-shadow: var(--shadow-toast);
+  animation: toastIn .35s cubic-bezier(.2,.8,.2,1);
+  cursor: pointer; overflow: hidden;
+}
+.toast.error { color: #9a2b2b; }
+.toast .ico {
+  width: 18px; height: 18px; border-radius: 50%; color: #fff; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+  background: var(--accent);
+}
+.toast.error .ico { background: #dc2626; }
+.toast .msg { max-width: 60vw; }
+.toast .dismiss { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border); color: var(--ink-3); }
+.toast .bar {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: var(--accent); transform-origin: left;
+  animation: toastBar 2.5s linear forwards;
+}
+.toast.error .bar { background: #dc2626; }
+.toast:hover .bar { animation-play-state: paused; }
+
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
