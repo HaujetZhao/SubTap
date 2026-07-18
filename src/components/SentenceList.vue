@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue';
+import { useVirtualizer } from '@tanstack/vue-virtual';
 
 const props = defineProps({
   sentences: { type: Array, required: true },   // 含 tokens 的 renderedSentences
@@ -11,19 +12,35 @@ const props = defineProps({
 });
 const emit = defineEmits(['click']);
 
-const containerRef = ref(null);
+// 滚动容器 DOM(getScrollElement 取值要用 ref 的 .value)
+const scrollRef = ref(null);
 
-// 供父组件调用：仅当当前选中句【不在视窗内】时，滚动让其顶部对齐容器顶部。
-// 平滑动画由容器 CSS scroll-behavior:smooth 提供；顶部/底部自然夹边界。
-// 设计：只在键盘上下切换时按需调用，避免每次切换都滚动干扰注意力。
+// TanStack 虚拟滚动:动态高度模式。
+// 选 TanStack 而非 vue-virtual-scroller —— 后者的 DynamicScroller 在向上滚时
+// "估高→实测修正"会引发内容跳动(anchor 逻辑在 logical/visual 两套坐标间反复横跳);
+// TanStack 的 measureElement + scrollOffset 补偿能保持视窗内容视觉稳定,实测不跳。
+// estimateSize 给初始估高,measureElement 实测真实高度并自动补偿 scrollTop。
+const virtualizer = useVirtualizer({
+  get count() { return props.sentences.length; },
+  getScrollElement: () => scrollRef.value,
+  estimateSize: () => 48,
+  overscan: 10,
+  getItemKey: (i) => props.sentences[i].id
+});
+
+// 供父组件调用:仅当当前选中句【不在视窗内】时,滚动让其顶部对齐容器顶部。
+// 设计:只在键盘上下切换时按需调用,避免每次切换都滚动干扰注意力。
 function ensureVisible() {
-  const c = containerRef.value;
-  const el = c && c.querySelector('.sentence.active');
-  if (!c || !el) return;
-  const cR = c.getBoundingClientRect();
-  const eR = el.getBoundingClientRect();
-  if (eR.top >= cR.top && eR.bottom <= cR.bottom) return; // 已完全在视窗内，不滚
-  c.scrollTop += (eR.top - cR.top); // 否则滚到容器顶部
+  const c = scrollRef.value;
+  if (!c) return;
+  const el = c.querySelector('.sentence.active');
+  if (el) {
+    const cR = c.getBoundingClientRect();
+    const eR = el.getBoundingClientRect();
+    if (eR.top >= cR.top && eR.bottom <= cR.bottom) return; // 已完全在视窗内,不滚
+  }
+  const idx = props.sentences.findIndex(s => s.id === props.currentId);
+  if (idx >= 0) virtualizer.value.scrollToIndex(idx, { align: 'start' });
 }
 defineExpose({ ensureVisible });
 
@@ -33,7 +50,7 @@ function fmt(sec) {
   return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
-// 片段背景：高亮开 + 片段有级别 + 该级勾选 → 该级色半透明；否则无
+// 片段背景:高亮开 + 片段有级别 + 该级勾选 → 该级色半透明；否则无
 function tokStyle(tok) {
   if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
   const c = props.colors[tok.level];
@@ -42,8 +59,33 @@ function tokStyle(tok) {
 </script>
 
 <template>
-  <div class="sentences" ref="containerRef">
-    <div v-if="!sentences.length" class="empty">
+  <div class="sentences-wrap">
+    <div v-if="sentences.length" ref="scrollRef" class="sentences">
+      <div class="ts-track" :style="{ height: virtualizer.getTotalSize() + 'px' }">
+        <div
+          v-for="vi in virtualizer.getVirtualItems()"
+          :key="vi.key"
+          class="ts-item"
+          :data-index="vi.index"
+          :style="{ transform: `translateY(${vi.start}px)` }"
+          :ref="el => virtualizer.measureElement(el)"
+        >
+          <div
+            class="sentence"
+            :class="{ active: sentences[vi.index].id === currentId, playing: sentences[vi.index].id === currentId && isPlaying }"
+            @click="emit('click', sentences[vi.index])"
+          >
+            <span class="play-icon">{{ (sentences[vi.index].id === currentId && isPlaying) ? '⏸' : '▶' }}</span>
+            <span class="time">[{{ fmt(sentences[vi.index].start) }}]</span>
+            <span class="text">
+              <span v-for="(tok, i) in sentences[vi.index].tokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="empty">
       <div class="empty-head">
         <div class="empty-title">字幕点读器 <span class="en">SubTap</span></div>
         <div class="empty-sub">点读式学习，主动交互，高效学习不犯困</div>
@@ -63,19 +105,6 @@ function tokStyle(tok) {
         </div>
       </div>
       <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>
-    </div>
-    <div
-      v-for="s in sentences"
-      :key="s.id"
-      class="sentence"
-      :class="{ active: s.id === currentId, playing: s.id === currentId && isPlaying }"
-      @click="emit('click', s)"
-    >
-      <span class="play-icon">{{ (s.id === currentId && isPlaying) ? '⏸' : '▶' }}</span>
-      <span class="time">[{{ fmt(s.start) }}]</span>
-      <span class="text">
-        <span v-for="(tok, i) in s.tokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>
-      </span>
     </div>
   </div>
 </template>
