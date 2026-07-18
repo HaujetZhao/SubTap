@@ -13,6 +13,14 @@
   --r-lg: 14px;
   --shadow-soft: 0 2px 6px rgba(60,50,40,.06);
   --shadow-toast: 0 8px 24px -6px rgba(60,50,40,.25), 0 2px 6px rgba(60,50,40,.1);
+  /* 响应式断点 + 栏宽 */
+  --bp-medium: 1100px;     /* ≤此值:左栏转 overlay */
+  --bp-narrow: 768px;      /* ≤此值:右栏也转 overlay + 互斥 */
+  --panel-left-w: 230px;
+  --panel-right-w: 280px;
+  --ease-panel: cubic-bezier(.4, 0, .2, 1);
+  --dur-panel: .3s;
+  --shadow-overlay: 0 8px 32px rgba(60,50,40,.14);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
@@ -25,20 +33,58 @@ body {
 
 .layout { display: flex; height: 100vh; width: 100%; }
 .panel-left {
-  width: 230px; flex-shrink: 0;
-  background: var(--panel); border-right: 1px solid var(--border);
-  padding: 16px 14px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 20px;
-  user-select: none;
+  width: var(--panel-left-w);
+  max-width: var(--panel-left-w);
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  transition: max-width var(--dur-panel) var(--ease-panel);
+  display: flex;
+  flex-direction: column;
 }
 .panel-center {
   flex: 1; min-width: 0; display: flex; flex-direction: column;
   position: relative; background: var(--canvas);
 }
 .panel-right {
-  width: 280px; flex-shrink: 0;
-  background: var(--panel); border-left: 1px solid var(--border);
-  padding: 16px; overflow-y: auto;
+  width: var(--panel-right-w);
+  max-width: var(--panel-right-w);
+  flex-shrink: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  transition: max-width var(--dur-panel) var(--ease-panel);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 栏内容固定宽容器:收起时外层 max-width→0 + overflow:hidden 把它裁掉,
+   内部不重排。原 panel-left/right 的 padding/滚动/gap 都搬到这里。 */
+.panel-left  > .panel-inner {
+  width: var(--panel-left-w);
+  padding: 16px 14px;
+  gap: 20px;
+  user-select: none;
+}
+.panel-right > .panel-inner {
+  width: var(--panel-right-w);
+  padding: 16px;
+}
+.panel-inner {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* push 模式折叠:宽度归零。overlay 模式由媒体查询覆盖(见 Task 4/5)。 */
+.panel-left.collapsed,
+.panel-right.collapsed {
+  max-width: 0;
+  width: 0;
+  border-right-color: transparent;
+  border-left-color: transparent;
 }
 
 .panel-title {
