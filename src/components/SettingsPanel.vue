@@ -77,12 +77,8 @@ function cycleEndMode() {
       </label>
       <!-- 末尾处理:点击文字/箭头在「末尾延长 ↔ 句末衔接」间切换,共用一个偏移输入 -->
       <div class="tweak-row">
-        <button type="button" class="mode-btn" :class="{ link: endMode === 'linkNext' }"
-                @click="cycleEndMode"
-                :title="endMode === 'linkNext' ? '当前:句末衔接(点击切换为末尾延长)' : '当前:末尾延长(点击切换为句末衔接)'">
-          <span class="mode-label">{{ endMode === 'linkNext' ? '句末衔接' : '末尾延长' }}</span>
-          <span class="cycle-icon" aria-hidden="true">↻</span>
-        </button>
+        <span class="mode-toggle" @click="cycleEndMode"
+              :title="endMode === 'linkNext' ? '当前:句末衔接(点击切换为末尾延长)' : '当前:末尾延长(点击切换为句末衔接)'">{{ endMode === 'linkNext' ? '句末衔接' : '末尾延长' }}<span class="cycle-icon" aria-hidden="true">↻</span></span>
         <input type="number" min="-5" max="5" step="0.1" :value="endOffset"
                @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
       </div>

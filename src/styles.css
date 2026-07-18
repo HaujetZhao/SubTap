@@ -145,18 +145,16 @@ body {
 }
 .option-row .label-text { flex: 1; }
 
-/* 末尾模式切换按钮 */
-.mode-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: #f7f5f1; border: 1px solid var(--border);
-  border-radius: 7px; padding: 3px 9px;
-  font-size: 13px; color: var(--ink); cursor: pointer;
-  transition: background .15s, border-color .15s;
+/* 末尾模式切换:纯文字 + 循环符号(与「起始偏移」同款,仅多一个可点击提示) */
+.mode-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  cursor: pointer;
 }
-.mode-btn:hover { background: #f1ede6; border-color: var(--border-strong); }
-.mode-btn .cycle-icon { color: var(--ink-3); font-size: 14px; line-height: 1; }
-.mode-btn.link { color: var(--accent-2); border-color: #cfe0ec; background: #eef4f8; }
-.mode-btn.link .cycle-icon { color: var(--accent-2); }
+.mode-toggle .cycle-icon {
+  color: var(--ink-3); font-size: 13px; line-height: 1;
+  transition: color .15s;
+}
+.mode-toggle:hover .cycle-icon { color: var(--accent-2); }
 
 /* 文件按钮(主色实心) */
 .files { display: flex; flex-direction: column; gap: 7px; }
