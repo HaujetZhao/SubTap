@@ -29,23 +29,43 @@ function onTweak(key, val) {
 
 <template>
   <aside class="panel-left">
-    <section class="settings">
-      <h3 class="panel-title">词库分级</h3>
-      <div class="levels">
-        <label v-for="lv in levels" :key="lv" class="level-item">
-          <input type="checkbox" :checked="enabled[lv]"
-                 @change="emit('toggle-level', lv, $event.target.checked)" />
-          <span class="level-dot" :style="{ background: dotColor(lv) }"></span>
-          <span>{{ lv }}</span>
-        </label>
-      </div>
-      <label class="level-item highlight-toggle">
-        <input type="checkbox" :checked="highlightOn"
-               @change="emit('toggle-highlight', $event.target.checked)" />
-        <span>用背景色突出单词</span>
+    <!-- 文件(置顶) -->
+    <section class="files">
+      <h3 class="panel-title">文件</h3>
+      <label class="file-btn primary">
+        <span class="file-ico">S</span>
+        打开字幕
+        <input type="file" accept=".srt" @change="onSrtChange" />
+      </label>
+      <label class="file-btn primary alt">
+        <span class="file-ico">♪</span>
+        打开音/视频
+        <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
       </label>
     </section>
 
+    <!-- 词库分级 -->
+    <section class="settings">
+      <h3 class="panel-title">词库分级</h3>
+      <div class="levels">
+        <label v-for="lv in levels" :key="lv" class="level-pill" :class="{ off: !enabled[lv] }">
+          <input type="checkbox" class="sr-only" :checked="enabled[lv]"
+                 @change="emit('toggle-level', lv, $event.target.checked)" />
+          <span class="dot" :style="{ background: dotColor(lv) }"></span>
+          <span class="label-text">{{ lv }}</span>
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+      <label class="level-pill sub" :class="{ off: !highlightOn }">
+        <input type="checkbox" class="sr-only" :checked="highlightOn"
+               @change="emit('toggle-highlight', $event.target.checked)" />
+        <span class="dot muted"></span>
+        <span class="label-text">用背景色突出单词</span>
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+    </section>
+
+    <!-- 字幕微调 -->
     <section class="tweak">
       <h3 class="panel-title">字幕微调</h3>
       <label class="tweak-row">起始偏移(秒)
@@ -56,24 +76,16 @@ function onTweak(key, val) {
         <input type="number" min="0" max="5" step="0.1" :value="extend"
                @change="onTweak('extend', parseFloat($event.target.value) || 0)" />
       </label>
-      <label class="level-item">
-        <input type="checkbox" :checked="linkNext"
+      <label class="level-pill sub" :class="{ off: !linkNext }">
+        <input type="checkbox" class="sr-only" :checked="linkNext"
                @change="onTweak('linkNext', $event.target.checked)" />
-        <span>句末连接(播到下一句开头)</span>
+        <span class="dot muted"></span>
+        <span class="label-text">句末连接(播到下一句开头)</span>
+        <span class="switch" aria-hidden="true"></span>
       </label>
       <label v-show="linkNext" class="tweak-row">句末连接偏移(秒)
         <input type="number" min="-5" max="5" step="0.1" :value="linkNextOffset"
                @change="onTweak('linkNextOffset', parseFloat($event.target.value) || 0)" />
-      </label>
-    </section>
-
-    <section class="files">
-      <h3 class="panel-title">文件</h3>
-      <label class="file-btn">字幕 .srt
-        <input type="file" accept=".srt" @change="onSrtChange" />
-      </label>
-      <label class="file-btn">音/视频
-        <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
       </label>
     </section>
   </aside>

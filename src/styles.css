@@ -51,21 +51,6 @@ body {
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
-.levels { display: flex; flex-direction: column; gap: 4px; }
-.level-item {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 14px; padding: 3px 0; cursor: pointer;
-}
-.level-item input { cursor: pointer; }
-
-.files { display: flex; flex-direction: column; gap: 6px; }
-.file-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 10px; background: #f3f4f6; border: 1px solid #d1d5db;
-  border-radius: 6px; cursor: pointer; font-size: 13px;
-}
-.file-btn:hover { background: #e5e7eb; }
-
 .video-slot { flex-shrink: 0; background: #000; }
 .media-video { display: block; width: 100%; background: #000; }
 
@@ -118,20 +103,69 @@ body {
 .resize-handle { height: 6px; cursor: ns-resize; background: #374151; }
 .resize-handle:hover { background: #4b5563; }
 
-/* 字幕微调 */
-.tweak { display: flex; flex-direction: column; gap: 6px; }
-.tweak-row {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 13px; gap: 8px;
-}
-.tweak-row input { width: 70px; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; }
-
-/* 分级圆点 + 高亮开关 */
-.level-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.highlight-toggle { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb; }
-
 /* 视频区：非视频时隐藏（audio 元素仍在 DOM 可播声音） */
 .video-slot.no-video { display: none; }
 
 /* 中栏词 span 圆角（背景色由内联 style 设） */
 .sentence .text span { border-radius: 2px; }
+
+/* ===== 左栏组件 ===== */
+.levels { display: flex; flex-direction: column; gap: 6px; }
+.level-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--r-md);
+  background: #f7f5f1; font-size: 13px; color: var(--ink);
+  cursor: pointer; transition: background .15s;
+}
+.level-pill:hover { background: #f1ede6; }
+.level-pill.sub { background: transparent; padding: 6px 4px; font-size: 12.5px; color: var(--ink-2); }
+.level-pill.sub:hover { background: #f7f5f1; }
+.level-pill.off { opacity: .5; }
+.level-pill .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.level-pill .dot.muted { background: var(--ink-3); }
+.level-pill .label-text { flex: 1; }
+
+/* 药丸开关(纯 CSS,随 .off 切换) */
+.level-pill .switch {
+  width: 26px; height: 15px; border-radius: 8px; background: var(--accent);
+  position: relative; flex-shrink: 0; transition: background .15s;
+}
+.level-pill .switch::after {
+  content: ''; position: absolute; right: 2px; top: 2px;
+  width: 11px; height: 11px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: left/right .15s;
+}
+.level-pill.off .switch { background: #d6d3cd; }
+.level-pill.off .switch::after { right: auto; left: 2px; }
+
+/* 文件按钮(主色实心) */
+.files { display: flex; flex-direction: column; gap: 7px; }
+.file-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: var(--r-md);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  color: #fff; background: var(--accent); box-shadow: 0 1px 2px rgba(90,140,106,.2);
+  transition: background .15s; position: relative;
+}
+.file-btn:hover { background: #517a5f; }
+.file-btn.alt { background: var(--accent-2); box-shadow: 0 1px 2px rgba(91,143,185,.2); }
+.file-btn.alt:hover { background: #4d7ba2; }
+.file-btn .file-ico {
+  width: 20px; height: 20px; border-radius: 6px;
+  background: rgba(255,255,255,.22);
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+}
+.file-btn input[type="file"] { display: none; }
+
+/* 字幕微调 */
+.tweak { display: flex; flex-direction: column; gap: 8px; }
+.tweak-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; color: var(--ink-2); gap: 8px;
+}
+.tweak-row input[type="number"] {
+  width: 64px; padding: 4px 8px; border: 1px solid var(--border-strong);
+  border-radius: 7px; background: #fff; font-size: 12.5px; text-align: right;
+  color: var(--ink);
+}
+.tweak-row input[type="number"]:focus { outline: none; border-color: var(--accent-2); }
