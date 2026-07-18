@@ -34,7 +34,6 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
 
 <template>
   <aside class="panel-right">
-    <h3 class="panel-title">当前句单词</h3>
     <div v-if="!currentText" class="placeholder">点击中间句子查看单词</div>
     <div v-else-if="!hasAnyEnabled" class="placeholder">未勾选任何分级</div>
     <div v-else-if="!visibleLevels.length" class="placeholder">当前句没有词库中的单词</div>

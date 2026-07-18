@@ -58,8 +58,8 @@ function cycleEndMode() {
           <span class="label-text">{{ lv }}</span>
           <span class="switch" aria-hidden="true"></span>
         </label>
-        <!-- 词汇提示:与分级同款卡片(灰圆点区分) -->
-        <label class="level-pill" :class="{ off: !highlightOn }">
+        <!-- 词汇提示:与分级同款卡片(灰圆点区分),顶部横线划分 -->
+        <label class="level-pill vocab-toggle" :class="{ off: !highlightOn }">
           <input type="checkbox" class="sr-only" :checked="highlightOn"
                  @change="emit('toggle-highlight', $event.target.checked)" />
           <span class="dot muted"></span>

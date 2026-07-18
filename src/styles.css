@@ -64,7 +64,7 @@ body {
   transition: background .12s;
 }
 .sentence:hover { background: #f3efe8; }
-.sentence.active { background: #eef4f8; box-shadow: inset 3px 0 0 var(--accent-2); }
+.sentence.active { background: #eef4f8; }
 .sentence .play-icon { flex-shrink: 0; width: 18px; color: var(--accent-2); font-size: 14px; padding-top: 2px; }
 .sentence.playing .play-icon { color: #dc2626; }
 .sentence .time { flex-shrink: 0; color: #a8a59f; font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 1px; }
@@ -117,6 +117,7 @@ body {
   cursor: pointer; transition: background .15s;
 }
 .level-pill:hover { background: #f1ede6; }
+.level-pill.vocab-toggle { padding-top: 11px; border-top: 1px solid var(--border); }
 .level-pill.off { opacity: .5; }
 .level-pill .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .level-pill .dot.muted { background: var(--ink-3); }
