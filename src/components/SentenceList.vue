@@ -24,7 +24,7 @@ watch(() => props.currentId, (id, old) => {
     if (!c || !el) return;
     const cR = c.getBoundingClientRect();
     const eR = el.getBoundingClientRect();
-    const delta = c.clientHeight / 3 - (eR.top - cR.top);
+    const delta = (eR.top - cR.top) - c.clientHeight / 3;
     c.scrollTop += delta;
   });
 });
