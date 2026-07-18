@@ -55,7 +55,7 @@ npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlef
 5. **超纲分级**：不在词库的词归"超纲"，`def` 为空，右栏只列词。
 6. **词库内置**：`App.vue` 顶部 `import vocab from './vocabulary.json'`（Vite 原生 JSON 导入），无需用户上传。
 7. **键盘播放控制**：`App.vue` 全局 `keydown`（焦点在 `input/textarea` 时不拦截）——`↓/↑` 下/上一句（未选时 `↓` 播第一句，末句/首句到边界不动）、`←` 重读当前句、`→` 结束（`player.stop()`）。`playSentence()` 是点击与键盘共用入口。
-8. **选中句自动居中**：`SentenceList` `watch(currentId)` 用 `getBoundingClientRect` 相对差调 `scrollTop`，把选中句（鼠标点击或键盘切换）滚到 `.sentences` 容器中间，顶部/底部自然夹边界。重读同一句（id 不变）不触发滚动。
+8. **按需滚动**：`SentenceList` 暴露 `ensureVisible()`（`defineExpose`），仅当当前选中句**不在视窗内**时才滚到 `.sentences` 容器顶部（平滑，CSS `scroll-behavior:smooth`）。`App.vue` 只在**键盘 ↑↓ 切换后**调用（`nextTick` + ref）；鼠标点击与重读（`←`，id 不变）不滚动，避免干扰注意力。
 
 ## 数据
 
