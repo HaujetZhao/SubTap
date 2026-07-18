@@ -76,16 +76,21 @@ body {
 .sentence .text { flex: 1; white-space: pre-line; }
 .sentence .text span { border-radius: var(--r-sm); }
 
-.word-groups { display: flex; flex-direction: column; gap: 14px; }
+.word-groups { display: flex; flex-direction: column; gap: 18px; }
 .word-group h4 {
-  margin: 0 0 4px; font-size: 13px; color: #2563eb;
-  font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px;
+  margin: 0 0 8px; font-size: 12px; font-weight: 600;
+  border-bottom: 1px solid var(--border); padding-bottom: 5px;
+  display: flex; align-items: center; gap: 6px;
 }
-.word { margin-bottom: 8px; }
-.word .w { font-weight: 600; font-size: 15px; }
-.word .def { font-size: 13px; color: #444; margin-top: 1px; }
+.word-group .count-pill {
+  font-size: 10px; font-weight: 500; color: #fff;
+  padding: 1px 6px; border-radius: 8px; opacity: .85;
+}
+.word { background: #f7f5f1; border-radius: var(--r-md); padding: 8px 11px; margin-bottom: 6px; }
+.word .w { font-weight: 600; font-size: 14px; }
+.word .def { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
 
-.placeholder { color: #9ca3af; font-size: 14px; }
+.placeholder { color: var(--ink-3); font-size: 14px; }
 
 /* 视频区控件 */
 .video-slot { position: relative; }

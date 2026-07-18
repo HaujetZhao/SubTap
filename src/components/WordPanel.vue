@@ -40,7 +40,10 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
     <div v-else-if="!visibleLevels.length" class="placeholder">当前句没有词库中的单词</div>
     <div v-else class="word-groups">
       <div v-for="lv in visibleLevels" :key="lv" class="word-group">
-        <h4 :style="{ color: titleColor(lv) }">{{ lv }} ({{ groups[lv].length }})</h4>
+        <h4 :style="{ color: titleColor(lv) }">
+          {{ lv }}
+          <span class="count-pill" :style="{ background: titleColor(lv) }">{{ groups[lv].length }}</span>
+        </h4>
         <div v-for="w in groups[lv]" :key="w.word" class="word">
           <div class="w">{{ w.word }}</div>
           <div v-if="w.def" class="def">{{ w.def }}</div>
