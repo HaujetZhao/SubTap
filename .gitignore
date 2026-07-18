@@ -13,7 +13,8 @@ node_modules/
 __pycache__/
 *.pyc
 
-# ===== 构建/临时（dist 入库以便直接托管，故不忽略）=====
+# ===== 构建产物（由 GitHub Actions 构建并部署/发布，不入库）=====
+dist/
 
 # ===== 系统/编辑器垃圾 =====
 .DS_Store

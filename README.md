@@ -14,8 +14,8 @@
 
 **直接用**（任选其一）：
 
-- 在线用：访问 [SubTap Pages](https://haujetzhao.github.io/SubTap/dist/)
-- 离线用：或下载 [`dist/index.html`](./dist/index.html)，双击打开
+- 在线用：访问 [SubTap Pages](https://haujetzhao.github.io/SubTap/)
+- 离线用：或下载 [SubTap.html](https://github.com/HaujetZhao/SubTap/releases/latest/download/SubTap.html)，双击打开
 
 **本地开发**：
 
