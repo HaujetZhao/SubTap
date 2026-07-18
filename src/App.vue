@@ -47,6 +47,33 @@ const rightCollapsed = ref(mqlRightCollapse.matches);
 mqlLeftCollapse .addEventListener('change', () => { leftCollapsed.value  = mqlLeftCollapse.matches; });
 mqlRightCollapse.addEventListener('change', () => { rightCollapsed.value = mqlRightCollapse.matches; });
 
+// push 模式拖拽调左右栏宽(180–480),持久化。应用走 .layout 的 :style 绑定 CSS var。
+const LS_W = 'subtap-widths';
+const _w = (() => { try { return JSON.parse(localStorage.getItem(LS_W) || '{}'); } catch { return {}; } })();
+const leftWidth  = ref(_w.leftWidth  ?? 230);
+const rightWidth = ref(_w.rightWidth ?? 280);
+watch([leftWidth, rightWidth], ([l, r]) => {
+  try { localStorage.setItem(LS_W, JSON.stringify({ leftWidth: l, rightWidth: r })); } catch {}
+});
+let sideDrag = null;
+function startSideResize(panel, e) {
+  sideDrag = { panel, x: e.clientX, w: panel === 'left' ? leftWidth.value : rightWidth.value };
+  document.addEventListener('mousemove', onSideResize);
+  document.addEventListener('mouseup', stopSideResize);
+  e.preventDefault();
+}
+function onSideResize(e) {
+  if (!sideDrag) return;
+  const delta = sideDrag.panel === 'left' ? e.clientX - sideDrag.x : sideDrag.x - e.clientX;
+  const w = Math.min(480, Math.max(180, sideDrag.w + delta));
+  (sideDrag.panel === 'left' ? leftWidth : rightWidth).value = w;
+}
+function stopSideResize() {
+  sideDrag = null;
+  document.removeEventListener('mousemove', onSideResize);
+  document.removeEventListener('mouseup', stopSideResize);
+}
+
 // 断点感知:左栏 overlay(≤1100)、右栏 overlay(≤768)。change 时更新 ref 驱动模板。
 const mqlLeft  = window.matchMedia(`(max-width: 1100px)`);
 const mqlRight = window.matchMedia(`(max-width: 768px)`);
@@ -331,7 +358,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="layout">
+  <div class="layout" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
@@ -352,6 +379,7 @@ onUnmounted(() => {
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
       @collapse="closeLeft"
+      @resizestart="startSideResize('left', $event)"
     />
     <main class="panel-center">
       <button v-show="leftCollapsed" class="fab fab-left" title="展开设置栏（[）" @click="openLeft">☰</button>
@@ -381,6 +409,7 @@ onUnmounted(() => {
       :colors="LEVEL_COLORS"
       :collapsed="rightCollapsed"
       @collapse="closeRight"
+      @resizestart="startSideResize('right', $event)"
     />
   </div>
   <div class="scrim" :class="{ show: scrimShow }" @click="closeBoth"></div>

@@ -37,6 +37,7 @@ body {
   width: var(--panel-left-w);
   max-width: var(--panel-left-w);
   flex-shrink: 0;
+  position: relative;
   background: var(--panel);
   border-right: 1px solid var(--border);
   overflow: hidden;
@@ -52,6 +53,7 @@ body {
   width: var(--panel-right-w);
   max-width: var(--panel-right-w);
   flex-shrink: 0;
+  position: relative;
   background: var(--panel);
   border-left: 1px solid var(--border);
   overflow: hidden;
@@ -59,6 +61,17 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* push 模式拖拽调宽手柄(overlay 下隐藏) */
+.side-resize-handle {
+  position: absolute; top: 0; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 5;
+}
+.panel-left  > .side-resize-handle { right: -3px; }
+.panel-right > .side-resize-handle { left:  -3px; }
+.side-resize-handle:hover { background: rgba(60,50,40,.12); }
+@media (max-width: 1100px) { .panel-left  > .side-resize-handle { display: none; } }
+@media (max-width: 768px)  { .panel-right > .side-resize-handle { display: none; } }
 
 /* 栏内容固定宽容器:收起时外层 max-width→0 + overflow:hidden 把它裁掉,
    内部不重排。原 panel-left/right 的 padding/滚动/gap 都搬到这里。 */
@@ -391,7 +404,7 @@ body {
   .panel-left {
     position: absolute;
     top: 0; left: 0; bottom: 0;
-    max-width: none;                 /* 覆盖 push 的 max-width */
+    max-width: 86vw;                 /* 覆盖 push 的 max-width,且防拖到宽值超过窄屏视口 */
     width: var(--panel-left-w);
     z-index: 40;
     box-shadow: var(--shadow-overlay);
@@ -413,7 +426,7 @@ body {
   .panel-right {
     position: absolute;
     top: 0; right: 0; bottom: 0;
-    max-width: none;
+    max-width: 86vw;
     width: var(--panel-right-w);
     z-index: 40;
     box-shadow: var(--shadow-overlay);

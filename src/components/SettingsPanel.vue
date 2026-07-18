@@ -16,7 +16,7 @@ const props = defineProps({
   voices: { type: Array, default: () => [] },
   collapsed: { type: Boolean, default: false }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -145,5 +145,6 @@ function cycleEndMode() {
       </div>
     </section>
     </div>
+    <div class="side-resize-handle" title="拖拽调整宽度" @mousedown="emit('resizestart', $event)"></div>
   </aside>
 </template>

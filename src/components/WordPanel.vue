@@ -8,7 +8,7 @@ const props = defineProps({
   colors: { type: Object, required: true },
   collapsed: { type: Boolean, default: false }
 });
-const emit = defineEmits(['collapse']);
+const emit = defineEmits(['collapse', 'resizestart']);
 
 // 命中单词分组（按级）。显式读取 enabled 各属性以建立响应式依赖，
 // 使勾选变化时（store 内部状态非响应式，靠 enabled 镜像触发重算）。
@@ -57,5 +57,6 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
         </div>
       </div>
     </div>
+    <div class="side-resize-handle" title="拖拽调整宽度" @mousedown="emit('resizestart', $event)"></div>
   </aside>
 </template>
