@@ -62,6 +62,7 @@ function tokStyle(tok) {
           <div class="empty-key"><kbd>→</kbd>停止(或空格)</div>
         </div>
       </div>
+      <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>
     </div>
     <div
       v-for="s in sentences"

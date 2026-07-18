@@ -20,3 +20,16 @@ __pycache__/
 Thumbs.db
 *.log
 *.bak
+
+# ===== 工具产生的临时目录（不入库）=====
+.superpowers/
+.playwright-mcp/
+
+# ===== 字幕测试素材（与 *.srt 同理，各格式测试文件不入库）=====
+*.vtt
+*.ass
+*.ssa
+*.sub
+*.sbv
+*.smi
+*.lrc
