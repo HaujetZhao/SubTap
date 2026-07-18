@@ -76,14 +76,13 @@ function cycleEndMode() {
     <!-- 字幕微调 -->
     <section class="tweak">
       <h3 class="panel-title">字幕微调</h3>
-      <label class="tweak-row">起始偏移
+      <label class="tweak-row">句首偏移
         <input type="number" min="-10" max="10" step="0.1" :value="offset"
                @change="onTweak('offset', parseFloat($event.target.value) || 0)" />
       </label>
-      <!-- 末尾处理:点击文字/箭头在「末尾延长 ↔ 句末衔接」间切换,共用一个偏移输入 -->
+      <!-- 句末处理:点击文字/箭头在「句末偏移 ↔ 句末衔接」间切换,共用一个偏移输入 -->
       <div class="tweak-row">
-        <span class="mode-toggle" @click="cycleEndMode"
-              :title="endMode === 'linkNext' ? '当前:句末衔接(点击切换为末尾延长)' : '当前:末尾延长(点击切换为句末衔接)'">{{ endMode === 'linkNext' ? '句末衔接' : '末尾延长' }}<span class="cycle-icon" aria-hidden="true">↻</span></span>
+        <span class="mode-toggle" @click="cycleEndMode">{{ endMode === 'linkNext' ? '句末衔接' : '句末偏移' }}<span class="cycle-icon" aria-hidden="true">↻</span><span class="tip">{{ endMode === 'linkNext' ? '衔接到下一句开头' : '句末时间戳偏移' }}</span></span>
         <input type="number" min="-5" max="5" step="0.1" :value="endOffset"
                @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
       </div>
