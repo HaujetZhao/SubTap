@@ -100,8 +100,9 @@ function tokStyle(tok) {
         <div class="empty-card">
           <div class="empty-card-h">快捷键</div>
           <div class="empty-key"><kbd>↑</kbd><kbd>↓</kbd>上/下一句</div>
-          <div class="empty-key"><kbd>←</kbd>重读当前句</div>
-          <div class="empty-key"><kbd>→</kbd>停止(或空格)</div>
+          <div class="empty-key"><kbd>←</kbd><kbd>→</kbd>重读/停止</div>
+          <div class="empty-key"><kbd>[</kbd><kbd>]</kbd>收起左/右边栏</div>
+          <div class="empty-key"><kbd>F</kbd>收起视频(或双击)</div>
         </div>
       </div>
       <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>

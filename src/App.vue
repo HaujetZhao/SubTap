@@ -314,6 +314,7 @@ function onKeydown(e) {
   // 面板收展快捷键:不依赖字幕,空载引导页也可用。
   if (e.key === '[') { e.preventDefault(); toggleFab('left'); return; }
   if (e.key === ']') { e.preventDefault(); toggleFab('right'); return; }
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleCollapse(); return; }
   if (!sentences.value.length) return;
   const n = sentences.value.length;
   const idx = currentIdx.value;
@@ -407,7 +408,7 @@ onUnmounted(() => {
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
                preload="metadata" :style="{ height: videoHeight + 'px' }"
-               title="双击收起" @dblclick.prevent="toggleCollapse"></video>
+               @dblclick.prevent="toggleCollapse"></video>
         <div v-show="!videoCollapsed" class="resize-handle" @mousedown="startResize"></div>
         <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
       </div>
