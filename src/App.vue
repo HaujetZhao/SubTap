@@ -50,6 +50,7 @@ function pauseToast(t) {
   clearTimeout(t.timer);
 }
 function resumeToast(t) {
+  if (!toasts.find(x => x.id === t.id)) return;   // 已被关闭,不再重设定时器
   t.key++;                        // 重启进度条动画
   t.timer = setTimeout(() => dismiss(t.id), 2500);
 }
@@ -220,6 +221,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
+  toasts.forEach(t => clearTimeout(t.timer));
+  toasts.splice(0);
 });
 </script>
 
