@@ -58,14 +58,15 @@ function cycleEndMode() {
           <span class="label-text">{{ lv }}</span>
           <span class="switch" aria-hidden="true"></span>
         </label>
+        <!-- 词汇提示:与分级同款卡片(灰圆点区分) -->
+        <label class="level-pill" :class="{ off: !highlightOn }">
+          <input type="checkbox" class="sr-only" :checked="highlightOn"
+                 @change="emit('toggle-highlight', $event.target.checked)" />
+          <span class="dot muted"></span>
+          <span class="label-text">词汇提示</span>
+          <span class="switch" aria-hidden="true"></span>
+        </label>
       </div>
-      <!-- 词汇提示:扁平行(与分级卡片区分) -->
-      <label class="option-row" :class="{ off: !highlightOn }">
-        <input type="checkbox" class="sr-only" :checked="highlightOn"
-               @change="emit('toggle-highlight', $event.target.checked)" />
-        <span class="label-text">词汇提示</span>
-        <span class="switch" aria-hidden="true"></span>
-      </label>
     </section>
 
     <!-- 字幕微调 -->
