@@ -45,7 +45,8 @@ function tokStyle(tok) {
   <div class="sentences" ref="containerRef">
     <div v-if="!sentences.length" class="empty">
       <div class="empty-head">
-        <div class="empty-title">字幕点读器<span class="dash"> —— </span>英语学习助手</div>
+        <div class="empty-title">字幕点读器 <span class="en">SubTap</span></div>
+        <div class="empty-note">英语学习助手</div>
         <div class="empty-sub">点读式学习，主动交互，高效学习不犯困</div>
       </div>
       <div class="empty-grid">
