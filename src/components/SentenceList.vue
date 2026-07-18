@@ -46,14 +46,14 @@ function tokStyle(tok) {
     <div v-if="!sentences.length" class="empty">
       <div class="empty-head">
         <div class="empty-title">字幕点读器<span class="dash"> —— </span>英语学习助手</div>
-        <div class="empty-sub">先读句子、再点听,主动学英语。</div>
+        <div class="empty-sub">点读式学习，主动交互，高效学习不犯困</div>
       </div>
       <div class="empty-grid">
         <div class="empty-card">
           <div class="empty-card-h">三步上手</div>
-          <div class="empty-step"><span class="num">1</span><span>打开字幕 + 打开音/视频</span></div>
-          <div class="empty-step"><span class="num">2</span><span>点句子播放该句</span></div>
-          <div class="empty-step"><span class="num">3</span><span>勾选词库分级着色</span></div>
+          <div class="empty-step"><span class="num">1</span><span>载入字幕和视频</span></div>
+          <div class="empty-step"><span class="num">2</span><span>点击字幕播放</span></div>
+          <div class="empty-step"><span class="num">3</span><span>右侧学习生词</span></div>
         </div>
         <div class="empty-card">
           <div class="empty-card-h">快捷键</div>
