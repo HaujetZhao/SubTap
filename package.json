@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "subsrt": "^1.1.1",
     "vue": "^3.4.0"
   },
   "devDependencies": {

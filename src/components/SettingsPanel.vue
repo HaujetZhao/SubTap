@@ -38,7 +38,7 @@ function cycleEndMode() {
       <label class="file-btn">
         <span class="file-ico">S</span>
         打开字幕
-        <input type="file" accept=".srt" @change="onSrtChange" />
+        <input type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.lrc,.sbv,.smi" @change="onSrtChange" />
       </label>
       <label class="file-btn alt">
         <span class="file-ico">♪</span>

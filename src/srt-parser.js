@@ -1,6 +1,9 @@
-// SRT 字幕解析（纯函数）
+// 字幕解析(经第三方库 subsrt,自动识别 SRT/VTT/ASS/SSA/LRC/SBV/SUB/SMI 等格式)
+// 输出统一为 Sentence[]:{id,start,end,text}(start/end 为秒;保留换行供双语 pre-line 渲染)
 
-// 把 "HH:MM:SS,mmm" 或 "HH:MM:SS.mmm" 转成秒（浮点）；非法返回 null
+import subsrt from 'subsrt';
+
+// 保留:把 "HH:MM:SS,mmm"/"HH:MM:SS.mmm" 转秒(test.html 仍引用)
 export function timestampToSeconds(ts) {
   const m = /^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})$/.exec(ts.trim());
   if (!m) return null;
@@ -8,29 +11,21 @@ export function timestampToSeconds(ts) {
   return h * 3600 + min * 60 + s + ms / 1000;
 }
 
-// SRT 文本 → Sentence[]：{id,start,end,text}；容错跳过坏块
+// 任意字幕文本 → Sentence[];容错:subsrt 抛错或无有效条目时返回 []
 export function parseSRT(text) {
-  const normalized = text.replace(/\r\n?/g, '\n').trim();
-  const blocks = normalized.split(/\n\s*\n/);
+  let captions;
+  try {
+    captions = subsrt.parse(text);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(captions)) return [];
   const sentences = [];
-
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i].trim();
-    if (!block) continue;
-
-    const lines = block.split('\n');
-    let idx = 0;
-    if (/^\d+$/.test(lines[0].trim())) idx = 1; // 跳过序号行
-
-    const tm = /^([\d:,.]+)\s*-->\s*([\d:,.]+)/.exec(lines[idx].trim());
-    if (!tm) continue; // 容错
-
-    const start = timestampToSeconds(tm[1]);
-    const end = timestampToSeconds(tm[2]);
-    if (start === null || end === null) continue;
-
-    const text = lines.slice(idx + 1).join('\n').trim();
-    sentences.push({ id: sentences.length + 1, start, end, text });
+  for (const c of captions) {
+    if (typeof c.start !== 'number' || typeof c.end !== 'number') continue;
+    const t = (c.text != null ? String(c.text) : '').replace(/\r\n?/g, '\n').trim();
+    if (!t) continue;
+    sentences.push({ id: sentences.length + 1, start: c.start / 1000, end: c.end / 1000, text: t });
   }
   return sentences;
 }
