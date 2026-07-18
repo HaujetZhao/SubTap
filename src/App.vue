@@ -209,7 +209,7 @@ function playSentence(sentence) {
   currentText.value = sentence.text;
   if (!mediaName.value) {
     if (ttsOn.value) speakSentence(sentence.text);
-    else notify('请先选择音/视频文件', 'error');
+    else notify('请先打开音/视频文件或打开语音朗读功能', 'error');
     return;
   }
   const r = effectiveRanges.value.get(sentence.id) || { effStart: sentence.start, effEnd: sentence.end };

@@ -150,11 +150,12 @@ body {
 
 /* ===== 左栏组件 ===== */
 .levels { display: flex; flex-direction: column; gap: 6px; }
+.toggles { display: flex; flex-direction: column; gap: 6px; }
 .level-pill {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 10px; border-radius: var(--r-md);
   background: #f7f5f1; font-size: 14px; color: var(--ink);
-  cursor: pointer; transition: background .15s;
+  cursor: pointer; transition: background .15s; position: relative;
 }
 .level-pill:hover { background: #f1ede6; }
 .level-pill.off { opacity: .5; }
@@ -164,7 +165,7 @@ body {
 
 /* 功能开关展开的子选项(缩进块) */
 .sub-options {
-  margin: 4px 0 6px 14px;
+  margin: 0 0 0 14px;
   padding: 8px 10px 10px;
   border-left: 2px solid var(--border);
   display: flex; flex-direction: column; gap: 8px;
@@ -204,7 +205,8 @@ body {
 .mode-toggle:hover .cycle-icon { color: var(--accent-2); }
 
 /* 自定义 tooltip(即时出现,不延迟) */
-.mode-toggle .tip {
+/* 自定义 tooltip(即时出现,深色药丸;mode-toggle 与 level-pill 共用) */
+.tip {
   position: absolute; bottom: calc(100% + 8px); left: 50%;
   transform: translateX(-50%) translateY(4px);
   background: #2b2d31; color: #fff;
@@ -215,12 +217,13 @@ body {
   transition: opacity .12s, transform .12s;
   z-index: 20;
 }
-.mode-toggle .tip::after {
+.tip::after {
   content: ''; position: absolute; top: 100%; left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent; border-top-color: #2b2d31;
 }
-.mode-toggle:hover .tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+.mode-toggle:hover .tip,
+.level-pill:hover .tip { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* 文件按钮(主色实心) */
 .files { display: flex; flex-direction: column; gap: 7px; }

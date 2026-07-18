@@ -82,6 +82,7 @@ function cycleEndMode() {
         <span class="dot muted"></span>
         <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
+        <span class="tip">用背景色高亮句中生词</span>
       </label>
       <label class="level-pill" :class="{ off: !ttsOn }">
         <input type="checkbox" class="sr-only" :checked="ttsOn"
@@ -89,6 +90,7 @@ function cycleEndMode() {
         <span class="dot muted"></span>
         <span class="label-text">语音朗读</span>
         <span class="switch" aria-hidden="true"></span>
+        <span class="tip">无音视频时点句朗读</span>
       </label>
       <div v-if="ttsOn" class="sub-options">
         <label class="opt-row">
