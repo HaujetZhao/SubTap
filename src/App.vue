@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
 import { buildVocab, classifyWords, tokenizeForRender } from './word-lookup.js';
@@ -37,6 +37,44 @@ const currentText = ref('');
 const isPlaying = ref(false);
 const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
+
+// 双栏折叠状态(localStorage 持久化)。collapsed=true → 该栏不可见。
+const LS_KEY = 'subtap-panels';
+function loadPanels() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+const _saved = loadPanels();
+const leftCollapsed  = ref(_saved.leftCollapsed  ?? false);
+const rightCollapsed = ref(_saved.rightCollapsed ?? false);
+watch([leftCollapsed, rightCollapsed], ([l, r]) => {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ leftCollapsed: l, rightCollapsed: r })); }
+  catch { /* 隐私模式等忽略 */ }
+});
+
+// 断点感知:左栏 overlay(≤1100)、右栏 overlay(≤768)。change 时更新 ref 驱动模板。
+const mqlLeft  = window.matchMedia(`(max-width: 1100px)`);
+const mqlRight = window.matchMedia(`(max-width: 768px)`);
+const leftOverlay  = ref(mqlLeft.matches);
+const rightOverlay = ref(mqlRight.matches);
+function onBpChange() {
+  leftOverlay.value  = mqlLeft.matches;
+  rightOverlay.value = mqlRight.matches;
+}
+
+// 开合收口:折叠按钮 / FAB / 快捷键都走这里。
+function openLeft() {
+  leftCollapsed.value = false;
+  if (rightOverlay.value) rightCollapsed.value = true;   // 窄档互斥
+}
+function openRight() {
+  rightCollapsed.value = false;
+  if (rightOverlay.value) leftCollapsed.value = true;    // 窄档互斥
+}
+function closeLeft()  { leftCollapsed.value = true; }
+function closeRight() { rightCollapsed.value = true; }
+function toggleLeft()  { leftCollapsed.value  ? openLeft()  : closeLeft(); }
+function toggleRight() { rightCollapsed.value ? openRight() : closeRight(); }
 
 // toast:自动消失的状态消息(成功/错误均 2.5s)
 const toasts = reactive([]);
@@ -274,12 +312,16 @@ onMounted(() => {
   }
   loadVoices();
   if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
+  mqlLeft.addEventListener('change', onBpChange);
+  mqlRight.addEventListener('change', onBpChange);
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
   toasts.forEach(t => clearTimeout(t.timer));
   toasts.splice(0);
+  mqlLeft.removeEventListener('change', onBpChange);
+  mqlRight.removeEventListener('change', onBpChange);
 });
 </script>
 
