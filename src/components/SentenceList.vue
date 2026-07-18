@@ -13,8 +13,9 @@ const emit = defineEmits(['click']);
 
 const containerRef = ref(null);
 
-// 选中句变化（鼠标点击或键盘切换）→ 滚动到容器中间。
-// 用相对差调整 scrollTop，顶部/底部自然夹边界（滚不到中间就不滚）。
+// 选中句变化（鼠标点击或键盘切换）→ 滚动让其顶部落在容器高度 1/3 处（视觉更稳）。
+// 用相对差调整 scrollTop，配合容器 CSS scroll-behavior:smooth 产生平滑动画；
+// 顶部/底部自然夹边界（滚不到 1/3 就停在边界）。
 watch(() => props.currentId, (id, old) => {
   if (id == null || id === old) return;
   nextTick(() => {
@@ -23,7 +24,7 @@ watch(() => props.currentId, (id, old) => {
     if (!c || !el) return;
     const cR = c.getBoundingClientRect();
     const eR = el.getBoundingClientRect();
-    const delta = (eR.top - cR.top) - (c.clientHeight / 2 - el.clientHeight / 2);
+    const delta = c.clientHeight / 3 - (eR.top - cR.top);
     c.scrollTop += delta;
   });
 });
