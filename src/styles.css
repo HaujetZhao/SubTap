@@ -64,7 +64,7 @@ body {
 .sentence .play-icon { flex-shrink: 0; width: 20px; color: #2563eb; font-size: 14px; }
 .sentence.playing .play-icon { color: #dc2626; }
 .sentence .time { flex-shrink: 0; color: #6b7280; font-size: 13px; font-variant-numeric: tabular-nums; }
-.sentence .text { flex: 1; }
+.sentence .text { flex: 1; white-space: pre-line; }
 
 .word-groups { display: flex; flex-direction: column; gap: 14px; }
 .word-group h4 {
