@@ -35,6 +35,13 @@ const mediaKind = ref(null); // 'video' | 'audio' | null
 const toasts = reactive([]);
 let toastSeq = 0;
 function notify(message, type = 'success') {
+  // 相同文案的 toast 先关掉旧的,避免连续点击堆叠一串(如未载媒体时连点句子)
+  for (let i = toasts.length - 1; i >= 0; i--) {
+    if (toasts[i].message === message) {
+      clearTimeout(toasts[i].timer);
+      toasts.splice(i, 1);
+    }
+  }
   const t = { id: ++toastSeq, message, type, key: 0 };
   toasts.push(t);
   t.key++;                        // 触发进度条动画重启
