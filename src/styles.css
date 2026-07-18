@@ -167,7 +167,8 @@ body {
 .video-slot { flex-shrink: 0; background: #000; width: 100%; max-width: var(--content-max); margin-inline: auto; }
 .media-video { display: block; width: 100%; background: #000; }
 
-.sentences { flex: 1; overflow-y: auto; scroll-behavior: smooth; width: 100%; max-width: var(--content-max); margin-inline: auto; }
+.sentences { flex: 1; overflow-y: auto; scroll-behavior: smooth; width: 100%; max-width: var(--content-max); margin-inline: auto; scrollbar-width: none; }
+.sentences::-webkit-scrollbar { display: none; }
 
 .sentence {
   display: flex; align-items: flex-start; gap: 10px;
