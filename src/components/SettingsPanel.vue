@@ -58,16 +58,19 @@ function cycleEndMode() {
           <span class="label-text">{{ lv }}</span>
           <span class="switch" aria-hidden="true"></span>
         </label>
-        <!-- 词汇提示:与分级之间用独立横线划分 -->
-        <div class="vocab-divider"></div>
-        <label class="level-pill" :class="{ off: !highlightOn }">
-          <input type="checkbox" class="sr-only" :checked="highlightOn"
-                 @change="emit('toggle-highlight', $event.target.checked)" />
-          <span class="dot muted"></span>
-          <span class="label-text">词汇提示</span>
-          <span class="switch" aria-hidden="true"></span>
-        </label>
       </div>
+    </section>
+
+    <!-- 功能开关 -->
+    <section class="toggles">
+      <h3 class="panel-title">功能开关</h3>
+      <label class="level-pill" :class="{ off: !highlightOn }">
+        <input type="checkbox" class="sr-only" :checked="highlightOn"
+               @change="emit('toggle-highlight', $event.target.checked)" />
+        <span class="dot muted"></span>
+        <span class="label-text">词汇提示</span>
+        <span class="switch" aria-hidden="true"></span>
+      </label>
     </section>
 
     <!-- 字幕微调 -->
