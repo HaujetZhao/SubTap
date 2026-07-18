@@ -16,7 +16,7 @@
   /* 栏宽(响应式断点在 App.vue 的 BP 对象,迟滞双阈值) */
   --panel-left-w: 230px;
   --panel-right-w: 280px;
-  --content-max: 880px;          /* 中栏内容(视频+字幕)最宽,居中,避免栏收起后无限拉伸 */
+  --content-max: 900px;          /* 中栏内容(视频+字幕)最宽,居中,避免栏收起后无限拉伸 */
   --ease-panel: cubic-bezier(.4, 0, .2, 1);
   --dur-panel: .3s;
   --shadow-overlay: 0 8px 32px rgba(60,50,40,.14);
