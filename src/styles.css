@@ -54,7 +54,7 @@ body {
 .video-slot { flex-shrink: 0; background: #000; }
 .media-video { display: block; width: 100%; background: #000; }
 
-.sentences { flex: 1; overflow-y: auto; padding: 8px 12px; scroll-behavior: smooth; }
+.sentences { flex: 1; overflow-y: auto; padding: 14px 18px; scroll-behavior: smooth; }
 .status {
   position: absolute; bottom: 8px; right: 12px;
   font-size: 12px; color: #6b7280; background: rgba(255,255,255,.8);
@@ -63,16 +63,18 @@ body {
 .status.error { color: #dc2626; font-weight: 600; }
 
 .sentence {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 8px 10px; border-radius: 6px; cursor: pointer;
-  font-size: 15px; line-height: 1.5;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r-md); margin-bottom: 3px;
+  cursor: pointer; font-size: 14.5px; line-height: 1.65;
+  transition: background .12s;
 }
-.sentence:hover { background: #f0f4ff; }
-.sentence.active { background: #dbeafe; }
-.sentence .play-icon { flex-shrink: 0; width: 20px; color: #2563eb; font-size: 14px; }
+.sentence:hover { background: #f3efe8; }
+.sentence.active { background: #eef4f8; box-shadow: inset 3px 0 0 var(--accent-2); }
+.sentence .play-icon { flex-shrink: 0; width: 16px; color: var(--accent-2); font-size: 11px; padding-top: 3px; }
 .sentence.playing .play-icon { color: #dc2626; }
-.sentence .time { flex-shrink: 0; color: #6b7280; font-size: 13px; font-variant-numeric: tabular-nums; }
+.sentence .time { flex-shrink: 0; color: #a8a59f; font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 2px; }
 .sentence .text { flex: 1; white-space: pre-line; }
+.sentence .text span { border-radius: var(--r-sm); }
 
 .word-groups { display: flex; flex-direction: column; gap: 14px; }
 .word-group h4 {
@@ -105,9 +107,6 @@ body {
 
 /* 视频区：非视频时隐藏（audio 元素仍在 DOM 可播声音） */
 .video-slot.no-video { display: none; }
-
-/* 中栏词 span 圆角（背景色由内联 style 设） */
-.sentence .text span { border-radius: 2px; }
 
 /* ===== 左栏组件 ===== */
 .levels { display: flex; flex-direction: column; gap: 6px; }
