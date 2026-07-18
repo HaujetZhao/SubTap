@@ -18,6 +18,7 @@
   --bp-narrow: 768px;      /* ≤此值:右栏也转 overlay + 互斥 */
   --panel-left-w: 230px;
   --panel-right-w: 280px;
+  --content-max: 880px;          /* 中栏内容(视频+字幕)最宽,居中,避免栏收起后无限拉伸 */
   --ease-panel: cubic-bezier(.4, 0, .2, 1);
   --dur-panel: .3s;
   --shadow-overlay: 0 8px 32px rgba(60,50,40,.14);
@@ -82,7 +83,6 @@ body {
 .panel-left.collapsed,
 .panel-right.collapsed {
   max-width: 0;
-  width: 0;
   border-right-color: transparent;
   border-left-color: transparent;
 }
@@ -140,16 +140,19 @@ body {
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
-.video-slot { flex-shrink: 0; background: #000; }
+.video-slot { flex-shrink: 0; background: #000; width: 100%; max-width: var(--content-max); margin-inline: auto; }
 .media-video { display: block; width: 100%; background: #000; }
 
-.sentences { flex: 1; overflow-y: auto; padding: 14px 18px; scroll-behavior: smooth; }
+.sentences { flex: 1; overflow-y: auto; padding: 14px 18px; scroll-behavior: smooth; width: 100%; max-width: var(--content-max); margin-inline: auto; }
 
 .sentence {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 11px 12px; border-radius: var(--r-md);
   cursor: pointer; font-size: 16px; line-height: 1.6;
   transition: background .12s;
+  /* 长列表性能:屏外句子跳过布局,栏收展时只 reflow 可见句 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 }
 .sentence:hover { background: #f3efe8; }
 .sentence.active { background: #eef4f8; box-shadow: inset 0 0 0 1px #5b8fb9; }
