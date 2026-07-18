@@ -32,12 +32,12 @@ function onTweak(key, val) {
     <!-- 文件(置顶) -->
     <section class="files">
       <h3 class="panel-title">文件</h3>
-      <label class="file-btn primary">
+      <label class="file-btn">
         <span class="file-ico">S</span>
         打开字幕
         <input type="file" accept=".srt" @change="onSrtChange" />
       </label>
-      <label class="file-btn primary alt">
+      <label class="file-btn alt">
         <span class="file-ico">♪</span>
         打开音/视频
         <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
