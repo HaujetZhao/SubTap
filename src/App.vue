@@ -300,6 +300,14 @@ function onKeydown(e) {
       stopSpeech();                                              // 结束语音朗读
       isPlaying.value = false;
       break;
+    case '[':
+      e.preventDefault();
+      toggleLeft();
+      break;
+    case ']':
+      e.preventDefault();
+      toggleRight();
+      break;
   }
 }
 
