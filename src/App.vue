@@ -339,12 +339,14 @@ onUnmounted(() => {
       :tts-rate="ttsRate"
       :tts-voice-uri="ttsVoiceURI"
       :voices="voices"
+      :collapsed="leftCollapsed"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
+      @collapse="closeLeft"
     />
     <main class="panel-center">
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
@@ -370,6 +372,8 @@ onUnmounted(() => {
       :enabled="enabled"
       :current-text="currentText"
       :colors="LEVEL_COLORS"
+      :collapsed="rightCollapsed"
+      @collapse="closeRight"
     />
   </div>
   <div class="toast-container">

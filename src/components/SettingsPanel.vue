@@ -13,9 +13,10 @@ const props = defineProps({
   ttsLang: { type: String, default: 'en-US' },
   ttsRate: { type: Number, default: 1 },
   ttsVoiceURI: { type: String, default: '' },
-  voices: { type: Array, default: () => [] }
+  voices: { type: Array, default: () => [] },
+  collapsed: { type: Boolean, default: false }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -43,10 +44,14 @@ function cycleEndMode() {
 </script>
 
 <template>
-  <aside class="panel-left">
-    <!-- 文件(置顶) -->
-    <section class="files">
-      <h3 class="panel-title">文件</h3>
+  <aside class="panel-left" :class="{ collapsed }">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <h3 class="panel-title">文件</h3>
+        <button class="collapse-btn-panel" title="收起设置栏" @click="emit('collapse')">〈</button>
+      </div>
+      <!-- 文件(置顶) -->
+      <section class="files">
       <label class="file-btn">
         <span class="file-ico">S</span>
         打开字幕
@@ -57,7 +62,7 @@ function cycleEndMode() {
         打开音/视频
         <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
       </label>
-    </section>
+      </section>
 
     <!-- 词库分级 -->
     <section class="settings">
@@ -139,5 +144,6 @@ function cycleEndMode() {
                @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
       </div>
     </section>
+    </div>
   </aside>
 </template>

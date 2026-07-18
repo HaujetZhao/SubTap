@@ -87,6 +87,24 @@ body {
   border-left-color: transparent;
 }
 
+/* 栏顶部标题行:标题 + 折叠按钮,两端对齐 */
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.panel-head .panel-title { margin: 0; }   /* 覆盖默认 .panel-title 的下边距 */
+.collapse-btn-panel {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border: none; background: transparent;
+  color: var(--ink-3); cursor: pointer;
+  border-radius: var(--r-sm);
+  font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.collapse-btn-panel:hover { background: rgba(60,50,40,.06); color: var(--ink); }
+
 .panel-title {
   margin: 0 0 10px; font-size: 13px; color: var(--ink-2);
   font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
