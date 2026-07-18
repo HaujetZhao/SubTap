@@ -117,25 +117,46 @@ body {
   cursor: pointer; transition: background .15s;
 }
 .level-pill:hover { background: #f1ede6; }
-.level-pill.sub { background: #f7f5f1; padding: 7px 10px; font-size: 13px; color: var(--ink-2); }
-.level-pill.sub:hover { background: #f1ede6; }
 .level-pill.off { opacity: .5; }
 .level-pill .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.level-pill .dot.muted { background: var(--ink-3); }
 .level-pill .label-text { flex: 1; }
 
-/* 药丸开关(纯 CSS,随 .off 切换) */
-.level-pill .switch {
+/* 药丸开关(纯 CSS,随父级 .off 切换;level-pill 与 option-row 共用) */
+.switch {
   width: 26px; height: 15px; border-radius: 8px; background: var(--accent);
   position: relative; flex-shrink: 0; transition: background .15s;
 }
-.level-pill .switch::after {
+.switch::after {
   content: ''; position: absolute; right: 2px; top: 2px;
   width: 11px; height: 11px; border-radius: 50%; background: #fff;
   box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: left/right .15s;
 }
-.level-pill.off .switch { background: #d6d3cd; }
-.level-pill.off .switch::after { right: auto; left: 2px; }
+.level-pill.off .switch,
+.option-row.off .switch { background: #d6d3cd; }
+.level-pill.off .switch::after,
+.option-row.off .switch::after { right: auto; left: 2px; }
+
+/* 词汇提示:扁平行(区别于分级卡片) */
+.option-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px; padding: 9px 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--ink-2); cursor: pointer;
+}
+.option-row .label-text { flex: 1; }
+
+/* 末尾模式切换按钮 */
+.mode-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #f7f5f1; border: 1px solid var(--border);
+  border-radius: 7px; padding: 3px 9px;
+  font-size: 13px; color: var(--ink); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.mode-btn:hover { background: #f1ede6; border-color: var(--border-strong); }
+.mode-btn .cycle-icon { color: var(--ink-3); font-size: 14px; line-height: 1; }
+.mode-btn.link { color: var(--accent-2); border-color: #cfe0ec; background: #eef4f8; }
+.mode-btn.link .cycle-icon { color: var(--accent-2); }
 
 /* 文件按钮(主色实心) */
 .files { display: flex; flex-direction: column; gap: 7px; }

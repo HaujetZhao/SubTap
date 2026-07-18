@@ -55,11 +55,10 @@ function resumeToast(t) {
   t.timer = setTimeout(() => dismiss(t.id), 2500);
 }
 
-// 字幕微调参数
+// 字幕微调参数:endMode 为末尾处理模式(延长/衔接),endOffset 为两者共用的偏移(秒)
 const offset = ref(0);
-const extend = ref(0);
-const linkNext = ref(false);
-const linkNextOffset = ref(-0.1);
+const endMode = ref('extend');   // 'extend' | 'linkNext'
+const endOffset = ref(0);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -97,18 +96,18 @@ const renderedSentences = computed(() =>
   sentences.value.map(s => ({ ...s, tokens: tokenizeForRender(s.text, vocabTable) }))
 );
 
-const effectiveRanges = computed(() => computeEffectiveRanges(sentences.value, {
-  offset: offset.value,
-  extend: extend.value,
-  linkNext: linkNext.value,
-  linkNextOffset: linkNextOffset.value
-}));
+// 末尾处理二选一:延长模式传 extend;衔接模式传 linkNext + linkNextOffset(底层互斥)
+const effectiveRanges = computed(() => {
+  const opts = endMode.value === 'linkNext'
+    ? { offset: offset.value, linkNext: true, linkNextOffset: endOffset.value }
+    : { offset: offset.value, extend: endOffset.value };
+  return computeEffectiveRanges(sentences.value, opts);
+});
 
 function onTweak(key, val) {
   if (key === 'offset') offset.value = val;
-  else if (key === 'extend') extend.value = val;
-  else if (key === 'linkNext') linkNext.value = val;
-  else if (key === 'linkNextOffset') linkNextOffset.value = val;
+  else if (key === 'endMode') endMode.value = val;
+  else if (key === 'endOffset') endOffset.value = val;
   else console.warn('未知微调参数：', key);
 }
 let player = null;
@@ -232,9 +231,8 @@ onUnmounted(() => {
       :levels="store.getLevels()"
       :enabled="enabled"
       :offset="offset"
-      :extend="extend"
-      :link-next="linkNext"
-      :link-next-offset="linkNextOffset"
+      :end-mode="endMode"
+      :end-offset="endOffset"
       :highlight-on="highlightOn"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"

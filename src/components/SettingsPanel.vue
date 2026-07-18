@@ -5,9 +5,8 @@ const props = defineProps({
   levels: { type: Array, required: true },
   enabled: { type: Object, required: true },
   offset: { type: Number, default: 0 },
-  extend: { type: Number, default: 0 },
-  linkNext: { type: Boolean, default: false },
-  linkNextOffset: { type: Number, default: -0.1 },
+  endMode: { type: String, default: 'extend' },     // 'extend' | 'linkNext'
+  endOffset: { type: Number, default: 0 },
   highlightOn: { type: Boolean, default: true }
 });
 const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight']);
@@ -24,6 +23,10 @@ function onMediaChange(e) {
 }
 function onTweak(key, val) {
   emit('tweak', key, val);
+}
+// 末尾处理模式循环切换:末尾延长 ↔ 句末衔接
+function cycleEndMode() {
+  emit('tweak', 'endMode', props.endMode === 'extend' ? 'linkNext' : 'extend');
 }
 </script>
 
@@ -56,11 +59,11 @@ function onTweak(key, val) {
           <span class="switch" aria-hidden="true"></span>
         </label>
       </div>
-      <label class="level-pill sub" :class="{ off: !highlightOn }">
+      <!-- 词汇提示:扁平行(与分级卡片区分) -->
+      <label class="option-row" :class="{ off: !highlightOn }">
         <input type="checkbox" class="sr-only" :checked="highlightOn"
                @change="emit('toggle-highlight', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">用背景色突出单词</span>
+        <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
       </label>
     </section>
@@ -68,25 +71,21 @@ function onTweak(key, val) {
     <!-- 字幕微调 -->
     <section class="tweak">
       <h3 class="panel-title">字幕微调</h3>
-      <label class="tweak-row">起始偏移(秒)
+      <label class="tweak-row">起始偏移
         <input type="number" min="-10" max="10" step="0.1" :value="offset"
                @change="onTweak('offset', parseFloat($event.target.value) || 0)" />
       </label>
-      <label class="tweak-row">末尾延长(秒)
-        <input type="number" min="0" max="5" step="0.1" :value="extend"
-               @change="onTweak('extend', parseFloat($event.target.value) || 0)" />
-      </label>
-      <label class="level-pill sub" :class="{ off: !linkNext }">
-        <input type="checkbox" class="sr-only" :checked="linkNext"
-               @change="onTweak('linkNext', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">句末衔接</span>
-        <span class="switch" aria-hidden="true"></span>
-      </label>
-      <label v-show="linkNext" class="tweak-row">句末衔接偏移(秒)
-        <input type="number" min="-5" max="5" step="0.1" :value="linkNextOffset"
-               @change="onTweak('linkNextOffset', parseFloat($event.target.value) || 0)" />
-      </label>
+      <!-- 末尾处理:点击文字/箭头在「末尾延长 ↔ 句末衔接」间切换,共用一个偏移输入 -->
+      <div class="tweak-row">
+        <button type="button" class="mode-btn" :class="{ link: endMode === 'linkNext' }"
+                @click="cycleEndMode"
+                :title="endMode === 'linkNext' ? '当前:句末衔接(点击切换为末尾延长)' : '当前:末尾延长(点击切换为句末衔接)'">
+          <span class="mode-label">{{ endMode === 'linkNext' ? '句末衔接' : '末尾延长' }}</span>
+          <span class="cycle-icon" aria-hidden="true">↻</span>
+        </button>
+        <input type="number" min="-5" max="5" step="0.1" :value="endOffset"
+               @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
+      </div>
     </section>
   </aside>
 </template>
