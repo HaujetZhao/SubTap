@@ -23,6 +23,13 @@ for (const lv of store.getLevels()) enabled[lv] = store.isEnabled(lv);
 // 高亮总开关（默认开，只控中栏）
 const highlightOn = ref(true);
 
+// 语音朗读(Web Speech API,无媒体时的播放替代)
+const ttsOn = ref(false);
+const ttsLang = ref('en-US');
+const ttsRate = ref(1);
+const ttsVoiceURI = ref('');   // 空 = 用语言默认声音
+const voices = ref([]);
+
 // 全局状态
 const sentences = ref([]);
 const currentId = ref(null);
@@ -115,7 +122,15 @@ function onTweak(key, val) {
   if (key === 'offset') offset.value = val;
   else if (key === 'endMode') endMode.value = val;
   else if (key === 'endOffset') endOffset.value = val;
+  else if (key === 'ttsLang') ttsLang.value = val;
+  else if (key === 'ttsRate') ttsRate.value = val;
+  else if (key === 'ttsVoiceURI') ttsVoiceURI.value = val;
   else console.warn('未知微调参数：', key);
+}
+// 语音朗读开关:关闭时停止正在进行的朗读
+function onToggleTts(val) {
+  ttsOn.value = val;
+  if (!val) stopSpeech();
 }
 let player = null;
 
@@ -176,7 +191,12 @@ function speakSentence(text) {
   const english = (text.split('\n')[0] || text).trim();   // 双语字幕取首行英文
   if (!english) return;
   const u = new SpeechSynthesisUtterance(english);
-  u.lang = 'en-US';
+  u.lang = ttsLang.value;
+  u.rate = ttsRate.value;
+  if (ttsVoiceURI.value) {
+    const vc = voices.value.find(v => v.voiceURI === ttsVoiceURI.value);
+    if (vc) u.voice = vc;
+  }
   u.onend = () => { isPlaying.value = false; };
   u.onerror = () => { isPlaying.value = false; };
   window.speechSynthesis.speak(u);
@@ -188,7 +208,8 @@ function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
   if (!mediaName.value) {
-    speakSentence(sentence.text);
+    if (ttsOn.value) speakSentence(sentence.text);
+    else notify('请先选择音/视频文件', 'error');
     return;
   }
   const r = effectiveRanges.value.get(sentence.id) || { effStart: sentence.start, effEnd: sentence.end };
@@ -247,6 +268,12 @@ onMounted(() => {
     }
   });
   window.addEventListener('keydown', onKeydown);
+  // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)
+  function loadVoices() {
+    if ('speechSynthesis' in window) voices.value = window.speechSynthesis.getVoices();
+  }
+  loadVoices();
+  if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
 });
 
 onUnmounted(() => {
@@ -265,11 +292,17 @@ onUnmounted(() => {
       :end-mode="endMode"
       :end-offset="endOffset"
       :highlight-on="highlightOn"
+      :tts-on="ttsOn"
+      :tts-lang="ttsLang"
+      :tts-rate="ttsRate"
+      :tts-voice-uri="ttsVoiceURI"
+      :voices="voices"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
+      @toggle-tts="onToggleTts"
     />
     <main class="panel-center">
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">

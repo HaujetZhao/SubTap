@@ -162,6 +162,23 @@ body {
 .level-pill .dot.muted { background: var(--ink-3); }
 .level-pill .label-text { flex: 1; }
 
+/* 功能开关展开的子选项(缩进块) */
+.sub-options {
+  margin: 4px 0 6px 14px;
+  padding: 8px 10px 10px;
+  border-left: 2px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.opt-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.opt-name { flex: 1; }
+.opt-select {
+  font-size: 13px; padding: 3px 6px; border: 1px solid var(--border-strong);
+  border-radius: 6px; background: #fff; color: var(--ink); max-width: 124px;
+}
+.opt-ctrl { display: flex; align-items: center; gap: 6px; }
+.opt-range { width: 90px; accent-color: var(--accent); vertical-align: middle; }
+.opt-val { font-size: 12px; color: var(--ink-3); min-width: 24px; text-align: right; font-variant-numeric: tabular-nums; }
+
 /* 药丸开关(纯 CSS,随父级 .off 切换) */
 .switch {
   width: 26px; height: 15px; border-radius: 8px; background: var(--accent);

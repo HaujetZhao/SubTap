@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { LEVEL_COLORS } from '../level-colors.js';
 
 const props = defineProps({
@@ -7,9 +8,20 @@ const props = defineProps({
   offset: { type: Number, default: 0 },
   endMode: { type: String, default: 'extend' },     // 'extend' | 'linkNext'
   endOffset: { type: Number, default: 0 },
-  highlightOn: { type: Boolean, default: true }
+  highlightOn: { type: Boolean, default: true },
+  ttsOn: { type: Boolean, default: false },
+  ttsLang: { type: String, default: 'en-US' },
+  ttsRate: { type: Number, default: 1 },
+  ttsVoiceURI: { type: String, default: '' },
+  voices: { type: Array, default: () => [] }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts']);
+
+// 当前语言对应的可选声音(按语言前缀过滤)
+const ttsVoiceList = computed(() => {
+  const prefix = props.ttsLang.split('-')[0];
+  return props.voices.filter(v => v.lang.split('-')[0] === prefix);
+});
 
 function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
 
@@ -71,6 +83,44 @@ function cycleEndMode() {
         <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
       </label>
+      <label class="level-pill" :class="{ off: !ttsOn }">
+        <input type="checkbox" class="sr-only" :checked="ttsOn"
+               @change="emit('toggle-tts', $event.target.checked)" />
+        <span class="dot muted"></span>
+        <span class="label-text">语音朗读</span>
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+      <div v-if="ttsOn" class="sub-options">
+        <label class="opt-row">
+          <span class="opt-name">语言</span>
+          <select class="opt-select" :value="ttsLang"
+                  @change="onTweak('ttsLang', $event.target.value); onTweak('ttsVoiceURI', '')">
+            <option value="en-US">英语(美)</option>
+            <option value="en-GB">英语(英)</option>
+            <option value="zh-CN">中文</option>
+            <option value="ja-JP">日语</option>
+            <option value="ko-KR">韩语</option>
+            <option value="fr-FR">法语</option>
+            <option value="de-DE">德语</option>
+          </select>
+        </label>
+        <label class="opt-row">
+          <span class="opt-name">声音</span>
+          <select class="opt-select" :value="ttsVoiceURI"
+                  @change="onTweak('ttsVoiceURI', $event.target.value)">
+            <option value="">默认</option>
+            <option v-for="v in ttsVoiceList" :key="v.voiceURI" :value="v.voiceURI">{{ v.name }}</option>
+          </select>
+        </label>
+        <div class="opt-row">
+          <span class="opt-name">语速</span>
+          <span class="opt-ctrl">
+            <input type="range" class="opt-range" min="0.5" max="2" step="0.1"
+                   :value="ttsRate" @input="onTweak('ttsRate', parseFloat($event.target.value))" />
+            <span class="opt-val">{{ ttsRate.toFixed(1) }}</span>
+          </span>
+        </div>
+      </div>
     </section>
 
     <!-- 字幕微调 -->
