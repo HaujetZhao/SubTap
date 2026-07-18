@@ -15,7 +15,9 @@ export function timestampToSeconds(ts) {
 export function parseSRT(text) {
   let captions;
   try {
-    captions = subsrt.parse(text);
+    // subsrt 的块分割正则对 LF 换行有 bug(VTT 等会被整段误判),统一成 CRLF 规避
+    const norm = text.replace(/\r?\n/g, '\r\n');
+    captions = subsrt.parse(norm);
   } catch (e) {
     return [];
   }
