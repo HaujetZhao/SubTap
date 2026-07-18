@@ -22,6 +22,11 @@ const ttsVoiceList = computed(() => {
   const prefix = props.ttsLang.split('-')[0];
   return props.voices.filter(v => v.lang.split('-')[0] === prefix);
 });
+// v-model 桥接：voices 动态变化时 <select> 用 v-model 比 :value+@change 更稳健
+const ttsVoiceModel = computed({
+  get: () => props.ttsVoiceURI,
+  set: (val) => emit('tweak', 'ttsVoiceURI', val),
+});
 
 function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
 
@@ -112,8 +117,7 @@ function cycleEndMode() {
         </label>
         <label class="opt-row">
           <span class="opt-name">声音</span>
-          <select class="opt-select" :value="ttsVoiceURI"
-                  @change="onTweak('ttsVoiceURI', $event.target.value)">
+          <select class="opt-select" v-model="ttsVoiceModel">
             <option value="">默认</option>
             <option v-for="v in ttsVoiceList" :key="v.voiceURI" :value="v.voiceURI">{{ v.name }}</option>
           </select>
