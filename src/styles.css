@@ -95,7 +95,6 @@ body {
 .empty-head { text-align: center; }
 .empty-title { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: .5px; }
 .empty-title .en { font-size: 18px; font-weight: 500; color: var(--ink-3); margin-left: 4px; letter-spacing: .5px; }
-.empty-note { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
 .empty-sub { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
 .empty-grid { display: flex; gap: 14px; width: 100%; max-width: 560px; }
 .empty-card {
