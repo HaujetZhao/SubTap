@@ -76,6 +76,13 @@ function closeRight() { rightCollapsed.value = true; }
 function toggleLeft()  { leftCollapsed.value  ? openLeft()  : closeLeft(); }
 function toggleRight() { rightCollapsed.value ? openRight() : closeRight(); }
 
+// scrim 显示条件:任一栏处于 overlay 模式且未折叠。
+const scrimShow = computed(() =>
+  (leftOverlay.value  && !leftCollapsed.value) ||
+  (rightOverlay.value && !rightCollapsed.value)
+);
+function closeBoth() { leftCollapsed.value = true; rightCollapsed.value = true; }
+
 // toast:自动消失的状态消息(成功/错误均 2.5s)
 const toasts = reactive([]);
 let toastSeq = 0;
@@ -378,6 +385,7 @@ onUnmounted(() => {
       @collapse="closeRight"
     />
   </div>
+  <div class="scrim" :class="{ show: scrimShow }" @click="closeBoth"></div>
   <div class="toast-container">
     <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
          @click="dismiss(t.id)"

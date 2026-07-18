@@ -381,3 +381,58 @@ body {
 
 @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ============ overlay 模式 ============ */
+/* 中屏(≤1100):左栏转 overlay 抽屉 */
+@media (max-width: 1100px) {
+  .panel-left {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    max-width: none;                 /* 覆盖 push 的 max-width */
+    width: var(--panel-left-w);
+    z-index: 40;
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(0);
+    transition: transform var(--dur-panel) var(--ease-panel);
+    border-right: 1px solid var(--border);
+  }
+  .panel-left.collapsed {
+    transform: translateX(-100%);
+    max-width: none;
+    width: var(--panel-left-w);
+    box-shadow: none;
+    border-right-color: transparent;
+  }
+}
+
+/* 窄屏(≤768):右栏也转 overlay(镜像) */
+@media (max-width: 768px) {
+  .panel-right {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    max-width: none;
+    width: var(--panel-right-w);
+    z-index: 40;
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(0);
+    transition: transform var(--dur-panel) var(--ease-panel);
+    border-left: 1px solid var(--border);
+  }
+  .panel-right.collapsed {
+    transform: translateX(100%);
+    max-width: none;
+    width: var(--panel-right-w);
+    box-shadow: none;
+    border-left-color: transparent;
+  }
+}
+
+/* 遮罩:任一 overlay 栏展开时显示,点它关两栏 */
+.scrim {
+  position: fixed; inset: 0;
+  background: rgba(60,50,40,.3);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-panel) var(--ease-panel);
+  z-index: 30;
+}
+.scrim.show { opacity: 1; pointer-events: auto; }
