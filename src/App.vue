@@ -349,6 +349,8 @@ onUnmounted(() => {
       @collapse="closeLeft"
     />
     <main class="panel-center">
+      <button v-show="leftCollapsed" class="fab fab-left" title="展开设置栏（[）" @click="openLeft">☰</button>
+      <button v-show="rightCollapsed" class="fab fab-right" title="展开词卡栏（]）" @click="openRight">☰</button>
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
                preload="metadata" :style="{ height: videoHeight + 'px' }"></video>
