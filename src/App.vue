@@ -181,6 +181,8 @@ function onKeydown(e) {
       if (idx >= 0) playSentence(sentences.value[idx]);          // 重读当前句（不滚动）
       break;
     case 'ArrowRight':
+    case ' ':              // 空格 = 结束播放（同 →）
+    case 'Spacebar':
       e.preventDefault();
       if (player) player.stop();                                 // 结束当前句
       break;
