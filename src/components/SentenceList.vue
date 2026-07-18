@@ -43,7 +43,26 @@ function tokStyle(tok) {
 
 <template>
   <div class="sentences" ref="containerRef">
-    <div v-if="!sentences.length" class="placeholder">选择字幕后，句子列表会显示在这里</div>
+    <div v-if="!sentences.length" class="empty">
+      <div class="empty-head">
+        <div class="empty-title">字幕点读器<span class="dash"> —— </span>英语学习助手</div>
+        <div class="empty-sub">先读句子、再点听,主动学英语。</div>
+      </div>
+      <div class="empty-grid">
+        <div class="empty-card">
+          <div class="empty-card-h">三步上手</div>
+          <div class="empty-step"><span class="num">1</span><span>打开字幕 + 打开音/视频</span></div>
+          <div class="empty-step"><span class="num">2</span><span>点句子播放该句</span></div>
+          <div class="empty-step"><span class="num">3</span><span>勾选词库分级着色</span></div>
+        </div>
+        <div class="empty-card">
+          <div class="empty-card-h">快捷键</div>
+          <div class="empty-key"><kbd>↑</kbd><kbd>↓</kbd>上/下一句</div>
+          <div class="empty-key"><kbd>←</kbd>重读当前句</div>
+          <div class="empty-key"><kbd>→</kbd>停止(或空格)</div>
+        </div>
+      </div>
+    </div>
     <div
       v-for="s in sentences"
       :key="s.id"
