@@ -80,10 +80,10 @@ function onTweak(key, val) {
         <input type="checkbox" class="sr-only" :checked="linkNext"
                @change="onTweak('linkNext', $event.target.checked)" />
         <span class="dot muted"></span>
-        <span class="label-text">句末连接(播到下一句开头)</span>
+        <span class="label-text">句末衔接</span>
         <span class="switch" aria-hidden="true"></span>
       </label>
-      <label v-show="linkNext" class="tweak-row">句末连接偏移(秒)
+      <label v-show="linkNext" class="tweak-row">句末衔接偏移(秒)
         <input type="number" min="-5" max="5" step="0.1" :value="linkNextOffset"
                @change="onTweak('linkNextOffset', parseFloat($event.target.value) || 0)" />
       </label>
