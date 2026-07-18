@@ -42,7 +42,7 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
       <div v-for="lv in visibleLevels" :key="lv" class="word-group">
         <h4 :style="{ color: titleColor(lv) }">
           {{ lv }}
-          <span class="count-pill" :style="{ background: titleColor(lv) }">{{ groups[lv].length }}</span>
+          <span class="count-pill" :style="{ background: titleColor(lv) + '22', color: titleColor(lv) }">{{ groups[lv].length }}</span>
         </h4>
         <div v-for="w in groups[lv]" :key="w.word" class="word">
           <div class="w">{{ w.word }}</div>
