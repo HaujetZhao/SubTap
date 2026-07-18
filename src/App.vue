@@ -352,9 +352,14 @@ onMounted(() => {
     }
   });
   window.addEventListener('keydown', onKeydown);
-  // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)
+  // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
+  // 注意:getVoices() 中途可能返回空数组,直接覆盖会清空已加载声音 → 声音下拉只剩"默认"。
+  // 空结果忽略。
   function loadVoices() {
-    if ('speechSynthesis' in window) voices.value = window.speechSynthesis.getVoices();
+    if ('speechSynthesis' in window) {
+      const list = window.speechSynthesis.getVoices();
+      if (list.length) voices.value = list;
+    }
   }
   loadVoices();
   if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;

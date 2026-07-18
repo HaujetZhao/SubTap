@@ -12,7 +12,10 @@ const props = defineProps({
   ttsOn: { type: Boolean, default: false },
   ttsLang: { type: String, default: 'en-US' },
   ttsRate: { type: Number, default: 1 },
-  ttsVoiceURI: { type: String, default: '' },
+  // 注意:prop 名必须叫 ttsVoiceUri(对应父级 :tts-voice-uri)。
+  // 若叫 ttsVoiceURI,Vue 的 kebab 归并会把 tts-voice-uri 解析成 ttsVoiceUri 而非 ttsVoiceURI,
+  // 导致 prop 拿不到值、声音 select 一直显示"默认"。
+  ttsVoiceUri: { type: String, default: '' },
   voices: { type: Array, default: () => [] }
 });
 const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse', 'resizestart']);
@@ -22,11 +25,9 @@ const ttsVoiceList = computed(() => {
   const prefix = props.ttsLang.split('-')[0];
   return props.voices.filter(v => v.lang.split('-')[0] === prefix);
 });
-// v-model 桥接：voices 动态变化时 <select> 用 v-model 比 :value+@change 更稳健
-const ttsVoiceModel = computed({
-  get: () => props.ttsVoiceURI,
-  set: (val) => emit('tweak', 'ttsVoiceURI', val),
-});
+// 注意:声音 <select> 不能用 computed({get:set:}) 做 v-model 桥——
+// Vue 3 的 vModelSelect 时序下,选中后显示会回退到默认(已实测复现)。
+// 改用 :value + @change 直绑 prop。
 
 function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
 
@@ -117,7 +118,8 @@ function cycleEndMode() {
         </label>
         <label class="opt-row">
           <span class="opt-name">声音</span>
-          <select class="opt-select" v-model="ttsVoiceModel">
+          <select class="opt-select" :value="ttsVoiceUri"
+                  @change="onTweak('ttsVoiceURI', $event.target.value)">
             <option value="">默认</option>
             <option v-for="v in ttsVoiceList" :key="v.voiceURI" :value="v.voiceURI">{{ v.name }}</option>
           </select>

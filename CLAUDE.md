@@ -59,6 +59,8 @@ npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlef
 7. **按需滚动**：`SentenceList.ensureVisible()` 仅当当前选中句不在视窗内才滚到顶部；只在键盘 ↑↓ 切换后调用。
 8. **自定义 tooltip**：`.tip` 深色药丸（`mode-toggle` 与 `level-pill` 共用），hover 即时出现 + 淡入；关闭态淡化只作用于圆点/文字，不影响 tooltip。
 9. **subsrt 生产构建坑**：subsrt 用动态 `require('./format/'+名+'.js')`，Rollup 无法静态解析 → 必须在 `vite.config.js` 配 `build.commonjsOptions.dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js']`，否则构建产物运行时抛 "Could not dynamically require"、整页空白（dev 用 esbuild 不暴露此问题）。
+10. **Vue prop 命名别用全大写缩写词（URI/ID/URL…）**：父组件模板里 kebab-case 绑定（如 `:tts-voice-uri`）会被 Vue 归并成驼峰 `ttsVoiceUri`（每段按"一个单词"处理、全小写化），若 prop 声明成 `ttsVoiceURI` 则名字对不上、prop 永远是 `undefined` → 下拉框 `:value` 一直为空、显示"默认"（值靠 emit 事件标签字符串走另一条路，所以会出现"显示默认、实际声音对"）。约定：prop 名用小写 `ttsVoiceUri`/`mediaId`，别写 `ttsVoiceURI`/`mediaID`。子组件声音 `<select>` 用 `:value` + `@change`，**不要**用 `computed({get:()=>props.x, set:emit})` 做 v-model 桥——`vModelSelect` 时序下选中后显示会回退默认。
+11. **Chrome `getVoices()` 会中途返回空数组**：`onvoiceschanged` 在 Chrome 会多次触发，且中途可能返回 `[]`。`loadVoices` 必须**空结果不覆盖**（`if (list.length) voices.value = list`），否则会把已加载的声音清空、下拉只剩"默认"。
 
 ## 数据
 
