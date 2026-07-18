@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
 import { buildVocab, classifyWords, tokenizeForRender } from './word-lookup.js';
@@ -153,6 +153,12 @@ function playSentence(sentence) {
 // 当前选中句在列表中的索引（未选为 -1）
 const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
 
+const sentenceListRef = ref(null);
+// 键盘上下切换后，若目标句不在视窗内则滚到容器顶部（平滑）；在视窗内则不动。
+function ensureActiveVisible() {
+  nextTick(() => sentenceListRef.value?.ensureVisible());
+}
+
 // 方向键播放控制。焦点在输入框时不拦截，避免影响微调数字输入。
 function onKeydown(e) {
   const tag = (e.target.tagName || '').toLowerCase();
@@ -163,16 +169,16 @@ function onKeydown(e) {
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault();
-      if (idx < 0) playSentence(sentences.value[0]);            // 未选 → 第一句
-      else if (idx < n - 1) playSentence(sentences.value[idx + 1]); // 下一句
+      if (idx < 0) { playSentence(sentences.value[0]); ensureActiveVisible(); }            // 未选 → 第一句
+      else if (idx < n - 1) { playSentence(sentences.value[idx + 1]); ensureActiveVisible(); } // 下一句
       break; // 末句 → 不操作
     case 'ArrowUp':
       e.preventDefault();
-      if (idx > 0) playSentence(sentences.value[idx - 1]);      // 上一句
+      if (idx > 0) { playSentence(sentences.value[idx - 1]); ensureActiveVisible(); }      // 上一句
       break; // 未选/首句 → 不操作
     case 'ArrowLeft':
       e.preventDefault();
-      if (idx >= 0) playSentence(sentences.value[idx]);          // 重读当前句
+      if (idx >= 0) playSentence(sentences.value[idx]);          // 重读当前句（不滚动）
       break;
     case 'ArrowRight':
       e.preventDefault();
@@ -224,6 +230,7 @@ onUnmounted(() => {
         <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
       </div>
       <SentenceList
+        ref="sentenceListRef"
         :sentences="renderedSentences"
         :current-id="currentId"
         :is-playing="isPlaying"

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
   sentences: { type: Array, required: true },   // 含 tokens 的 renderedSentences
@@ -13,21 +13,19 @@ const emit = defineEmits(['click']);
 
 const containerRef = ref(null);
 
-// 选中句变化（鼠标点击或键盘切换）→ 滚动让其顶部落在容器高度 1/3 处（视觉更稳）。
-// 用相对差调整 scrollTop，配合容器 CSS scroll-behavior:smooth 产生平滑动画；
-// 顶部/底部自然夹边界（滚不到 1/3 就停在边界）。
-watch(() => props.currentId, (id, old) => {
-  if (id == null || id === old) return;
-  nextTick(() => {
-    const c = containerRef.value;
-    const el = c && c.querySelector('.sentence.active');
-    if (!c || !el) return;
-    const cR = c.getBoundingClientRect();
-    const eR = el.getBoundingClientRect();
-    const delta = (eR.top - cR.top) - c.clientHeight / 3;
-    c.scrollTop += delta;
-  });
-});
+// 供父组件调用：仅当当前选中句【不在视窗内】时，滚动让其顶部对齐容器顶部。
+// 平滑动画由容器 CSS scroll-behavior:smooth 提供；顶部/底部自然夹边界。
+// 设计：只在键盘上下切换时按需调用，避免每次切换都滚动干扰注意力。
+function ensureVisible() {
+  const c = containerRef.value;
+  const el = c && c.querySelector('.sentence.active');
+  if (!c || !el) return;
+  const cR = c.getBoundingClientRect();
+  const eR = el.getBoundingClientRect();
+  if (eR.top >= cR.top && eR.bottom <= cR.bottom) return; // 已完全在视窗内，不滚
+  c.scrollTop += (eR.top - cR.top); // 否则滚到容器顶部
+}
+defineExpose({ ensureVisible });
 
 function fmt(sec) {
   const m = Math.floor(sec / 60);
