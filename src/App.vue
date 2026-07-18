@@ -38,19 +38,14 @@ const isPlaying = ref(false);
 const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
 
-// 双栏折叠状态(localStorage 持久化)。collapsed=true → 该栏不可见。
-const LS_KEY = 'subtap-panels';
-function loadPanels() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
-  catch { return {}; }
-}
-const _saved = loadPanels();
-const leftCollapsed  = ref(_saved.leftCollapsed  ?? false);
-const rightCollapsed = ref(_saved.rightCollapsed ?? false);
-watch([leftCollapsed, rightCollapsed], ([l, r]) => {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ leftCollapsed: l, rightCollapsed: r })); }
-  catch { /* 隐私模式等忽略 */ }
-});
+// 双栏折叠:由视窗宽度自动驱动。手动折叠/FAB/快捷键=临时覆盖,
+// 跨临界点(1280/950)由 matchMedia change 重置回自动态,无需覆盖标志位。
+const mqlLeftCollapse  = window.matchMedia('(max-width: 1280px)');
+const mqlRightCollapse = window.matchMedia('(max-width: 950px)');
+const leftCollapsed  = ref(mqlLeftCollapse.matches);
+const rightCollapsed = ref(mqlRightCollapse.matches);
+mqlLeftCollapse .addEventListener('change', () => { leftCollapsed.value  = mqlLeftCollapse.matches; });
+mqlRightCollapse.addEventListener('change', () => { rightCollapsed.value = mqlRightCollapse.matches; });
 
 // 断点感知:左栏 overlay(≤1100)、右栏 overlay(≤768)。change 时更新 ref 驱动模板。
 const mqlLeft  = window.matchMedia(`(max-width: 1100px)`);
