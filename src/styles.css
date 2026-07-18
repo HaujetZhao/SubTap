@@ -158,7 +158,8 @@ body {
   cursor: pointer; transition: background .15s; position: relative;
 }
 .level-pill:hover { background: #f1ede6; }
-.level-pill.off { opacity: .5; }
+.level-pill.off .dot,
+.level-pill.off .label-text { opacity: .5; }
 .level-pill .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .level-pill .dot.muted { background: var(--ink-3); }
 .level-pill .label-text { flex: 1; }
