@@ -82,8 +82,8 @@ body {
   padding: 1px 7px; border-radius: 8px;
 }
 .word { background: #f7f5f1; border-radius: var(--r-md); padding: 8px 11px; margin-bottom: 6px; }
-.word .w { font-weight: 600; font-size: 15px; }
-.word .def { font-size: 13px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
+.word .w { font-weight: 600; font-size: 16px; }
+.word .def { font-size: 14px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
 
 .placeholder { color: var(--ink-3); font-size: 14px; }
 
@@ -169,11 +169,11 @@ body {
 .tweak { display: flex; flex-direction: column; gap: 8px; }
 .tweak-row {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 13px; color: var(--ink-2); gap: 8px;
+  font-size: 14px; color: var(--ink-2); gap: 8px;
 }
 .tweak-row input[type="number"] {
   width: 64px; padding: 4px 8px; border: 1px solid var(--border-strong);
-  border-radius: 7px; background: #fff; font-size: 13px; text-align: right;
+  border-radius: 7px; background: #fff; font-size: 14px; text-align: right;
   color: var(--ink);
 }
 .tweak-row input[type="number"]:focus { outline: none; border-color: var(--accent-2); }
