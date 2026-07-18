@@ -275,6 +275,9 @@ function ensureActiveVisible() {
 function onKeydown(e) {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
+  // 面板收展快捷键:不依赖字幕,空载引导页也可用。
+  if (e.key === '[') { e.preventDefault(); toggleLeft(); return; }
+  if (e.key === ']') { e.preventDefault(); toggleRight(); return; }
   if (!sentences.value.length) return;
   const n = sentences.value.length;
   const idx = currentIdx.value;
@@ -299,14 +302,6 @@ function onKeydown(e) {
       if (player) player.stop();                                 // 结束媒体播放
       stopSpeech();                                              // 结束语音朗读
       isPlaying.value = false;
-      break;
-    case '[':
-      e.preventDefault();
-      toggleLeft();
-      break;
-    case ']':
-      e.preventDefault();
-      toggleRight();
       break;
   }
 }
