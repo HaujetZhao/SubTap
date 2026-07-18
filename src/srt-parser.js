@@ -17,6 +17,8 @@ export function parseSRT(text) {
   try {
     // subsrt 的块分割正则对 LF 换行有 bug(VTT 等会被整段误判),统一成 CRLF 规避
     const norm = text.replace(/\r?\n/g, '\r\n');
+    const fmt = subsrt.detect(norm);
+    if (fmt === 'lrc') return [];   // LRC 无逐句结束时间,不适合点读,不支持
     captions = subsrt.parse(norm);
   } catch (e) {
     return [];
