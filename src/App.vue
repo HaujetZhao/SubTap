@@ -38,14 +38,41 @@ const isPlaying = ref(false);
 const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
 
-// 双栏折叠:由视窗宽度自动驱动。手动折叠/FAB/快捷键=临时覆盖,
-// 跨临界点(1280/950)由 matchMedia change 重置回自动态,无需覆盖标志位。
-const mqlLeftCollapse  = window.matchMedia('(max-width: 1280px)');
-const mqlRightCollapse = window.matchMedia('(max-width: 950px)');
-const leftCollapsed  = ref(mqlLeftCollapse.matches);
-const rightCollapsed = ref(mqlRightCollapse.matches);
-mqlLeftCollapse .addEventListener('change', () => { leftCollapsed.value  = mqlLeftCollapse.matches; });
-mqlRightCollapse.addEventListener('change', () => { rightCollapsed.value = mqlRightCollapse.matches; });
+// 三态状态机(仿 DeepSeek):迟滞双阈值自动 pin,手动 hide/overlay 覆盖。
+const BP = { leftPin: 1100, leftUnpin: 1080, rightPin: 800, rightUnpin: 780 };
+const leftPin  = ref(window.innerWidth > BP.leftPin);
+const rightPin = ref(window.innerWidth > BP.rightPin);
+const leftHide  = ref(false);   // 手动折叠覆盖 pin
+const rightHide = ref(false);
+const leftOv  = ref(false);      // 窄屏手动 overlay
+const rightOv = ref(false);
+const sideDragging = ref(false);
+
+function recompute() {
+  const w = window.innerWidth;
+  const lp = leftPin.value, rp = rightPin.value;
+  if (w > BP.leftPin)        leftPin.value  = true;
+  else if (w < BP.leftUnpin) leftPin.value  = false;
+  if (w > BP.rightPin)        rightPin.value = true;
+  else if (w < BP.rightUnpin) rightPin.value = false;
+  // 跨阈值时清手动标志,让自动态重新接管
+  if (leftPin.value  !== lp) { leftHide.value  = false; leftOv.value  = false; }
+  if (rightPin.value !== rp) { rightHide.value = false; rightOv.value = false; }
+}
+let resizeRaf = 0;
+const onWindowResize = () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(recompute); };
+
+const leftPinned  = computed(() => leftPin.value  && !leftHide.value  && !leftOv.value);
+const rightPinned = computed(() => rightPin.value && !rightHide.value && !rightOv.value);
+const hasOverlay  = computed(() => leftOv.value || rightOv.value);
+const layoutClass = computed(() => ({
+  'left-pinned':   leftPinned.value,
+  'right-pinned':  rightPinned.value,
+  'left-overlay':  leftOv.value,
+  'right-overlay': rightOv.value,
+  'has-overlay':   hasOverlay.value,
+  'side-dragging': sideDragging.value,
+}));
 
 // push 模式拖拽调左右栏宽(180–480),持久化。应用走 .layout 的 :style 绑定 CSS var。
 const LS_W = 'subtap-widths';
@@ -57,6 +84,7 @@ watch([leftWidth, rightWidth], ([l, r]) => {
 });
 let sideDrag = null;
 function startSideResize(panel, e) {
+  sideDragging.value = true;
   sideDrag = { panel, x: e.clientX, w: panel === 'left' ? leftWidth.value : rightWidth.value };
   document.addEventListener('mousemove', onSideResize);
   document.addEventListener('mouseup', stopSideResize);
@@ -69,41 +97,27 @@ function onSideResize(e) {
   (sideDrag.panel === 'left' ? leftWidth : rightWidth).value = w;
 }
 function stopSideResize() {
+  sideDragging.value = false;
   sideDrag = null;
   document.removeEventListener('mousemove', onSideResize);
   document.removeEventListener('mouseup', stopSideResize);
 }
 
-// 断点感知:左栏 overlay(≤1100)、右栏 overlay(≤768)。change 时更新 ref 驱动模板。
-const mqlLeft  = window.matchMedia(`(max-width: 1100px)`);
-const mqlRight = window.matchMedia(`(max-width: 768px)`);
-const leftOverlay  = ref(mqlLeft.matches);
-const rightOverlay = ref(mqlRight.matches);
-function onBpChange() {
-  leftOverlay.value  = mqlLeft.matches;
-  rightOverlay.value = mqlRight.matches;
+// 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
+const collapseLeft  = () => leftOv.value  ? (leftOv.value = false)  : (leftHide.value = true);
+const collapseRight = () => rightOv.value ? (rightOv.value = false) : (rightHide.value = true);
+// FAB/快捷键:宽屏 toggle hide(折叠↔展开,与栏顶收起按钮一致),窄屏 toggle overlay(两栏互斥)
+function toggleFab(side) {
+  if (side === 'left') {
+    if (leftPin.value) { leftHide.value = !leftHide.value; leftOv.value = false; }
+    else leftOv.value = !leftOv.value;
+  } else {
+    if (rightPin.value) { rightHide.value = !rightHide.value; rightOv.value = false; }
+    else rightOv.value = !rightOv.value;
+  }
+  if (leftOv.value && rightOv.value) rightOv.value = false;   // 互斥
 }
-
-// 开合收口:折叠按钮 / FAB / 快捷键都走这里。
-function openLeft() {
-  leftCollapsed.value = false;
-  if (rightOverlay.value) rightCollapsed.value = true;   // 窄档互斥
-}
-function openRight() {
-  rightCollapsed.value = false;
-  if (rightOverlay.value) leftCollapsed.value = true;    // 窄档互斥
-}
-function closeLeft()  { leftCollapsed.value = true; }
-function closeRight() { rightCollapsed.value = true; }
-function toggleLeft()  { leftCollapsed.value  ? openLeft()  : closeLeft(); }
-function toggleRight() { rightCollapsed.value ? openRight() : closeRight(); }
-
-// scrim 显示条件:任一栏处于 overlay 模式且未折叠。
-const scrimShow = computed(() =>
-  (leftOverlay.value  && !leftCollapsed.value) ||
-  (rightOverlay.value && !rightCollapsed.value)
-);
-function closeBoth() { leftCollapsed.value = true; rightCollapsed.value = true; }
+const closeBoth = () => { leftOv.value = false; rightOv.value = false; };
 
 // toast:自动消失的状态消息(成功/错误均 2.5s)
 const toasts = reactive([]);
@@ -298,8 +312,8 @@ function onKeydown(e) {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
   // 面板收展快捷键:不依赖字幕,空载引导页也可用。
-  if (e.key === '[') { e.preventDefault(); toggleLeft(); return; }
-  if (e.key === ']') { e.preventDefault(); toggleRight(); return; }
+  if (e.key === '[') { e.preventDefault(); toggleFab('left'); return; }
+  if (e.key === ']') { e.preventDefault(); toggleFab('right'); return; }
   if (!sentences.value.length) return;
   const n = sentences.value.length;
   const idx = currentIdx.value;
@@ -344,21 +358,25 @@ onMounted(() => {
   }
   loadVoices();
   if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
-  mqlLeft.addEventListener('change', onBpChange);
-  mqlRight.addEventListener('change', onBpChange);
+  window.addEventListener('resize', onWindowResize);
+  recompute();
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
+  window.removeEventListener('resize', onWindowResize);
+  cancelAnimationFrame(resizeRaf);
+  if (sideDrag) {                      // 拖拽进行中卸载(仅开发期热重载),清掉 mouse listener
+    document.removeEventListener('mousemove', onSideResize);
+    document.removeEventListener('mouseup', stopSideResize);
+  }
   toasts.forEach(t => clearTimeout(t.timer));
   toasts.splice(0);
-  mqlLeft.removeEventListener('change', onBpChange);
-  mqlRight.removeEventListener('change', onBpChange);
 });
 </script>
 
 <template>
-  <div class="layout" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
+  <div class="layout" :class="layoutClass" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
@@ -371,19 +389,16 @@ onUnmounted(() => {
       :tts-rate="ttsRate"
       :tts-voice-uri="ttsVoiceURI"
       :voices="voices"
-      :collapsed="leftCollapsed"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
-      @collapse="closeLeft"
+      @collapse="collapseLeft"
       @resizestart="startSideResize('left', $event)"
     />
     <main class="panel-center">
-      <button v-show="leftCollapsed" class="fab fab-left" title="展开设置栏（[）" @click="openLeft">☰</button>
-      <button v-show="rightCollapsed" class="fab fab-right" title="展开词卡栏（]）" @click="openRight">☰</button>
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
                preload="metadata" :style="{ height: videoHeight + 'px' }"
@@ -407,12 +422,13 @@ onUnmounted(() => {
       :enabled="enabled"
       :current-text="currentText"
       :colors="LEVEL_COLORS"
-      :collapsed="rightCollapsed"
-      @collapse="closeRight"
+      @collapse="collapseRight"
       @resizestart="startSideResize('right', $event)"
     />
+    <button class="fab fab-left"  title="展开设置栏（[）" @click="toggleFab('left')">☰</button>
+    <button class="fab fab-right" title="展开词卡栏（]）" @click="toggleFab('right')">☰</button>
+    <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
-  <div class="scrim" :class="{ show: scrimShow }" @click="closeBoth"></div>
   <div class="toast-container">
     <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
          @click="dismiss(t.id)"

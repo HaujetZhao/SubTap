@@ -5,8 +5,7 @@ const props = defineProps({
   store: { type: Object, required: true },
   enabled: { type: Object, required: true },
   currentText: { type: String, default: '' },
-  colors: { type: Object, required: true },
-  collapsed: { type: Boolean, default: false }
+  colors: { type: Object, required: true }
 });
 const emit = defineEmits(['collapse', 'resizestart']);
 
@@ -35,7 +34,7 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
 </script>
 
 <template>
-  <aside class="panel-right" :class="{ collapsed }">
+  <aside class="panel-right">
     <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">生词</h3>

@@ -13,8 +13,7 @@ const props = defineProps({
   ttsLang: { type: String, default: 'en-US' },
   ttsRate: { type: Number, default: 1 },
   ttsVoiceURI: { type: String, default: '' },
-  voices: { type: Array, default: () => [] },
-  collapsed: { type: Boolean, default: false }
+  voices: { type: Array, default: () => [] }
 });
 const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse', 'resizestart']);
 
@@ -44,7 +43,7 @@ function cycleEndMode() {
 </script>
 
 <template>
-  <aside class="panel-left" :class="{ collapsed }">
+  <aside class="panel-left">
     <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">文件</h3>
