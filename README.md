@@ -21,22 +21,26 @@ SubTap 想换一种方式：**主动点读**。每一句都要你主动点一下
 - **分级词库** —— 内置 7 级约 34000 词（初中 / 高中 / 四级 / 六级 / 考研 / 托福 / SAT），按难度给句中生词着色，右栏列出释义
 - **多格式字幕** —— SRT / VTT / ASS / SSA / SUB / SBV / SMI（经 [subsrt](https://github.com/papnkukn/subsrt) 解析）
 - **字幕微调** —— 句首偏移校准；句末两种纠偏方式「句末偏移 ↔ 句末衔接」
-- **纯前端单文件** —— 单 HTML 文件，可离线双击打开，也可托管到 GitHub Pages
+- **可安装 / 可离线** —— 在线版是 PWA，可装到桌面/主屏、断网可用；离线版是单 HTML 文件，双击即开
 
 ## 用法
 
 **直接用**（任选其一）：
 
-- 在线用：访问 [SubTap Pages](https://haujetzhao.github.io/SubTap/)
+- 在线用：访问 [SubTap Pages](https://haujetzhao.github.io/SubTap/)（PWA，支持安装到桌面 / 离线使用）
 - 离线用：或下载 [SubTap.html](https://github.com/HaujetZhao/SubTap/releases/latest/download/SubTap.html)，双击打开
 
 **本地开发**：
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # 产出单文件 dist/index.html
+npm run dev          # 开发服务器 http://localhost:5173
+npm run build        # 产出单文件 dist/index.html(给 Release)
+npm run build:pwa    # 产出 PWA 多文件 dist/(给 GitHub Pages,含 service worker)
+npm run preview      # 配合 build:pwa 本地预览 PWA(http://localhost:4173)
 ```
+
+> 在线版（PWA）与离线版（单 HTML）是两套构建：PWA 的 service worker / manifest 必须独立外链、无法内联进单文件，故拆两个 vite 配置。PWA 只能 `build:pwa` 后用 `preview` 验证，`dev` 不生成 service worker。
 
 ## 快捷键
 

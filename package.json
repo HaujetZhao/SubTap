@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:pwa": "vite build --config vite.config.pwa.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
     "vite": "^5.0.0",
+    "vite-plugin-pwa": "^0.20.0",
     "vite-plugin-singlefile": "^2.0.0"
   }
 }

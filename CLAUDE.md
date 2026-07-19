@@ -15,11 +15,17 @@
 ```bash
 npm install          # 首次装依赖
 npm run dev          # 开发服务器 http://localhost:5173
-npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlefile 内联）
+npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlefile 内联，给 Release）
+npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanifest, assets/, icon-*.png}（给 GitHub Pages）
 ```
 
+**双轨构建**：在线版走 PWA，离线版走单 HTML，二者互斥——PWA 的 service worker / manifest 必须是独立外链文件，无法内联进单 HTML，故拆两套 vite 配置（`vite.config.js` 单文件 / `vite.config.pwa.js` PWA）而非参数化（避免 if/else 污染主配置）。
+- `build` = `vite.config.js` + `viteSingleFile()` → 单 HTML（Release 资产 `SubTap.html`）。
+- `build:pwa` = `vite.config.pwa.js` + `vite-plugin-pwa` → 多文件 + SW 预缓存（GitHub Pages 可安装/可离线）。
+- **PWA 只能 build 后验**：`npm run build:pwa && npm run preview`（4173 端口）。`npm run dev` 不生成 SW（VitePWA 默认 `devOptions.enabled: false`），dev 里测不出安装；本地两套构建复用同一 `dist/`，先跑 PWA 再跑单文件会留残渣文件（不影响 release，只 mv index.html）。
+
 - **ES module 需 http 加载**：开发页 `index.html` 和 `test.html` 不能 `file://` 直接双击，要用 `npm run dev` 或 `python -m http.server 8000`。`dist/index.html` 是内联单文件，可双击直接打开。
-- **`dist/` 不入库**（`.gitignore` 忽略），由 GitHub Actions 构建并部署/发布。本地 `npm run build` 仅用于自测。
+- **`dist/` 不入库**（`.gitignore` 忽略），由 GitHub Actions 构建并部署/发布。本地构建仅用于自测。
 - Shell 是 bash（Windows 上），用正斜杠路径；中文文件名注意加引号。
 
 ## 架构
@@ -70,9 +76,10 @@ npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlef
 
 ## CI / 部署
 
-- `.github/workflows/deploy.yml`：push 到 `main` → `npm ci && npm run build` → 部署到 GitHub Pages（<https://haujetzhao.github.io/SubTap/>）。仓库 Settings → Pages → Source = "GitHub Actions"。
-- `.github/workflows/release.yml`：push `v*` 标签 → 构建 → 把 `dist/index.html` 重命名为 `SubTap.html` 附到对应 Release。README 离线链接指向 `releases/latest/download/SubTap.html`。
-- `vite.config.js`：`base:'./'`（适配子路径）+ `commonjsOptions.dynamicRequireTargets`（见上 #9）。
+- `.github/workflows/deploy.yml`：push 到 `main` → `npm ci && npm run build:pwa` → 部署到 GitHub Pages（<https://haujetzhao.github.io/SubTap/>，PWA 可安装/可离线）。仓库 Settings → Pages → Source = "GitHub Actions"。
+- `.github/workflows/release.yml`：push `v*` 标签 → `npm run build`（单文件）→ 把 `dist/index.html` 重命名为 `SubTap.html` 附到对应 Release。README 离线链接指向 `releases/latest/download/SubTap.html`。
+- `vite.config.js`：`base:'./'`（适配子路径）+ `viteSingleFile()`（单文件）+ `commonjsOptions.dynamicRequireTargets`（见上 #9）。
+- `vite.config.pwa.js`：PWA 构建，`vite-plugin-pwa`（generateSW + workbox 预缓存 `**/*.{js,css,html,svg,png,json,wasm}`）+ manifest（图标用 `public/icon-{192,512}.png`，maskable，圆角透明底）；`base:'./'` 适配 GitHub Pages 子路径；同样配 `dynamicRequireTargets`。
 
 ## 测试
 
