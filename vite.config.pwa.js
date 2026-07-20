@@ -12,7 +12,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: '字幕点读器 SubTap',
+        name: 'SubTap · 字幕点读器',
         short_name: 'SubTap',
         description: '字幕点读学英语:载入字幕+音视频,点句即播,词库分级着色。',
         theme_color: '#5a8c6a',

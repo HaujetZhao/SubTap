@@ -87,7 +87,7 @@ function tokStyle(tok) {
 
     <div v-else class="empty">
       <div class="empty-head">
-        <div class="empty-title">字幕点读器 <span class="en">SubTap</span></div>
+        <div class="empty-title">SubTap <span class="zh">字幕点读器</span></div>
         <div class="empty-sub">点读式学习，主动交互，高效学习不犯困</div>
       </div>
       <div class="empty-grid">
