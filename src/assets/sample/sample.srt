@@ -1,0 +1,160 @@
+1
+00:00:00,080 --> 00:00:01,480
+When you encode text into binary
+
+2
+00:00:02,080 --> 00:00:04,200
+it's often nice to use as little data as possible
+
+3
+00:00:04,720 --> 00:00:10,600
+So you might naturally wonder: is there some kind of fundamental limit on how efficiently text can be compressed
+
+4
+00:00:11,520 --> 00:00:14,120
+The default encoding with ASCII is pretty inefficient
+
+5
+00:00:14,640 --> 00:00:16,920
+Each character is represented with eight full bits
+
+6
+00:00:17,360 --> 00:00:18,440
+If you apply a little cleverness
+
+7
+00:00:18,880 --> 00:00:21,400
+associating more common characters with smaller bitstrings
+
+8
+00:00:22,240 --> 00:00:24,840
+you can get this down to an average of around four bits per character
+
+9
+00:00:25,520 --> 00:00:27,240
+And then much smarter methods than that
+
+10
+00:00:27,440 --> 00:00:29,800
+that leverage patterns among long sequences of text
+
+11
+00:00:30,240 --> 00:00:31,320
+can get even better still
+
+12
+00:00:32,080 --> 00:00:32,360
+But again
+
+13
+00:00:32,800 --> 00:00:33,320
+what's the limit
+
+14
+00:00:34,240 --> 00:00:36,520
+I'm guessing many of you might have heard an estimate here
+
+15
+00:00:36,800 --> 00:00:37,880
+I will share one at the end
+
+16
+00:00:38,400 --> 00:00:43,920
+But much more interesting than any single numerical answer is how you would even approach answering it
+
+17
+00:00:44,320 --> 00:00:46,200
+This question dates back at least the 1940s
+
+18
+00:00:47,120 --> 00:00:50,040
+with Claude Shannon's seminal work that kicked off information theory
+
+19
+00:00:50,560 --> 00:00:58,840
+Now what's very interesting is how the math that he developed to answer questions like this has turned out to be surprisingly useful for modern machine learning
+
+20
+00:00:59,520 --> 00:01:01,240
+To take the salient example of today
+
+21
+00:01:01,680 --> 00:01:03,320
+when large language models are trained
+
+22
+00:01:03,920 --> 00:01:08,920
+the pre-training portion of that is usually described as being about next-token prediction
+
+23
+00:01:09,440 --> 00:01:11,960
+specifically using something called cross-entropy loss
+
+24
+00:01:12,560 --> 00:01:13,080
+Now that term
+
+25
+00:01:13,280 --> 00:01:13,480
+cross-entropy
+
+26
+00:01:14,160 --> 00:01:15,560
+has its roots in information theory
+
+27
+00:01:16,000 --> 00:01:23,080
+But what's also interesting is that one of the conclusions of information theory says that prediction and compression are mathematically equivalent
+
+28
+00:01:23,680 --> 00:01:25,720
+They turn out to be two sides of the same coin
+
+29
+00:01:26,400 --> 00:01:33,320
+which means you can entirely reframe how you think about the pre-training objective as not really being about next-token prediction per se
+
+30
+00:01:33,760 --> 00:01:37,800
+but instead as being about creating the most efficient possible text compressor
+
+31
+00:01:38,480 --> 00:01:38,680
+Later
+
+32
+00:01:38,720 --> 00:01:40,200
+I'll explain exactly how that works
+
+33
+00:01:40,400 --> 00:01:41,160
+But when you do
+
+34
+00:01:41,440 --> 00:01:46,400
+I think it offers more clarity on what this notion of cross-entropy really is and why you're using it
+
+35
+00:01:46,720 --> 00:01:46,920
+Also
+
+36
+00:01:47,040 --> 00:01:47,760
+I don't know about you
+
+37
+00:01:47,760 --> 00:01:48,520
+but to me at least
+
+38
+00:01:48,640 --> 00:01:54,520
+there's just something very intriguing about using compression as a fundamental objective while pursuing intelligence
+
+39
+00:01:55,520 --> 00:01:55,800
+In fact
+
+40
+00:01:56,000 --> 00:01:59,160
+some people have gone so far as to say compression is intelligence
+

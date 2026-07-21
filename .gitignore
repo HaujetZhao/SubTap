@@ -3,6 +3,9 @@
 *.m4a
 *.srt
 【官方*
+# 示例素材(随工具发布,入库 — 见 src/assets/sample/)
+!src/assets/sample/sample.srt
+!src/assets/sample/sample.aac
 
 # ===== 词库生成脚本相关（分级单词提取.py 的输入/输出）=====
 *.txt

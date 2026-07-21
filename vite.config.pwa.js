@@ -28,7 +28,7 @@ export default defineConfig({
       },
       workbox: {
         // 缓存所有构建产物,实现完全离线可用
-        globPatterns: ['**/*.{js,css,html,svg,png,json,wasm}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,json,wasm,aac}'],
       },
     }),
   ],
