@@ -10,7 +10,7 @@ const props = defineProps({
   highlightOn: { type: Boolean, default: true },
   colors: { type: Object, required: true }
 });
-const emit = defineEmits(['click']);
+const emit = defineEmits(['click', 'sample']);
 
 // 滚动容器 DOM(getScrollElement 取值要用 ref 的 .value)
 const scrollRef = ref(null);
@@ -105,6 +105,7 @@ function tokStyle(tok) {
           <div class="empty-key"><kbd>F</kbd>收起视频(或双击)</div>
         </div>
       </div>
+      <button class="empty-sample-btn" @click="emit('sample')">▶ 载入示例</button>
       <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>
     </div>
   </div>
