@@ -86,8 +86,8 @@ let sideDrag = null;
 function startSideResize(panel, e) {
   sideDragging.value = true;
   sideDrag = { panel, x: e.clientX, w: panel === 'left' ? leftWidth.value : rightWidth.value };
-  document.addEventListener('mousemove', onSideResize);
-  document.addEventListener('mouseup', stopSideResize);
+  document.addEventListener('pointermove', onSideResize);
+  document.addEventListener('pointerup', stopSideResize);
   e.preventDefault();
 }
 function onSideResize(e) {
@@ -99,8 +99,8 @@ function onSideResize(e) {
 function stopSideResize() {
   sideDragging.value = false;
   sideDrag = null;
-  document.removeEventListener('mousemove', onSideResize);
-  document.removeEventListener('mouseup', stopSideResize);
+  document.removeEventListener('pointermove', onSideResize);
+  document.removeEventListener('pointerup', stopSideResize);
 }
 
 // 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
@@ -164,23 +164,30 @@ function startResize(e) {
   dragging = true;
   dragStartY = e.clientY;
   dragStartH = videoHeight.value;
-  document.addEventListener('mousemove', onResize);
-  document.addEventListener('mouseup', stopResize);
+  // 指针锁定:手指/鼠标移出把手区域仍持续收到 move,鼠标/触摸统一走 Pointer Events
+  e.target.setPointerCapture(e.pointerId);
   e.preventDefault();
 }
 function onResize(e) {
   if (!dragging) return;
-  const delta = e.clientY - dragStartY; // 鼠标向下→手柄向下→视频变高
-  const maxH = window.innerHeight * 0.7;
+  const delta = e.clientY - dragStartY; // 向下拖→把手向下→视频变高
+  const maxH = window.innerHeight * 0.5; // 上限:视窗一半
   let h = dragStartH + delta;
   if (h < 100) h = 100;
   if (h > maxH) h = maxH;
   videoHeight.value = h;
 }
-function stopResize() {
-  dragging = false;
-  document.removeEventListener('mousemove', onResize);
-  document.removeEventListener('mouseup', stopResize);
+function stopResize() { dragging = false; }
+// 视频元数据就绪:按原始宽高比 + 当下容器宽算高度,封顶视窗一半。
+// 视频本身较矮就适配它,而不是一上来占半屏。
+function onVideoMeta() {
+  const v = mediaEl.value;
+  if (!v || !v.videoWidth) return;
+  const w = v.clientWidth || v.parentElement.clientWidth;
+  let h = w * (v.videoHeight / v.videoWidth);
+  const maxH = window.innerHeight * 0.5;
+  if (h > maxH) h = maxH;
+  videoHeight.value = Math.round(h);
 }
 function toggleCollapse() {
   videoCollapsed.value = !videoCollapsed.value;
@@ -250,7 +257,7 @@ function onMediaFile(file) {
   mediaKind.value = isVideo ? 'video' : 'audio';
   if (isVideo) {
     videoCollapsed.value = false;
-    videoHeight.value = Math.round(window.innerHeight / 2);
+    // 高度交由 loadedmetadata 按视频原始比例适配(见 onVideoMeta)
   }
   notify('已载入：' + file.name);
 }
@@ -408,8 +415,11 @@ onUnmounted(() => {
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
         <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
                preload="metadata" :style="{ height: videoHeight + 'px' }"
+               @loadedmetadata="onVideoMeta"
                @dblclick.prevent="toggleCollapse"></video>
-        <div v-show="!videoCollapsed" class="resize-handle" @mousedown="startResize"></div>
+        <div v-show="!videoCollapsed" class="resize-handle"
+             @pointerdown="startResize" @pointermove="onResize"
+             @pointerup="stopResize" @pointercancel="stopResize"></div>
         <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
       </div>
       <SentenceList

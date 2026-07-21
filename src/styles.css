@@ -70,7 +70,7 @@ body {
 /* push 模式拖拽调宽手柄(非 pinned 时隐藏,class 驱动) */
 .side-resize-handle {
   position: absolute; top: 0; bottom: 0; width: 6px;
-  cursor: col-resize; z-index: 5;
+  cursor: col-resize; z-index: 5; touch-action: none;
 }
 .panel-left  > .side-resize-handle { right: -3px; }
 .panel-right > .side-resize-handle { left:  -3px; }
@@ -257,7 +257,7 @@ body {
   font-size: 12px; cursor: pointer; padding: 4px;
 }
 .expand-btn:hover { background: #374151; color: #fff; }
-.resize-handle { height: 6px; cursor: ns-resize; background: #374151; }
+.resize-handle { height: 6px; cursor: ns-resize; background: #374151; touch-action: none; }
 .resize-handle:hover { background: #4b5563; }
 
 /* 视频区：非视频时隐藏（audio 元素仍在 DOM 可播声音） */

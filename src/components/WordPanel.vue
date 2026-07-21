@@ -56,6 +56,6 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
         </div>
       </div>
     </div>
-    <div class="side-resize-handle" title="拖拽调整宽度" @mousedown="emit('resizestart', $event)"></div>
+    <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
   </aside>
 </template>
