@@ -18,18 +18,27 @@ const store = createVocabStore(buildVocab, classifyWords);
 store.init(vocab);
 const vocabTable = store.getVocab();
 
-// 响应式勾选镜像：从 store 默认值读取（初中/高中/四级=false，其余=true）
+// ponytail: 侧栏参数持久化（分级勾选/高亮/TTS/字幕微调），单 key 存 localStorage
+const LS_S = 'subtap-settings';
+const _s = (() => { try { return JSON.parse(localStorage.getItem(LS_S) || '{}'); } catch { return {}; } })();
+
+// 响应式勾选镜像：从 store 默认值读取（初中/高中/四级=false，其余=true），再用存档覆盖
 const enabled = reactive({});
 for (const lv of store.getLevels()) enabled[lv] = store.isEnabled(lv);
+if (_s.enabled) {
+  for (const lv of store.getLevels()) {
+    if (lv in _s.enabled) { enabled[lv] = !!_s.enabled[lv]; store.setEnabled(lv, !!_s.enabled[lv]); }
+  }
+}
 
 // 高亮总开关（默认开，只控中栏）
-const highlightOn = ref(true);
+const highlightOn = ref(_s.highlightOn ?? true);
 
 // 语音朗读(Web Speech API,无媒体时的播放替代)
-const ttsOn = ref(false);
-const ttsLang = ref('en-US');
-const ttsRate = ref(1);
-const ttsVoiceURI = ref('');   // 空 = 用语言默认声音
+const ttsOn = ref(_s.ttsOn ?? false);
+const ttsLang = ref(_s.ttsLang ?? 'en-US');
+const ttsRate = ref(_s.ttsRate ?? 1);
+const ttsVoiceURI = ref(_s.ttsVoiceURI ?? '');   // 空 = 用语言默认声音
 const voices = ref([]);
 
 // 全局状态
@@ -153,9 +162,9 @@ function resumeToast(t) {
 }
 
 // 字幕微调参数:endMode 为末尾处理模式(延长/衔接),endOffset 为两者共用的偏移(秒)
-const offset = ref(0);
-const endMode = ref('extend');   // 'extend' | 'linkNext'
-const endOffset = ref(0);
+const offset = ref(_s.offset ?? 0);
+const endMode = ref(_s.endMode ?? 'extend');   // 'extend' | 'linkNext'
+const endOffset = ref(_s.endOffset ?? 0);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -228,6 +237,22 @@ function onToggleLevel(level, val) {
   enabled[level] = val;
   store.setEnabled(level, val);
 }
+
+// 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调）
+watch(
+  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset],
+  () => {
+    try {
+      localStorage.setItem(LS_S, JSON.stringify({
+        enabled: { ...enabled },
+        highlightOn: highlightOn.value,
+        ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
+        offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
+      }));
+    } catch {}
+  },
+  { deep: true }
+);
 
 // 应用字幕文本(不含提示,由调用方决定文案)。文件按钮与示例按钮共用。
 function applySubtitle(text) {
