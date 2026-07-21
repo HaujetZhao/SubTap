@@ -247,6 +247,20 @@ body {
   transition: color .15s;
 }
 .empty-footer:hover { color: var(--accent-2); }
+.empty-sample-btn {
+  margin-top: 18px;
+  padding: 9px 22px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(90, 140, 106, .2);
+  transition: background .15s;
+}
+.empty-sample-btn:hover { background: #517a5f; }
 
 /* 视频区控件 */
 .video-slot { position: relative; }
