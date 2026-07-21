@@ -10,6 +10,8 @@ import { LEVEL_COLORS } from './level-colors.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
+import sampleSrt from './assets/sample/sample.srt?raw';
+import sampleAudio from './assets/sample/sample.aac';
 
 // 词库 store（框架无关，非响应式）
 const store = createVocabStore(buildVocab, classifyWords);
@@ -227,17 +229,33 @@ function onToggleLevel(level, val) {
   store.setEnabled(level, val);
 }
 
+// 应用字幕文本(不含提示,由调用方决定文案)。文件按钮与示例按钮共用。
+function applySubtitle(text) {
+  sentences.value = parseSRT(text);
+  if (player) player.stop();
+  stopSpeech();
+  currentId.value = null;
+  currentText.value = '';
+  isPlaying.value = false;
+}
+
+// 应用媒体源 URL + 显示名 + 类型。文件按钮与示例按钮共用。
+function applyMediaSrc(url, name, kind) {
+  if (player) player.stop();
+  stopSpeech();
+  isPlaying.value = false;
+  player.setSrc(url);
+  mediaName.value = name;
+  mediaKind.value = kind;
+  if (kind === 'video') videoCollapsed.value = false;
+}
+
 function onSrtFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      sentences.value = parseSRT(reader.result);
-      if (player) player.stop();
-      stopSpeech();
-      currentId.value = null;
-      currentText.value = '';
-      isPlaying.value = false;
+      applySubtitle(reader.result);
       notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
       notify('字幕解析失败：' + e.message, 'error');
@@ -248,18 +266,21 @@ function onSrtFile(file) {
 
 function onMediaFile(file) {
   if (!file) return;
-  if (player) player.stop();
-  stopSpeech();
-  isPlaying.value = false;
-  player.setSrc(URL.createObjectURL(file));
-  mediaName.value = file.name;
   const isVideo = (file.type || '').startsWith('video/');
-  mediaKind.value = isVideo ? 'video' : 'audio';
-  if (isVideo) {
-    videoCollapsed.value = false;
-    // 高度交由 loadedmetadata 按视频原始比例适配(见 onVideoMeta)
-  }
+  applyMediaSrc(URL.createObjectURL(file), file.name, isVideo ? 'video' : 'audio');
   notify('已载入：' + file.name);
+}
+
+// 一键载入内置示例(空载引导页按钮触发):字幕 + 音频,单条成功提示。
+function loadSample() {
+  try {
+    applySubtitle(sampleSrt);
+  } catch (e) {
+    notify('示例字幕解析失败：' + e.message, 'error');
+    return;
+  }
+  applyMediaSrc(sampleAudio, '示例音频', 'audio');
+  notify('已载入示例');
 }
 
 function onSentenceClick(sentence) {
@@ -431,6 +452,7 @@ onUnmounted(() => {
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
         @click="onSentenceClick"
+        @sample="loadSample"
       />
     </main>
     <WordPanel
