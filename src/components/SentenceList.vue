@@ -42,6 +42,10 @@ function onSentenceTouchStart(e, sentence) {
   }, LONG_MS);
 }
 function onSentenceTouchEnd() { clearTimeout(longPressTimer); }
+function onSentenceContextMenu(e, sentence) {
+  e.preventDefault();
+  copySentence(sentence);
+}
 function onSentenceClick(sentence) {
   if (longPressFired) { longPressFired = false; return; }
   emit('click', sentence);
@@ -109,6 +113,7 @@ function tokStyle(tok) {
             class="sentence"
             :class="{ active: sentences[vi.index].id === currentId, playing: sentences[vi.index].id === currentId && isPlaying }"
             @click="onSentenceClick(sentences[vi.index])"
+            @contextmenu="onSentenceContextMenu($event, sentences[vi.index])"
             @touchstart="onSentenceTouchStart($event, sentences[vi.index])"
             @touchend="onSentenceTouchEnd"
             @touchmove="onSentenceTouchEnd"
