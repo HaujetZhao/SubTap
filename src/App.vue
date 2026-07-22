@@ -72,6 +72,9 @@ function useFabIdle() {
 }
 const fabLeft  = useFabIdle();
 const fabRight = useFabIdle();
+// 没载入任何内容时不禁用 FAB（空载页不需要闲置半透明）
+const hasContent = computed(() => mediaKind.value !== null || sentences.value.length > 0);
+watch(hasContent, (v) => { if (v) { fabLeft.reset(); fabRight.reset(); } });
 
 function recompute() {
   const w = window.innerWidth;
@@ -453,7 +456,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="layout" :class="[layoutClass, { 'fab-idle-left': fabLeft.idle.value, 'fab-idle-right': fabRight.idle.value }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
+  <div class="layout" :class="[layoutClass, { 'fab-idle-left': hasContent && fabLeft.idle.value, 'fab-idle-right': hasContent && fabRight.idle.value }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
