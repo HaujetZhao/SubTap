@@ -142,9 +142,9 @@ body {
 .layout:not(.right-pinned) .float-btn-right {
   opacity: 1; transform: scale(1); pointer-events: auto;
 }
-/* 闲置自动半透明:左右独立,互不影响;在可见规则之后、overlay 隐藏规则之前 */
-.layout.fab-idle-left .float-btn-left,
-.layout.fab-idle-right .float-btn-right {
+/* 有内容时 FAB 自动半透明(不遮挡视频):在可见规则之后、overlay 隐藏规则之前 */
+.layout.has-content .float-btn-left,
+.layout.has-content .float-btn-right {
   opacity: 0.25;
   transform: scale(0.85);
   transition: opacity .5s ease, transform .5s ease;

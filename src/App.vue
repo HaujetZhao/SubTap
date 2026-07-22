@@ -59,22 +59,8 @@ const leftOv  = ref(false);      // 窄屏手动 overlay
 const rightOv = ref(false);
 const sideDragging = ref(false);
 
-// FAB 闲置自动半透明：左右独立计时，互不影响
-const IDLE_MS = 3000;
-function useFabIdle() {
-  const idle = ref(false);
-  let timer = null;
-  function reset() { idle.value = false; clearTimeout(timer); timer = setTimeout(() => { idle.value = true; }, IDLE_MS); }
-  function enter() { idle.value = false; clearTimeout(timer); }
-  function leave() { clearTimeout(timer); timer = setTimeout(() => { idle.value = true; }, IDLE_MS); }
-  function cleanup() { clearTimeout(timer); }
-  return { idle, reset, enter, leave, cleanup };
-}
-const fabLeft  = useFabIdle();
-const fabRight = useFabIdle();
-// 没载入任何内容时不禁用 FAB（空载页不需要闲置半透明）
+// 有内容时 FAB 自动半透明（不遮挡视频），空载页全可见
 const hasContent = computed(() => mediaKind.value !== null || sentences.value.length > 0);
-watch(hasContent, (v) => { if (v) { fabLeft.reset(); fabRight.reset(); } });
 
 function recompute() {
   const w = window.innerWidth;
@@ -435,8 +421,6 @@ onMounted(() => {
   loadVoices();
   if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
   window.addEventListener('resize', onWindowResize);
-  fabLeft.reset();
-  fabRight.reset();
   recompute();
 });
 
@@ -444,8 +428,6 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('resize', onWindowResize);
   cancelAnimationFrame(resizeRaf);
-  fabLeft.cleanup();
-  fabRight.cleanup();
   if (sideDrag) {                      // 拖拽进行中卸载(仅开发期热重载),清掉 mouse listener
     document.removeEventListener('mousemove', onSideResize);
     document.removeEventListener('mouseup', stopSideResize);
@@ -456,7 +438,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="layout" :class="[layoutClass, { 'fab-idle-left': hasContent && fabLeft.idle.value, 'fab-idle-right': hasContent && fabRight.idle.value }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
+  <div class="layout" :class="[layoutClass, { 'has-content': hasContent }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
@@ -509,10 +491,8 @@ onUnmounted(() => {
       @collapse="collapseRight"
       @resizestart="startSideResize('right', $event)"
     />
-    <button class="float-btn float-btn-left"  title="展开设置栏（[）"
-      @mouseenter="fabLeft.enter()" @mouseleave="fabLeft.leave()" @click="fabLeft.reset(); toggleFab('left')"><i class="fas fa-bars"></i></button>
-    <button class="float-btn float-btn-right" title="展开词卡栏（]）"
-      @mouseenter="fabRight.enter()" @mouseleave="fabRight.leave()" @click="fabRight.reset(); toggleFab('right')"><i class="fas fa-bars"></i></button>
+    <button class="float-btn float-btn-left"  title="展开设置栏（[）" @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
+    <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
   <div class="toast-container">
