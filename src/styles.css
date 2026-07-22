@@ -194,6 +194,8 @@ body {
   display: flex; align-items: baseline; gap: 10px;
   padding: 11px 12px; border-radius: var(--r-md);
   cursor: pointer; font-size: 16px; line-height: 1.6;
+  user-select: none;
+  -webkit-user-select: none;
   transition: background .12s;
 }
 .sentence:hover { background: #f3efe8; }
