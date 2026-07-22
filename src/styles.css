@@ -38,7 +38,6 @@ body {
   transition: transform var(--dur-panel) var(--ease-panel),
               opacity var(--dur-panel) var(--ease-panel),
               box-shadow var(--dur-panel) var(--ease-panel);
-  overflow: hidden;
   background: var(--panel);
   display: flex; flex-direction: column;
 }
@@ -70,11 +69,11 @@ body {
 
 /* 拖拽调宽手柄(push pinned 或 overlay 弹出时均可见) */
 .side-resize-handle {
-  position: absolute; top: 0; bottom: 0; width: 6px;
+  position: absolute; top: 0; bottom: 0; width: 12px;
   cursor: col-resize; z-index: 5; touch-action: none;
 }
-.panel-left  > .side-resize-handle { right: -3px; }
-.panel-right > .side-resize-handle { left:  -3px; }
+.panel-left  > .side-resize-handle { right: -6px; }
+.panel-right > .side-resize-handle { left:  -6px; }
 .side-resize-handle:hover { background: rgba(60,50,40,.12); }
 .layout:not(.left-pinned):not(.left-overlay)  .panel-left  > .side-resize-handle,
 .layout:not(.right-pinned):not(.right-overlay) .panel-right > .side-resize-handle { display: none; }
