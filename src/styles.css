@@ -32,21 +32,22 @@ body {
 
 .layout { position: relative; height: 100vh; width: 100%; overflow: hidden; }
 
-/* 栏:fixed 浮层 + translateX 滑入滑出(仿 DeepSeek)。push 模式带 inset 边框,overlay 带阴影。 */
+/* 栏:fixed 浮层 + translateX 滑入滑出 + opacity 淡入淡出 */
 .panel-left, .panel-right {
   position: fixed; top: 0; bottom: 0; z-index: 100;
   transition: transform var(--dur-panel) var(--ease-panel),
+              opacity var(--dur-panel) var(--ease-panel),
               box-shadow var(--dur-panel) var(--ease-panel);
   overflow: hidden;
   background: var(--panel);
   display: flex; flex-direction: column;
 }
-.panel-left  { left: 0;  width: var(--panel-left-w);  transform: translateX(-100%); }
-.panel-right { right: 0; width: var(--panel-right-w); transform: translateX(100%); }
+.panel-left  { left: 0;  width: var(--panel-left-w);  transform: translateX(-100%); opacity: 0; }
+.panel-right { right: 0; width: var(--panel-right-w); transform: translateX(100%); opacity: 0; }
 .layout.left-pinned  .panel-left,
 .layout.left-overlay .panel-left,
 .layout.right-pinned .panel-right,
-.layout.right-overlay .panel-right { transform: translateX(0); }
+.layout.right-overlay .panel-right { transform: translateX(0); opacity: 1; }
 .layout.left-pinned  .panel-left  { box-shadow: inset -1px 0 0 var(--border); }
 .layout.right-pinned .panel-right { box-shadow: inset  1px 0 0 var(--border); }
 .layout.left-overlay  .panel-left,
