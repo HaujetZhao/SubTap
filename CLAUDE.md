@@ -14,7 +14,7 @@
 
 ```bash
 npm install          # 首次装依赖
-npm run dev          # 开发服务器 http://localhost:5173
+npm run dev          # 开发服务器 http://localhost:5173（--host 绑定 0.0.0.0，支持局域网访问）
 npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlefile 内联，给 Release）
 npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanifest, assets/, icon-*.png}（给 GitHub Pages）
 ```
@@ -67,6 +67,11 @@ npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanif
 9. **subsrt 生产构建坑**：subsrt 用动态 `require('./format/'+名+'.js')`，Rollup 无法静态解析 → 必须在 `vite.config.js` 配 `build.commonjsOptions.dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js']`，否则构建产物运行时抛 "Could not dynamically require"、整页空白（dev 用 esbuild 不暴露此问题）。
 10. **Vue prop 命名别用全大写缩写词（URI/ID/URL…）**：父组件模板里 kebab-case 绑定（如 `:tts-voice-uri`）会被 Vue 归并成驼峰 `ttsVoiceUri`（每段按"一个单词"处理、全小写化），若 prop 声明成 `ttsVoiceURI` 则名字对不上、prop 永远是 `undefined` → 下拉框 `:value` 一直为空、显示"默认"（值靠 emit 事件标签字符串走另一条路，所以会出现"显示默认、实际声音对"）。约定：prop 名用小写 `ttsVoiceUri`/`mediaId`，别写 `ttsVoiceURI`/`mediaID`。子组件声音 `<select>` 用 `:value` + `@change`，**不要**用 `computed({get:()=>props.x, set:emit})` 做 v-model 桥——`vModelSelect` 时序下选中后显示会回退默认。
 11. **Chrome `getVoices()` 会中途返回空数组**：`onvoiceschanged` 在 Chrome 会多次触发，且中途可能返回 `[]`。`loadVoices` 必须**空结果不覆盖**（`if (list.length) voices.value = list`），否则会把已加载的声音清空、下拉只剩"默认"。
+12. **Vue 模板不会自动解包普通对象里的 ref**：用工厂函数（如 `useFabIdle()`）返回包含 ref 的普通对象时，模板里必须写 `.value`（`fabLeft.idle.value`），否则拿到的是 Ref 对象（始终 truthy）且不触发响应更新。只有 `<script setup>` 顶层的 ref 才会自动解包。
+13. **长按复制实现**：`SentenceList` 中每条 `.sentence` 绑 `touchstart`（500ms 计时）→ 计时触发则复制文本 + 设 `longPressFired` 标志 + emit `'copy'`（App 层 toast）；`touchend`/`touchmove` 清计时；`click` 检查标志跳过播放。滚动时不误触。
+14. **FAB 半透明**：有内容（`hasContent` computed：`mediaKind !== null || sentences.length > 0`）时 `.layout.has-content .float-btn-*` 恒为 `opacity: 0.25` 不遮挡视频，无内容时全可见。
+15. **侧栏拖拽把手**：`.side-resize-handle` 透明但 12px 宽可触；`overflow:hidden` 已从 `.panel-left/right` 移除（否则把手被裁）；pinned 和 overlay 模式均可见，完全折叠时隐藏。宽度经 `leftWidth`/`rightWidth` 自动持久化 localStorage。
+16. **侧栏滚动条隐藏**：`.panel-inner` 设 `scrollbar-width: none`（Firefox）+ `-ms-overflow-style: none`（IE）+ `::-webkit-scrollbar{display:none}`（WebKit）。
 
 ## 数据
 
