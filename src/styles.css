@@ -68,7 +68,7 @@ body {
 .layout.left-pinned  .panel-center { padding-left:  var(--panel-left-w); }
 .layout.right-pinned .panel-center { padding-right: var(--panel-right-w); }
 
-/* push 模式拖拽调宽手柄(非 pinned 时隐藏,class 驱动) */
+/* 拖拽调宽手柄(push pinned 或 overlay 弹出时均可见) */
 .side-resize-handle {
   position: absolute; top: 0; bottom: 0; width: 6px;
   cursor: col-resize; z-index: 5; touch-action: none;
@@ -76,8 +76,8 @@ body {
 .panel-left  > .side-resize-handle { right: -3px; }
 .panel-right > .side-resize-handle { left:  -3px; }
 .side-resize-handle:hover { background: rgba(60,50,40,.12); }
-.layout:not(.left-pinned)  .panel-left  > .side-resize-handle,
-.layout:not(.right-pinned) .panel-right > .side-resize-handle { display: none; }
+.layout:not(.left-pinned):not(.left-overlay)  .panel-left  > .side-resize-handle,
+.layout:not(.right-pinned):not(.right-overlay) .panel-right > .side-resize-handle { display: none; }
 
 /* 栏内容固定宽容器:收起时外层 max-width→0 + overflow:hidden 把它裁掉,
    内部不重排。原 panel-left/right 的 padding/滚动/gap 都搬到这里。 */
