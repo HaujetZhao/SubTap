@@ -480,6 +480,7 @@ onUnmounted(() => {
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
         @click="onSentenceClick"
+        @copy="notify('已复制')"
         @sample="loadSample"
       />
     </main>

@@ -10,7 +10,42 @@ const props = defineProps({
   highlightOn: { type: Boolean, default: true },
   colors: { type: Object, required: true }
 });
-const emit = defineEmits(['click', 'sample']);
+const emit = defineEmits(['click', 'copy', 'sample']);
+
+// 长按复制:移动端长按 500ms 自动复制当前句文本
+const LONG_MS = 500;
+let longPressTimer = null;
+let longPressFired = false;
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch {}
+  document.body.removeChild(ta);
+}
+function copySentence(sentence) {
+  const text = sentence.text || sentence.tokens.map(t => t.text).join('');
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  else fallbackCopy(text);
+  emit('copy');
+}
+
+function onSentenceTouchStart(e, sentence) {
+  longPressFired = false;
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    longPressFired = true;
+    copySentence(sentence);
+  }, LONG_MS);
+}
+function onSentenceTouchEnd() { clearTimeout(longPressTimer); }
+function onSentenceClick(sentence) {
+  if (longPressFired) { longPressFired = false; return; }
+  emit('click', sentence);
+}
 
 // 滚动容器 DOM(getScrollElement 取值要用 ref 的 .value)
 const scrollRef = ref(null);
@@ -73,7 +108,10 @@ function tokStyle(tok) {
           <div
             class="sentence"
             :class="{ active: sentences[vi.index].id === currentId, playing: sentences[vi.index].id === currentId && isPlaying }"
-            @click="emit('click', sentences[vi.index])"
+            @click="onSentenceClick(sentences[vi.index])"
+            @touchstart="onSentenceTouchStart($event, sentences[vi.index])"
+            @touchend="onSentenceTouchEnd"
+            @touchmove="onSentenceTouchEnd"
           >
             <div class="play-icon"><i :class="(sentences[vi.index].id === currentId && isPlaying) ? 'fas fa-pause' : 'fas fa-play'"></i></div>
             <div class="time">[{{ fmt(sentences[vi.index].start) }}]</div>
