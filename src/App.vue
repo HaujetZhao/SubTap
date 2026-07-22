@@ -453,7 +453,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="layout" :class="[layoutClass, { 'fab-idle-left': fabLeft.idle, 'fab-idle-right': fabRight.idle }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
+  <div class="layout" :class="[layoutClass, { 'fab-idle-left': fabLeft.idle.value, 'fab-idle-right': fabRight.idle.value }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
     <SettingsPanel
       :levels="store.getLevels()"
       :enabled="enabled"
