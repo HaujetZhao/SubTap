@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "@tanstack/vue-virtual": "^3.13.32",
     "subsrt": "^1.1.1",
     "vue": "^3.4.0"

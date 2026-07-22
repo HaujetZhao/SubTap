@@ -75,11 +75,11 @@ function tokStyle(tok) {
             :class="{ active: sentences[vi.index].id === currentId, playing: sentences[vi.index].id === currentId && isPlaying }"
             @click="emit('click', sentences[vi.index])"
           >
-            <span class="play-icon">{{ (sentences[vi.index].id === currentId && isPlaying) ? '⏸' : '▶' }}</span>
-            <span class="time">[{{ fmt(sentences[vi.index].start) }}]</span>
-            <span class="text">
+            <div class="play-icon"><i :class="(sentences[vi.index].id === currentId && isPlaying) ? 'fas fa-pause' : 'fas fa-play'"></i></div>
+            <div class="time">[{{ fmt(sentences[vi.index].start) }}]</div>
+            <div class="text">
               <span v-for="(tok, i) in sentences[vi.index].tokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -105,7 +105,7 @@ function tokStyle(tok) {
           <div class="empty-key"><kbd>F</kbd>收起视频(或双击)</div>
         </div>
       </div>
-      <button class="empty-sample-btn" @click="emit('sample')">▶ 载入示例</button>
+      <button class="empty-sample-btn" @click="emit('sample')"><i class="fas fa-play" style="margin-right:4px"></i> 载入示例</button>
       <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>
     </div>
   </div>

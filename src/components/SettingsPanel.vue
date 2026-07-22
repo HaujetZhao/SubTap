@@ -53,17 +53,17 @@ function cycleEndMode() {
     <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">文件</h3>
-        <button class="collapse-btn-panel" title="收起设置栏" @click="emit('collapse')">〈</button>
+        <button class="collapse-btn-panel" title="收起设置栏" @click="emit('collapse')"><i class="fas fa-chevron-left"></i></button>
       </div>
       <!-- 文件(置顶) -->
       <section class="files">
       <label class="file-btn">
-        <span class="file-ico">S</span>
+        <span class="file-ico"><i class="fas fa-file-lines"></i></span>
         打开字幕
         <input type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.sbv,.smi" @change="onSrtChange" />
       </label>
       <label class="file-btn alt">
-        <span class="file-ico">♪</span>
+        <span class="file-ico"><i class="fas fa-music"></i></span>
         打开音/视频
         <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
       </label>
@@ -144,7 +144,7 @@ function cycleEndMode() {
       </label>
       <!-- 句末处理:点击文字/箭头在「句末偏移 ↔ 句末衔接」间切换,共用一个偏移输入 -->
       <div class="tweak-row">
-        <span class="mode-toggle" @click="cycleEndMode">{{ endMode === 'linkNext' ? '句末衔接' : '句末偏移' }}<span class="cycle-icon" aria-hidden="true">⇄</span><span class="tip">{{ endMode === 'linkNext' ? '衔接到下一句开头' : '句末时间戳偏移' }}</span></span>
+        <span class="mode-toggle" @click="cycleEndMode">{{ endMode === 'linkNext' ? '句末衔接' : '句末偏移' }}<span class="cycle-icon" aria-hidden="true"><i class="fas fa-arrow-right-arrow-left"></i></span><span class="tip">{{ endMode === 'linkNext' ? '衔接到下一句开头' : '句末时间戳偏移' }}</span></span>
         <input type="number" min="-5" max="5" step="0.1" :value="endOffset"
                @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
       </div>

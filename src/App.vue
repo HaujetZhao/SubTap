@@ -466,7 +466,7 @@ onUnmounted(() => {
         <div v-show="!videoCollapsed" class="resize-handle"
              @pointerdown="startResize" @pointermove="onResize"
              @pointerup="stopResize" @pointercancel="stopResize"></div>
-        <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse">▸ 展开视频</button>
+        <button v-if="videoCollapsed" class="expand-btn" @click="toggleCollapse"><i class="fas fa-play" style="margin-right:6px"></i> 展开视频</button>
       </div>
       <SentenceList
         ref="sentenceListRef"
@@ -488,17 +488,17 @@ onUnmounted(() => {
       @collapse="collapseRight"
       @resizestart="startSideResize('right', $event)"
     />
-    <button class="fab fab-left"  title="展开设置栏（[）" @click="toggleFab('left')">☰</button>
-    <button class="fab fab-right" title="展开词卡栏（]）" @click="toggleFab('right')">☰</button>
+    <button class="float-btn float-btn-left"  title="展开设置栏（[）" @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
+    <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
   <div class="toast-container">
     <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
          @click="dismiss(t.id)"
          @mouseenter="pauseToast(t)" @mouseleave="resumeToast(t)">
-      <span class="ico">{{ t.type === 'error' ? '!' : '✓' }}</span>
+      <span class="ico"><i :class="t.type === 'error' ? 'fas fa-xmark' : 'fas fa-check'"></i></span>
       <span class="msg">{{ t.message }}</span>
-      <span class="dismiss">×</span>
+      <span class="dismiss"><i class="fas fa-xmark"></i></span>
       <span :key="t.key" class="bar"></span>
     </div>
   </div>

@@ -38,7 +38,7 @@ function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
     <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">生词</h3>
-        <button class="collapse-btn-panel" title="收起词卡栏" @click="emit('collapse')">〉</button>
+        <button class="collapse-btn-panel" title="收起词卡栏" @click="emit('collapse')"><i class="fas fa-chevron-right"></i></button>
       </div>
       <div v-if="!currentText" class="placeholder">点击中间句子查看单词</div>
       <div v-else-if="!hasAnyEnabled" class="placeholder">未勾选任何分级</div>
