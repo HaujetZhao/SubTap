@@ -27,8 +27,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // 缓存所有构建产物,实现完全离线可用
-        globPatterns: ['**/*.{js,css,html,svg,png,json,wasm,aac}'],
+        // 缓存所有构建产物,实现完全离线可用。
+        // 示例音频(sample.aac,~1.5MB)不预缓存:打开页面时不下载,点「载入示例」时 video.src 触发按需取;
+        // 首次取回后用 CacheFirst 缓存,二次点秒开。字幕 sample.srt 走 ?raw 内联进 JS(~3.5KB),随页面加载。
+        globPatterns: ['**/*.{js,css,html,svg,png,json,wasm}'],
+        runtimeCaching: [
+          { urlPattern: /\.aac$/, handler: 'CacheFirst', options: { cacheName: 'sample-audio' } },
+        ],
       },
     }),
   ],
