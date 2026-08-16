@@ -10,7 +10,10 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // prompt 而非 autoUpdate:autoUpdate 会在发现新版时 skipWaiting + 强制 reload,
+      // 手机上网络差时刚打开就被迫重新下载全部预缓存、体验极差。
+      // prompt 且不弹提示 UI:新版仅在后台预缓存,彻底关闭应用后下次冷启动才生效。
+      registerType: 'prompt',
       manifest: {
         name: 'SubTap · 字幕点读器',
         short_name: 'SubTap',
