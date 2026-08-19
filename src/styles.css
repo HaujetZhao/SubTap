@@ -234,14 +234,17 @@ body {
 .empty-title { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: .5px; }
 .empty-title .zh { font-size: 16px; font-weight: 500; color: var(--ink-3); margin-left: 6px; letter-spacing: .5px; }
 .empty-sub { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
-.empty-grid { display: flex; gap: 14px; width: 100%; max-width: 560px; }
+.empty-grid { display: flex; flex-wrap: wrap; gap: 14px; width: 100%; max-width: 560px; }
 .empty-card {
-  flex: 1; background: var(--panel); border: 1px solid var(--border);
+  flex: 1; min-width: 230px; background: var(--panel); border: 1px solid var(--border);
   border-radius: 12px; padding: 18px 20px; box-shadow: 0 4px 16px -6px rgba(60,50,40,.1);
+  /* 内容块整体居中,各行保持左对齐(grid 单列,列宽=最宽行) */
+  display: grid; justify-content: center;
 }
 .empty-card-h {
   font-size: 11px; font-weight: 600; color: var(--ink-3);
   text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
+  text-align: center;
 }
 .empty-step { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .empty-step + .empty-step { margin-top: 10px; }
@@ -255,8 +258,7 @@ body {
   display: inline-flex; align-items: center; justify-content: center; min-width: 24px; padding: 2px 7px;
   background: #fff; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 6px;
   font-size: 12px; font-family: ui-monospace, monospace; color: var(--ink);
-}
-.empty-footer {
+}.empty-footer {
   position: absolute; bottom: 12px; left: 0; right: 0; text-align: center;
   font-size: 12px; color: var(--ink-3); text-decoration: none;
   transition: color .15s;
@@ -276,6 +278,21 @@ body {
   transition: background .15s;
 }
 .empty-sample-btn:hover { background: #517a5f; }
+/* 空载页按钮排(载入示例 + 打开上次) */
+.empty-actions { display: flex; gap: 10px; margin-top: 18px; }
+.empty-actions .empty-sample-btn { margin-top: 0; }
+.empty-last-btn {
+  padding: 9px 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.empty-last-btn:hover { background: #f1ede6; color: var(--ink); }
 
 /* 视频区控件 */
 .video-slot { position: relative; }

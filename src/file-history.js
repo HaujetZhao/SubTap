@@ -1,0 +1,36 @@
+// 最近打开的文件缓存(IndexedDB,单记录 {srt: File, media: File})。
+// File/Blob 可结构化克隆直接存;恢复时字幕 .text()、媒体 createObjectURL。
+const DB_NAME = 'subtap-files';
+const STORE = 'files';
+const KEY = 'last';
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbOp(mode, fn) {
+  const db = await openDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = fn(db.transaction(STORE, mode).objectStore(STORE));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } finally { db.close(); }
+}
+
+// 读-改-写合并：单独更新字幕或媒体，另一边保留
+export async function saveFile(kind, file) {
+  const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
+  prev[kind] = file;
+  await idbOp('readwrite', s => s.put(prev, KEY));
+}
+
+export async function loadFiles() {
+  try { return (await idbOp('readonly', s => s.get(KEY))) || null; } catch { return null; }
+}

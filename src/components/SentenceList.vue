@@ -8,9 +8,10 @@ const props = defineProps({
   isPlaying: { type: Boolean, default: false },
   enabled: { type: Object, required: true },
   highlightOn: { type: Boolean, default: true },
-  colors: { type: Object, required: true }
+  colors: { type: Object, required: true },
+  canRestore: { type: Boolean, default: false }
 });
-const emit = defineEmits(['click', 'copy', 'sample']);
+const emit = defineEmits(['click', 'copy', 'sample', 'restore']);
 
 // 长按复制:移动端长按 500ms 自动复制当前句文本
 const LONG_MS = 500;
@@ -148,7 +149,10 @@ function tokStyle(tok) {
           <div class="empty-key"><kbd>F</kbd>收起视频(或双击)</div>
         </div>
       </div>
-      <button class="empty-sample-btn" @click="emit('sample')"><i class="fas fa-play" style="margin-right:4px"></i> 载入示例</button>
+      <div class="empty-actions">
+        <button class="empty-sample-btn" @click="emit('sample')"><i class="fas fa-play" style="margin-right:4px"></i> 载入示例</button>
+        <button v-if="canRestore" class="empty-last-btn" @click="emit('restore')"><i class="fas fa-clock-rotate-left" style="margin-right:4px"></i> 打开上次</button>
+      </div>
       <a class="empty-footer" href="https://github.com/HaujetZhao/SubTap" target="_blank" rel="noopener">GitHub · HaujetZhao/SubTap</a>
     </div>
   </div>

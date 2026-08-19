@@ -34,10 +34,12 @@ function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
 function onSrtChange(e) {
   const f = e.target.files[0];
   if (f) emit('srt-file', f);
+  e.target.value = '';   // 允许重复选同一文件
 }
 function onMediaChange(e) {
   const f = e.target.files[0];
   if (f) emit('media-file', f);
+  e.target.value = '';
 }
 function onTweak(key, val) {
   emit('tweak', key, val);

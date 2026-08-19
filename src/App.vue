@@ -7,6 +7,7 @@ import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
 import { computeEffectiveRanges } from './subtitle-tweak.js';
 import { LEVEL_COLORS } from './level-colors.js';
+import { saveFile, loadFiles } from './file-history.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
@@ -278,8 +279,9 @@ function applyMediaSrc(url, name, kind) {
   if (kind === 'video') videoCollapsed.value = false;
 }
 
-function onSrtFile(file) {
+function onSrtFile(file, save = true) {
   if (!file) return;
+  if (save) saveFile('srt', file);
   const reader = new FileReader();
   reader.onload = () => {
     try {
@@ -292,8 +294,9 @@ function onSrtFile(file) {
   reader.readAsText(file, 'utf-8');
 }
 
-function onMediaFile(file) {
+function onMediaFile(file, save = true) {
   if (!file) return;
+  if (save) saveFile('media', file);
   const isVideo = (file.type || '').startsWith('video/');
   applyMediaSrc(URL.createObjectURL(file), file.name, isVideo ? 'video' : 'audio');
   notify('已载入：' + file.name);
@@ -309,6 +312,16 @@ function loadSample() {
   }
   applyMediaSrc(sampleAudio, '示例音频', 'audio');
   notify('已载入示例');
+}
+
+// 打开上次(空载引导页按钮触发):从 IndexedDB 取缓存的文件,直接走载入路径。
+const canRestore = ref(false);
+loadFiles().then(r => { canRestore.value = !!(r && (r.srt || r.media)); });
+async function restoreLast() {
+  const rec = await loadFiles();
+  if (!rec || (!rec.srt && !rec.media)) { canRestore.value = false; notify('没有可恢复的文件', 'error'); return; }
+  if (rec.srt) onSrtFile(rec.srt, false);
+  if (rec.media) onMediaFile(rec.media, false);
 }
 
 function onSentenceClick(sentence) {
@@ -479,9 +492,11 @@ onUnmounted(() => {
         :enabled="enabled"
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
+        :can-restore="canRestore"
         @click="onSentenceClick"
         @copy="notify('已复制')"
         @sample="loadSample"
+        @restore="restoreLast"
       />
     </main>
     <WordPanel
