@@ -24,10 +24,18 @@ async function idbOp(mode, fn) {
   } finally { db.close(); }
 }
 
-// 读-改-写合并：单独更新字幕或媒体，另一边保留
+// 读-改-写合并：单独更新字幕或媒体，另一边保留；换字幕时旧进度作废
 export async function saveFile(kind, file) {
   const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
   prev[kind] = file;
+  if (kind === 'srt') prev.sentenceId = null;
+  await idbOp('readwrite', s => s.put(prev, KEY));
+}
+
+// 记住上次点到的句子 id（句 id 由解析顺序决定，同文件重开稳定）
+export async function saveProgress(sentenceId) {
+  const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
+  prev.sentenceId = sentenceId;
   await idbOp('readwrite', s => s.put(prev, KEY));
 }
 

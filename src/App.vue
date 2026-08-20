@@ -7,7 +7,7 @@ import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
 import { computeEffectiveRanges } from './subtitle-tweak.js';
 import { LEVEL_COLORS } from './level-colors.js';
-import { saveFile, loadFiles } from './file-history.js';
+import { saveFile, saveProgress, loadFiles } from './file-history.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
@@ -279,13 +279,18 @@ function applyMediaSrc(url, name, kind) {
   if (kind === 'video') videoCollapsed.value = false;
 }
 
-function onSrtFile(file, save = true) {
+function onSrtFile(file, save = true, selectId = null) {
   if (!file) return;
   if (save) saveFile('srt', file);
   const reader = new FileReader();
   reader.onload = () => {
     try {
       applySubtitle(reader.result);
+      // 恢复上次:选中并滚到上次的句子
+      if (selectId !== null) {
+        const s = sentences.value.find(x => x.id === selectId);
+        if (s) { currentId.value = s.id; currentText.value = s.text; ensureActiveVisible(); }
+      }
       notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
       notify('字幕解析失败：' + e.message, 'error');
@@ -320,9 +325,12 @@ loadFiles().then(r => { canRestore.value = !!(r && (r.srt || r.media)); });
 async function restoreLast() {
   const rec = await loadFiles();
   if (!rec || (!rec.srt && !rec.media)) { canRestore.value = false; notify('没有可恢复的文件', 'error'); return; }
-  if (rec.srt) onSrtFile(rec.srt, false);
+  if (rec.srt) onSrtFile(rec.srt, false, rec.sentenceId ?? null);
   if (rec.media) onMediaFile(rec.media, false);
 }
+
+// 点句即记进度(异步,失败静默)
+watch(currentId, id => { if (sentences.value.length) saveProgress(id); });
 
 function onSentenceClick(sentence) {
   playSentence(sentence);
