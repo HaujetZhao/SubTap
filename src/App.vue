@@ -289,7 +289,10 @@ function onSrtFile(file, save = true, selectId = null) {
       // 恢复上次:选中并滚到上次的句子
       if (selectId !== null) {
         const s = sentences.value.find(x => x.id === selectId);
-        if (s) { currentId.value = s.id; currentText.value = s.text; ensureActiveVisible(); }
+        if (s) {
+          currentId.value = s.id; currentText.value = s.text;
+          nextTick(() => sentenceListRef.value?.ensureVisible(true));
+        }
       }
       notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
