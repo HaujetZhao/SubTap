@@ -9,7 +9,8 @@ const props = defineProps({
   enabled: { type: Object, required: true },
   highlightOn: { type: Boolean, default: true },
   colors: { type: Object, required: true },
-  canRestore: { type: Boolean, default: false }
+  canRestore: { type: Boolean, default: false },
+  mediaLoaded: { type: Boolean, default: false }   // 已载媒体但无字幕时,空载引导页让位给 VAD 按钮
 });
 const emit = defineEmits(['click', 'copy', 'sample', 'restore']);
 
@@ -139,7 +140,7 @@ function tokStyle(tok) {
       </div>
     </div>
 
-    <div v-else class="empty">
+    <div v-else-if="!mediaLoaded" class="empty">
       <div class="empty-head">
         <div class="empty-title">SubTap <span class="zh">字幕点读器</span></div>
         <div class="empty-sub">点读式学习，主动交互，高效学习不犯困</div>

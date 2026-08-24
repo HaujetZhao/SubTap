@@ -340,7 +340,8 @@ body {
   box-shadow: none;
   transition: background .15s;
 }
-.empty-sample-btn:hover { background: var(--btn-primary-hover); }
+.empty-sample-btn:hover:not(:disabled) { background: var(--btn-primary-hover); }
+.empty-sample-btn:disabled { opacity: .45; cursor: default; }
 /* 空载页按钮排(载入示例 + 打开上次) */
 .empty-actions { display: flex; gap: 10px; margin-top: 18px; }
 .empty-actions .empty-sample-btn { margin-top: 0; }
@@ -373,7 +374,19 @@ body {
 .video-slot.no-video { display: none; }
 
 /* ===== 左栏组件 ===== */
-.levels { display: flex; flex-direction: column; gap: 6px; }
+/* 词库分级:流式换行小 chip(点击切换选中/淡化) */
+.levels { display: flex; flex-wrap: wrap; gap: 6px; }
+.level-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--bg-soft); font-size: 13px; color: var(--ink);
+  cursor: pointer; transition: background .15s, opacity .15s;
+}
+.level-chip:hover { background: var(--bg-soft-hover); }
+.level-chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.level-chip.off .dot,
+.level-chip.off .label-text { opacity: .4; }
+.level-chip.off:hover { background: var(--bg-soft); }
 .toggles { display: flex; flex-direction: column; gap: 6px; }
 .level-pill {
   display: flex; align-items: center; gap: 8px;
@@ -448,7 +461,9 @@ body {
   border: 5px solid transparent; border-top-color: var(--tip-bg);
 }
 .mode-toggle:hover .tip,
-.level-pill:hover .tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+.level-pill:hover .tip,
+.file-clear:hover .tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+.file-clear { position: relative; }
 
 /* 文件按钮(主色实心) */
 .files { display: flex; flex-direction: column; gap: 7px; }
@@ -468,6 +483,29 @@ body {
   display: flex; align-items: center; justify-content: center; font-size: 12px;
 }
 .file-btn input[type="file"] { display: none; }
+/* 文件按钮行:主按钮 + 右侧方形清除按钮 */
+.file-row { display: flex; gap: 7px; align-items: stretch; }
+.file-row .file-btn { flex: 1; }
+.file-clear {
+  width: 38px; border: 1px solid var(--border-strong); border-radius: var(--r-md);
+  background: var(--input-bg); color: var(--ink-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  transition: color .15s, border-color .15s;
+}
+.file-clear:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.file-clear:disabled { opacity: .35; cursor: default; }
+
+/* 左栏 VAD 分段小节:运行按钮三态(空闲/进度填充/完成) */
+.vad-run-btn { margin-top: 0; width: 100%; position: relative; }
+.vad-run-fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--accent); opacity: .18;
+  transition: width .3s ease; border-radius: inherit;
+}
+.vad-run-label { position: relative; }
+/* 无推理结果时参数行半透明禁用(改参只有重切才有意义) */
+.tweak-row.dim { opacity: .45; }
+.tweak-row.dim input { cursor: default; }
 
 /* 字幕微调 */
 .tweak { display: flex; flex-direction: column; gap: 8px; }
@@ -481,6 +519,10 @@ body {
   color: var(--ink);
 }
 .tweak-row input[type="number"]:focus { outline: none; border-color: var(--accent-2); }
+/* 隐藏原生 spinner:UA 自绘浅色块不吃主题变量,深色下是白底;值仍可键盘/滚轮调 */
+.tweak-row input[type="number"]::-webkit-inner-spin-button,
+.tweak-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.tweak-row input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 
 /* ===== Toast ===== */
 .toast-container {
@@ -549,23 +591,3 @@ body {
 .control-btn:disabled { opacity: .4; cursor: default; }
 /* 底部控制条出现时,toast 上移避免盖住按钮 */
 .toast-container.lifted { bottom: calc(var(--ctrl-h) + 40px + env(safe-area-inset-bottom)); }
-
-/* 主题行:完全复用 level-pill(同底色/圆角/内边距/圆点/文字),右侧 switch 位置换成扁平分段按钮 */
-.theme-seg {
-  display: flex; flex-shrink: 0;
-  border: 1px solid var(--border-strong); border-radius: var(--r-md);
-  overflow: hidden;
-}
-.theme-seg button {
-  padding: 4px 10px; border: none;
-  border-right: 1px solid var(--border-strong);
-  background: var(--panel); color: var(--ink-2);
-  font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer;
-  display: flex; align-items: center; gap: 5px;
-  transition: background .15s, color .15s;
-}
-.theme-seg button:last-child { border-right: none; }
-.theme-seg button:hover { background: var(--bg-soft-hover); }
-.theme-seg button.active {
-  background: var(--accent); color: var(--fg-inverse);
-}

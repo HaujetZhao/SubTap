@@ -17,12 +17,14 @@ npm install          # 首次装依赖
 npm run dev          # 开发服务器 http://localhost:5173（--host 绑定 0.0.0.0，支持局域网访问）
 npm run build        # 构建单文件 → dist/index.html（vite-plugin-singlefile 内联，给 Release）
 npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanifest, assets/, icon-*.png}（给 GitHub Pages）
+npm run sync-ort     # 从 node_modules/onnxruntime-web 拷 wasm 到 public/ort/（dev/build:pwa 已内置）
 ```
 
 **双轨构建**：在线版走 PWA，离线版走单 HTML，二者互斥——PWA 的 service worker / manifest 必须是独立外链文件，无法内联进单 HTML，故拆两套 vite 配置（`vite.config.js` 单文件 / `vite.config.pwa.js` PWA）而非参数化（避免 if/else 污染主配置）。
 - `build` = `vite.config.js` + `viteSingleFile()` → 单 HTML（Release 资产 `SubTap.html`）。
 - `build:pwa` = `vite.config.pwa.js` + `vite-plugin-pwa` → 多文件 + SW 预缓存（GitHub Pages 可安装/可离线）。
 - **PWA 只能 build 后验**：`npm run build:pwa && npm run preview`（4173 端口）。`npm run dev` 不生成 SW（VitePWA 默认 `devOptions.enabled: false`），dev 里测不出安装；本地两套构建复用同一 `dist/`，先跑 PWA 再跑单文件会留残渣文件（不影响 release，只 mv index.html）。
+- **VAD 仅 PWA 版可用**：onnx 模型(3.6MB)+ort wasm(两变体合计 ~50MB)体积过大，不内联进单 HTML；PWA 也不预缓存，运行时按需取（SW `CacheFirst` 到 `vad-assets` 缓存，取过一次即离线可用）。模型 `public/models/vad_full.onnx` 入库；wasm `public/ort/` 不入库，由 `sync-ort.mjs` 生成。
 
 - **ES module 需 http 加载**：开发页 `index.html` 和 `test.html` 不能 `file://` 直接双击，要用 `npm run dev` 或 `python -m http.server 8000`。`dist/index.html` 是内联单文件，可双击直接打开。
 - **`dist/` 不入库**（`.gitignore` 忽略），由 GitHub Actions 构建并部署/发布。本地构建仅用于自测。
@@ -41,6 +43,7 @@ npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanif
 | `player.js` | `Player` 类：区间播放，**前台 `requestAnimationFrame` 精准停播**（~16ms），**后台 tab 用 `timeupdate` 兜底**（rAF 后台被浏览器暂停，故媒体自身时钟兜底到点停，~250ms） |
 | `subtitle-tweak.js` | `computeEffectiveRanges(sentences,{offset,extend,linkNext,linkNextOffset})`：linkNext 与 extend 互斥（linkNext 优先） |
 | `level-colors.js` | `LEVEL_COLORS`（8 级 → hex，集中配色） |
+| `vad.js` | **VAD 自动分段**（FireRedVAD onnx 流式推理）：`createSession`（webgpu 优先、wasm 回退）、`FireRedVadStream`（攒 30s 块推理、渐进吐分段）、`postprocess`（平滑+状态机切分，参数可覆盖）、`decodeAudio16k`、`prefetchVadAssets`（预取 wasm+模型进 HTTP 缓存）。运行时从 `public/ort/`、`public/models/` 按 URL fetch |
 
 **UI 层（Vue 3 `<script setup>`）：**
 
@@ -72,11 +75,13 @@ npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanif
 14. **FAB 半透明**：有内容（`hasContent` computed：`mediaKind !== null || sentences.length > 0`）时 `.layout.has-content .float-btn-*` 恒为 `opacity: 0.25` 不遮挡视频，无内容时全可见。
 15. **侧栏拖拽把手**：`.side-resize-handle` 透明但 12px 宽可触；`overflow:hidden` 已从 `.panel-left/right` 移除（否则把手被裁）；pinned 和 overlay 模式均可见，完全折叠时隐藏。宽度经 `leftWidth`/`rightWidth` 自动持久化 localStorage。
 16. **侧栏滚动条隐藏**：`.panel-inner` 设 `scrollbar-width: none`（Firefox）+ `-ms-overflow-style: none`（IE）+ `::-webkit-scrollbar{display:none}`（WebKit）。
+17. **VAD**：无字幕、仅有音视频时，「VAD 生成字幕」把音频切成空白分段。推理概率按媒体存 IndexedDB（`file-history.js` 的 `getCachedProbs`/`putCachedProbs`），复用免重推理；改阈值/最短语音等后处理参数不自动重切，点重新推理才生效。两套 vite 配置均需 `resolve.conditions: ['onnxruntime-web-use-extern-wasm']`（否则 ort 把 wasm 打进 JS bundle）。session/tensor 用完必须 `release`/`dispose`（GPU 内存泄漏，越跑越慢）。基准页 `bench-vad.html`。
 
 ## 数据
 
 - `src/vocabulary.json`：两级结构 `{level: {word: 释义}}`，7 级（初中/高中/四级/六级/考研/托福/SAT），约 34000 词。**入库**（构建期内置）。
 - `分级单词提取.py`：生成 vocabulary.json 的脚本（独立工具链，与网页项目无关）。
+- `public/models/vad_full.onnx`：FireRedVAD 模型（3.6MB，含 fbank+CMVN+DFSMN），入库。
 - 测试素材（`【官方双语】….{srt,mp3,m4a}`）与各格式测试文件（`*.vtt/*.ass/...`）**不入库**（`.gitignore` 忽略）。
 
 ## CI / 部署
@@ -104,5 +109,5 @@ npm run build:pwa    # 构建 PWA → dist/{index.html, sw.js, manifest.webmanif
 ## 当前状态
 
 - 分支 `main`，已推送到公开仓库 `github.com/HaujetZhao/SubTap`。
-- 四批功能完成；多格式字幕(subsrt)、语音朗读(TTS)、toast、CI 自动构建部署均已落地。
+- 四批功能完成；多格式字幕(subsrt)、语音朗读(TTS)、toast、VAD 自动分段（仅 PWA 版）、CI 自动构建部署均已落地。
 - 在线版由 GitHub Actions 自动重建。

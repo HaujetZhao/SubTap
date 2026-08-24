@@ -43,3 +43,4 @@ Thumbs.db
 # VAD runtime assets (onnxruntime wasm + onnx 模型,不入库)
 public/ort/
 public/ort-asyncify/
+test-long.mp4

@@ -4,14 +4,16 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "sync-ort": "node scripts/sync-ort.mjs",
+    "dev": "node scripts/sync-ort.mjs && vite --host",
     "build": "vite build",
-    "build:pwa": "vite build --config vite.config.pwa.js",
+    "build:pwa": "node scripts/sync-ort.mjs && vite build --config vite.config.pwa.js",
     "preview": "vite preview"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
     "@tanstack/vue-virtual": "^3.13.32",
+    "onnxruntime-web": "^1.27.0",
     "subsrt": "^1.1.1",
     "vue": "^3.4.0"
   },

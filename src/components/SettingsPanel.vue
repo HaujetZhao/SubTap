@@ -18,9 +18,17 @@ const props = defineProps({
   ttsVoiceUri: { type: String, default: '' },
   voices: { type: Array, default: () => [] },
   theme: { type: String, default: 'light' },   // 'light' | 'dark'
-  controlsOn: { type: Boolean, default: false }
+  controlsOn: { type: Boolean, default: false },
+  hasSrt: { type: Boolean, default: false },
+  srtFromFile: { type: Boolean, default: false },   // 用户载入的外部字幕(VAD 生成的句子不算)
+  hasMedia: { type: Boolean, default: false },
+  vadHasProbs: { type: Boolean, default: false },
+  vadGen: { type: Object, default: null },   // { doneSec, dur, ready, dlDone, dlTotal } | null,null = 空闲
+  vadThreshold: { type: Number, default: 0.6 },
+  vadMinSpeech: { type: Number, default: 0.2 },
+  vadMinSilence: { type: Number, default: 0.1 }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'toggle-controls', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'toggle-controls', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -50,6 +58,9 @@ function onTweak(key, val) {
 function cycleEndMode() {
   emit('tweak', 'endMode', props.endMode === 'extend' ? 'linkNext' : 'extend');
 }
+
+// VAD 小节锁定:无媒体或已载外部字幕(按钮再叠加运行中)
+const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
 </script>
 
 <template>
@@ -61,28 +72,33 @@ function cycleEndMode() {
       </div>
       <!-- 文件(置顶) -->
       <section class="files">
-      <label class="file-btn">
-        <span class="file-ico"><i class="fas fa-file-lines"></i></span>
-        打开字幕
-        <input type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.sbv,.smi" @change="onSrtChange" />
-      </label>
-      <label class="file-btn alt">
-        <span class="file-ico"><i class="fas fa-music"></i></span>
-        打开音/视频
-        <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
-      </label>
+      <div class="file-row">
+        <label class="file-btn">
+          <span class="file-ico"><i class="fas fa-music"></i></span>
+          打开音/视频
+          <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
+        </label>
+        <button class="file-clear" :disabled="!hasMedia" @click="emit('clear-media')"><i class="fas fa-xmark"></i><span class="tip">清除音/视频</span></button>
+      </div>
+      <div class="file-row">
+        <label class="file-btn alt">
+          <span class="file-ico"><i class="fas fa-file-lines"></i></span>
+          打开字幕
+          <input type="file" accept=".srt,.vtt,.ass,.ssa,.sub,.sbv,.smi" @change="onSrtChange" />
+        </label>
+        <button class="file-clear" :disabled="!hasSrt" @click="emit('clear-srt')"><i class="fas fa-xmark"></i><span class="tip">清除字幕</span></button>
+      </div>
       </section>
 
     <!-- 词库分级 -->
     <section class="settings">
       <h3 class="panel-title">词库分级</h3>
       <div class="levels">
-        <label v-for="lv in levels" :key="lv" class="level-pill" :class="{ off: !enabled[lv] }">
+        <label v-for="lv in levels" :key="lv" class="level-chip" :class="{ off: !enabled[lv] }">
           <input type="checkbox" class="sr-only" :checked="enabled[lv]"
                  @change="emit('toggle-level', lv, $event.target.checked)" />
           <span class="dot" :style="{ background: dotColor(lv) }"></span>
           <span class="label-text">{{ lv }}</span>
-          <span class="switch" aria-hidden="true"></span>
         </label>
       </div>
     </section>
@@ -90,20 +106,13 @@ function cycleEndMode() {
     <!-- 功能开关 -->
     <section class="toggles">
       <h3 class="panel-title">功能开关</h3>
-      <div class="level-pill theme-row">
+      <label class="level-pill" :class="{ off: theme !== 'dark' }">
+        <input type="checkbox" class="sr-only" :checked="theme === 'dark'"
+               @change="emit('set-theme', $event.target.checked ? 'dark' : 'light')" />
         <span class="dot muted"></span>
-        <span class="label-text">主题</span>
-        <div class="theme-seg" role="radiogroup" aria-label="主题">
-          <button type="button" role="radio" :aria-checked="theme === 'light'"
-                  :class="{ active: theme === 'light' }" @click="emit('set-theme', 'light')">
-            亮色
-          </button>
-          <button type="button" role="radio" :aria-checked="theme === 'dark'"
-                  :class="{ active: theme === 'dark' }" @click="emit('set-theme', 'dark')">
-            暗色
-          </button>
-        </div>
-      </div>
+        <span class="label-text">暗色模式</span>
+        <span class="switch" aria-hidden="true"></span>
+      </label>
       <label class="level-pill" :class="{ off: !highlightOn }">
         <input type="checkbox" class="sr-only" :checked="highlightOn"
                @change="emit('toggle-highlight', $event.target.checked)" />
@@ -175,7 +184,34 @@ function cycleEndMode() {
                @change="onTweak('endOffset', parseFloat($event.target.value) || 0)" />
       </div>
     </section>
-    </div>
+
+    <!-- VAD 分段(常驻;无媒体时禁用):推理一次,概率留存,改参数即时重切 -->
+    <section class="tweak vad">
+      <h3 class="panel-title">VAD 分段</h3>
+      <button class="empty-sample-btn vad-run-btn" :disabled="vadOff || !!vadGen" @click="emit('vad-run')">
+        <span v-if="vadGen" class="vad-run-fill" :style="{ width: vadGen.dur ? (vadGen.doneSec / vadGen.dur * 100) + '%' : '0%' }"></span>
+        <span class="vad-run-label">
+          <template v-if="!vadGen">{{ vadHasProbs ? '重新分段' : '推理分段' }}</template>
+          <template v-else-if="!vadGen.dur">解码音频中…</template>
+          <template v-else-if="!vadGen.ready && !vadGen.dlReady">下载推理组件…{{ vadGen.dlTotal ? ' ' + (vadGen.dlDone / 1048576).toFixed(1) + '/' + (vadGen.dlTotal / 1048576).toFixed(1) + 'MB' : '' }}</template>
+          <template v-else>{{ Math.round(vadGen.doneSec) }}/{{ Math.round(vadGen.dur) }}s</template>
+        </span>
+      </button>
+      <label class="tweak-row" :class="{ dim: vadOff }">阈值
+        <input type="number" min="0.1" max="0.9" step="0.05" :value="vadThreshold" :disabled="vadOff"
+               @change="onTweak('vadThreshold', parseFloat($event.target.value) || 0.6)" />
+      </label>
+      <label class="tweak-row" :class="{ dim: vadOff }">最短语音(s)
+        <input type="number" min="0" max="2" step="0.1" :value="vadMinSpeech" :disabled="vadOff"
+               @change="onTweak('vadMinSpeech', parseFloat($event.target.value) || 0.2)" />
+      </label>
+      <label class="tweak-row" :class="{ dim: vadOff }">最短静音(s)
+        <input type="number" min="0" max="2" step="0.05" :value="vadMinSilence" :disabled="vadOff"
+               @change="onTweak('vadMinSilence', parseFloat($event.target.value) || 0.1)" />
+      </label>
+    </section>
+
+        </div>
     <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
   </aside>
 </template>

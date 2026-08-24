@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>VAD 流式 bench</title>
+<style>
+  body { font: 14px/1.6 Consolas, monospace; max-width: 900px; margin: 24px auto; padding: 0 12px; }
+  button { padding: 6px 14px; margin-right: 8px; cursor: pointer; }
+  #log { white-space: pre-wrap; background: #f6f6f6; padding: 12px; margin-top: 12px; }
+  .slow { color: #c00; }
+</style>
+</head>
+<body>
+  <h3>VAD 流式 bench（SubTap 实际链路）</h3>
+  <input type="file" id="file" accept="audio/*,video/*" />
+  <button id="run-gpu" disabled>流式推理 (webgpu)</button>
+  <button id="run-wasm" disabled>流式推理 (wasm)</button>
+  <div id="log">先选音视频文件…</div>
+
+<script type="module">
+import { FireRedVadStream, createSession, decodeAudio16k } from '/src/vad.js';
+
+const logEl = document.getElementById('log');
+const lines = [];
+function log(msg, slow = false) {
+  lines.push(msg);
+  logEl.innerHTML = lines.map(l => `<div class="${l.startsWith('!') ? 'slow' : ''}">${l.replace(/^!/, '')}</div>`).join('\n');
+}
+function fmt(ms) { return ms.toFixed(0).padStart(6) + ' ms'; }
+
+let blob = null, wav = null, wavDur = 0;
+document.getElementById('file').onchange = async e => {
+  blob = e.target.files[0];
+  if (!blob) return;
+  wav = null;   // 换文件必须重新解码
+  document.getElementById('run-gpu').disabled = false;
+  document.getElementById('run-wasm').disabled = false;
+  log('已选 ' + blob.name + ' (' + (blob.size / 1048576).toFixed(1) + ' MB)');
+};
+
+// 重插桩:FireRedVadStream 的 _runChunk/_emit 计时,不动生产代码
+async function runStreaming(eps) {
+  lines.length = 0;
+  log(`=== 流式推理 (${eps.includes('webgpu') ? 'webgpu' : 'wasm'}) ===`);
+  if (!wav) {
+    const t0 = performance.now();
+    wav = await decodeAudio16k(blob);
+    log(fmt(performance.now() - t0) + '  解码(16k 单声道) ' + (wav.length / 16000).toFixed(0) + 's 音频');
+  }
+  wavDur = wav.length / 16000;
+
+  const tS = performance.now();
+  const session = await createSession(eps);   // 每次新建,跑完 release,不跨 run 累积 GPU 资源
+  log(fmt(performance.now() - tS) + '  建 session(含模型下载/EP 初始化)');
+
+  // 计时+数据量插桩
+  const runTimes = [], emitTimes = [], detail = [];
+  const vad = new FireRedVadStream(session, {});
+  // 包 session.run:记录输入/输出 tensor 字节数(GPU 回读量)
+  const origSRun = session.run.bind(session);
+  session.run = async feeds => {
+    const inBytes = Object.values(feeds).reduce((s, t) => s + t.size * 4, 0);
+    const t = performance.now();
+    const out = await origSRun(feeds);
+    const outBytes = Object.values(out).reduce((s, t) => s + t.size * 4, 0);
+    detail.push({ run: performance.now() - t, inKB: inBytes / 1024 | 0, outKB: outBytes / 1024 | 0 });
+    return out;
+  };
+  const origRun = vad._runChunk.bind(vad);
+  vad._runChunk = async (...a) => {
+    const bufKB = vad.buf.length * 4 / 1024 | 0;
+    const startF = vad.nextFrame;
+    const t = performance.now();
+    const r = await origRun(...a);
+    const d = detail[detail.length - 1];
+    runTimes.push(performance.now() - t);
+    log(`    run 帧[${startF}→${a[0]}] buf=${bufKB}KB in=${d.inKB}KB out=${d.outKB}KB probs累计=${vad.probs.length}帧 run=${d.run.toFixed(0)}ms`);
+    return r;
+  };
+  const origEmit = vad._emit.bind(vad);
+  vad._emit = (...a) => { const t = performance.now(); const r = origEmit(...a); emitTimes.push(performance.now() - t); return r; };
+
+  const STEP = 30 * 16000;
+  const t0 = performance.now();
+  let n = 0;
+  for (let off = 0; off < wav.length; off += STEP) {
+    const t = performance.now();
+    await vad.push(wav.subarray(off, Math.min(off + STEP, wav.length)));
+    log(fmt(performance.now() - t) + `  push 块 ${++n} (累计 ${Math.min(off + STEP, wav.length) / 16000 | 0}s/${wavDur | 0}s)`);
+    await new Promise(r => setTimeout(r));
+  }
+  await vad.flush(wavDur);
+  session.release?.();   // 用完即清
+  const total = performance.now() - t0;
+
+  const sum = a => a.reduce((s, x) => s + x, 0);
+  log('----');
+  log(fmt(total) + `  流式总耗时(${n} 块)`);
+  log(fmt(sum(runTimes)) + `  其中 session.run ${runTimes.length} 次 (avg ${(sum(runTimes) / runTimes.length).toFixed(0)}ms)`);
+  log(fmt(sum(emitTimes)) + `  其中 postprocess/_emit ${emitTimes.length} 次`);
+  log(fmt(total - sum(runTimes) - sum(emitTimes)) + '  其它(数据拷贝/setTimeout 让路)');
+}
+
+document.getElementById('run-gpu').onclick = () => runStreaming(['webgpu']).catch(e => log('!ERROR: ' + e.message));
+document.getElementById('run-wasm').onclick = () => runStreaming(['wasm']).catch(e => log('!ERROR: ' + e.message));
+</script>
+</body>
+</html>

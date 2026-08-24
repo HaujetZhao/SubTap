@@ -7,7 +7,8 @@ import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
 import { computeEffectiveRanges } from './subtitle-tweak.js';
 import { LEVEL_COLORS } from './level-colors.js';
-import { saveFile, saveProgress, loadFiles } from './file-history.js';
+import { saveFile, saveVadSegs, saveProgress, loadFiles, getCachedProbs, putCachedProbs } from './file-history.js';
+import { FireRedVadStream, createSession, decodeAudio16k, postprocess, FRAME_SHIFT_S, prefetchVadAssets } from './vad.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
@@ -56,6 +57,24 @@ const currentText = ref('');
 const isPlaying = ref(false);
 const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
+let mediaBlob = null;        // 当前媒体的原始 File/Blob(VAD 解码用,非响应式)
+
+// VAD 生成字幕分段的状态(null = 未在生成)
+const vadGen = ref(null);    // { doneSec, dur }
+// 推理结果留存:帧概率 + 时长。改后处理参数时直接重切,不用重新推理。
+const vadProbs = ref(null);  // { probs: number[], dur }
+// 解码后的 16k PCM 只在一次生成期间存在(2h 约 460MB,跑完即释放;
+// 下次完整推理重新解码 ~8s,换内存常驻)。
+let vadWav = null;
+// 后处理参数(持久化,秒 → postprocess 的帧数 = 秒/0.01)
+const vadThreshold = ref(_s.vadThreshold ?? 0.6);
+const vadMinSpeech = ref(_s.vadMinSpeech ?? 0.2);
+const vadMinSilence = ref(_s.vadMinSilence ?? 0.1);
+const vadCfg = () => ({
+  threshold: vadThreshold.value,
+  minSpeech: Math.round(vadMinSpeech.value / FRAME_SHIFT_S),
+  minSilence: Math.round(vadMinSilence.value / FRAME_SHIFT_S),
+});
 
 // 三态状态机(仿 DeepSeek):迟滞双阈值自动 pin,手动 hide/overlay 覆盖。
 const BP = { leftPin: 1100, leftUnpin: 1080, rightPin: 800, rightUnpin: 780 };
@@ -235,6 +254,9 @@ function onTweak(key, val) {
   else if (key === 'ttsLang') ttsLang.value = val;
   else if (key === 'ttsRate') ttsRate.value = val;
   else if (key === 'ttsVoiceURI') ttsVoiceURI.value = val;
+  else if (key === 'vadThreshold') vadThreshold.value = val;
+  else if (key === 'vadMinSpeech') vadMinSpeech.value = val;
+  else if (key === 'vadMinSilence') vadMinSilence.value = val;
   else console.warn('未知微调参数：', key);
 }
 // 语音朗读开关:关闭时停止正在进行的朗读
@@ -249,9 +271,9 @@ function onToggleLevel(level, val) {
   store.setEnabled(level, val);
 }
 
-// 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调）
+// 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调/VAD 后处理参数）
 watch(
-  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, controlsBarOn],
+  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, controlsBarOn, vadThreshold, vadMinSpeech, vadMinSilence],
   () => {
     try {
       localStorage.setItem(LS_S, JSON.stringify({
@@ -260,14 +282,22 @@ watch(
         theme: theme.value, controlsBarOn: controlsBarOn.value,
         ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
         offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
+        vadThreshold: vadThreshold.value, vadMinSpeech: vadMinSpeech.value, vadMinSilence: vadMinSilence.value,
       }));
     } catch {}
   },
   { deep: true }
 );
 
+// VAD 后处理参数变化 → 用留存概率即时重切
+// 改参不自动重切:有留存概率时由用户点「重新推理」(runVad)才生效
+
+// 用户载入的外部字幕(文件/示例)。VAD 分段不算——它生成的句子不应禁用 VAD 小节。
+const srtFromFile = ref(false);
+
 // 应用字幕文本(不含提示,由调用方决定文案)。文件按钮与示例按钮共用。
 function applySubtitle(text) {
+  srtFromFile.value = true;
   sentences.value = parseSRT(text);
   if (player) player.stop();
   stopSpeech();
@@ -302,7 +332,7 @@ function onSrtFile(file, save = true, selectId = null) {
           nextTick(() => sentenceListRef.value?.ensureVisible(true));
         }
       }
-      notify('已载入 ' + sentences.value.length + ' 句字幕');
+      if (save) notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
       notify('字幕解析失败：' + e.message, 'error');
     }
@@ -313,9 +343,90 @@ function onSrtFile(file, save = true, selectId = null) {
 function onMediaFile(file, save = true) {
   if (!file) return;
   if (save) saveFile('media', file);
+  mediaBlob = file;
+  vadProbs.value = null;   // 换媒体,旧概率作废
+  vadWav = null;
   const isVideo = (file.type || '').startsWith('video/');
   applyMediaSrc(URL.createObjectURL(file), file.name, isVideo ? 'video' : 'audio');
-  notify('已载入：' + file.name);
+  if (save) notify('已载入：' + file.name);
+  // 命中缓存则免推理:直接注入留存概率,改参重切/重新分段都可用
+  getCachedProbs(file).then(c => {
+    if (c && mediaBlob === file) {
+      vadProbs.value = { probs: c.probs, dur: c.dur };
+      if (save) notify('已复用该媒体的 VAD 结果(免推理)');
+    }
+  }).catch(() => {});
+}
+
+// 清除字幕/媒体(侧栏文件按钮旁的 ×):复用载入路径,再补各自的清理
+function clearSrt() {
+  applySubtitle('');
+  srtFromFile.value = false;
+}
+function clearMedia() {
+  applyMediaSrc('', '', null);
+  mediaBlob = null;
+  vadProbs.value = null;   // 概率随媒体失效
+  vadWav = null;
+}
+
+// 用 VAD 把音频切成空白字幕分段:先一次性解码成 16k 单声道,
+// 再 30s 一片投喂流式推理,确定的分段即时追加进字幕列表;帧概率留存供改参重切。
+async function generateVadSrt() {
+  if (!mediaBlob || vadGen.value) return;
+  vadGen.value = { doneSec: 0, dur: 0, ready: false, dlDone: 0, dlTotal: 0 };
+  // 点击即预取 wasm+onnx(带下载进度),与音频解码并行;createSession 命中 HTTP 缓存
+  prefetchVadAssets(p => {
+    if (!vadGen.value) return;
+    vadGen.value.dlDone = p.done; vadGen.value.dlTotal = p.total;
+  }).then(() => { if (vadGen.value) vadGen.value.dlReady = true; }).catch(() => {});
+  sentences.value = [];
+  currentId.value = null;
+  let session = null;
+  try {
+    // 解码结果留存,重新推理不重复解码
+    if (!vadWav) vadWav = await decodeAudio16k(mediaBlob);
+    const wav = vadWav;
+    vadGen.value.dur = wav.length / 16000;
+    session = await createSession();
+    vadGen.value.ready = true;   // session 就绪前可能在下载 wasm/onnx,UI 提示"下载推理组件"
+    const vad = new FireRedVadStream(session, vadCfg());
+    const STEP = 30 * 16000;
+    for (let off = 0; off < wav.length; off += STEP) {
+      appendVadSegments(await vad.push(wav.subarray(off, Math.min(off + STEP, wav.length))));
+      vadGen.value.doneSec = Math.min(off + STEP, wav.length) / 16000;
+      await new Promise(r => setTimeout(r));   // 让 UI 有机会渲染
+    }
+    appendVadSegments(await vad.flush(vadGen.value.dur));
+    vadProbs.value = { probs: vad.probs, dur: vadGen.value.dur };
+    putCachedProbs(new Float32Array(vad.probs), vadGen.value.dur).catch(() => {});
+    saveVadSegs(segsSnapshot()).catch(() => {});
+    notify('VAD 分段完成：' + sentences.value.length + ' 句');
+  } catch (e) {
+    notify('VAD 生成失败：' + (e.message || e), 'error');
+  } finally {
+    session?.release?.();   // webgpu 下 session 不释放会在 GPU 进程累积,拖慢后续所有页面的 webgpu 推理
+    vadGen.value = null;
+    vadWav = null;   // 及时释放解码 PCM(几百 MB 量级);再推理时重新解码
+  }
+}
+const toSentences = (segs, base = 0) => segs.map(([s, e], i) => ({ id: base + i + 1, start: s, end: e, text: '' }));
+// 一次 push 整批:逐条 push 会每条触发一次全表 computed 重算
+function appendVadSegments(segs) {
+  sentences.value.push(...toSentences(segs, sentences.value.length));
+}
+// 改后处理参数重切:直接用留存的帧概率,毫秒级
+function resegmentVad() {
+  const p = vadProbs.value;
+  if (!p) return;
+  sentences.value = toSentences(postprocess(p.probs, p.dur, vadCfg()));
+  currentId.value = null;
+  saveVadSegs(segsSnapshot()).catch(() => {});
+}
+const segsSnapshot = () => sentences.value.map(({ start, end }) => [start, end]);
+// vad-run 入口:有留存概率 = 改参重切,否则推理
+function runVad() {
+  vadProbs.value ? resegmentVad() : generateVadSrt();
 }
 
 // 一键载入内置示例(空载引导页按钮触发):字幕 + 音频,单条成功提示。
@@ -327,6 +438,7 @@ function loadSample() {
     return;
   }
   applyMediaSrc(sampleAudio, '示例音频', 'audio');
+  fetch(sampleAudio).then(r => r.blob()).then(b => { mediaBlob = b; });
   notify('已载入示例');
 }
 
@@ -335,8 +447,15 @@ const canRestore = ref(false);
 loadFiles().then(r => { canRestore.value = !!(r && (r.srt || r.media)); });
 async function restoreLast() {
   const rec = await loadFiles();
-  if (!rec || (!rec.srt && !rec.media)) { canRestore.value = false; notify('没有可恢复的文件', 'error'); return; }
-  if (rec.srt) onSrtFile(rec.srt, false, rec.sentenceId ?? null);
+  if (!rec || (!rec.srt && !rec.vadSegs && !rec.media)) { canRestore.value = false; notify('没有可恢复的文件', 'error'); return; }
+  // VAD 生成的字幕:直接重建分段(不走解析),srtFromFile 保持 false,VAD 面板仍可用
+  if (rec.srtSource === 'vad' && rec.vadSegs) {
+    sentences.value = toSentences(rec.vadSegs);
+    const s = sentences.value.find(x => x.id === rec.sentenceId);
+    if (s) { currentId.value = s.id; currentText.value = s.text; nextTick(() => sentenceListRef.value?.ensureVisible(true)); }
+  } else if (rec.srt) {
+    onSrtFile(rec.srt, false, rec.sentenceId ?? null);
+  }
   if (rec.media) onMediaFile(rec.media, false);
 }
 
@@ -496,9 +615,20 @@ onUnmounted(() => {
       :voices="voices"
       :theme="theme"
       :controls-on="controlsBarOn"
+      :has-srt="sentences.length > 0"
+      :srt-from-file="srtFromFile"
+      :has-media="mediaKind !== null"
+      :vad-has-probs="!!vadProbs"
+      :vad-gen="vadGen"
+      :vad-threshold="vadThreshold"
+      :vad-min-speech="vadMinSpeech"
+      :vad-min-silence="vadMinSilence"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
+      @clear-srt="clearSrt"
+      @clear-media="clearMedia"
+      @vad-run="runVad"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
@@ -527,6 +657,7 @@ onUnmounted(() => {
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
         :can-restore="canRestore"
+        :media-loaded="mediaKind !== null"
         @click="onSentenceClick"
         @copy="notify('已复制')"
         @sample="loadSample"
