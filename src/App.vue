@@ -510,6 +510,69 @@ const currentIdx = computed(() => sentences.value.findIndex(s => s.id === curren
 
 const sentenceListRef = ref(null);
 
+// ===== 视频自定义控件 =====
+// 右下角"进/退全屏"小按钮(点击视频显隐);全屏内另有播控药丸(可拖动定位)。
+const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏它而非 video 本身,控件层才能在全屏内显示
+const isFullscreen = ref(false);
+const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(非全屏的 ⛶ 与全屏的播控药丸共用)
+
+// 播控药丸拖动:位移 <5px 视为点按钮;位置按"药丸中心占视频比例"存 localStorage,任意尺寸/全屏下等比复现
+const VC_POS_KEY = 'videoCtrlPos';
+const pillRef = ref(null);
+const vcPos = ref((() => { try { return JSON.parse(localStorage.getItem(VC_POS_KEY)) } catch { return null } })() || { x: 0.5, y: 0.55 });
+let vcDrag = null;
+let vcSuppressClick = false;
+
+function onVcPillDown(e) {
+  const st = stageRef.value.getBoundingClientRect();
+  const pl = pillRef.value.getBoundingClientRect();
+  vcDrag = {
+    st,
+    sx: e.clientX, sy: e.clientY,
+    grabDX: e.clientX - (pl.left + pl.width / 2),
+    grabDY: e.clientY - (pl.top + pl.height / 2),
+    halfX: pl.width / 2, halfY: pl.height / 2,   // 拖动中尺寸不变,down 时量一次
+    moved: false,
+  };
+  window.addEventListener('pointermove', onVcPillMove);
+  window.addEventListener('pointerup', onVcPillUp, { once: true });
+}
+function onVcPillMove(e) {
+  if (!vcDrag) return;
+  if (!vcDrag.moved) {
+    if (Math.hypot(e.clientX - vcDrag.sx, e.clientY - vcDrag.sy) < 5) return;
+    vcDrag.moved = true;
+  }
+  const { st, grabDX, grabDY, halfX, halfY } = vcDrag;
+  const cx = Math.min(Math.max(e.clientX - grabDX, st.left + halfX), st.right - halfX);
+  const cy = Math.min(Math.max(e.clientY - grabDY, st.top + halfY), st.bottom - halfY);
+  vcPos.value = { x: (cx - st.left) / st.width, y: (cy - st.top) / st.height };
+}
+function onVcPillUp() {
+  if (vcDrag?.moved) localStorage.setItem(VC_POS_KEY, JSON.stringify(vcPos.value));
+  vcSuppressClick = !!vcDrag?.moved;   // 拖完后吞掉紧随的 click,避免误触按钮
+  vcDrag = null;
+  window.removeEventListener('pointermove', onVcPillMove);
+}
+function guardVcClick(fn) {
+  if (vcSuppressClick) { vcSuppressClick = false; return; }
+  fn();
+}
+
+// 全屏切换。进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
+// 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
+function onFullscreenChange() { isFullscreen.value = !!document.fullscreenElement; }
+
+async function toggleFullscreen() {
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  await stageRef.value.requestFullscreen();
+  const v = mediaEl.value;
+  const portrait = matchMedia('(orientation: portrait)').matches;
+  if (v.videoWidth > v.videoHeight && portrait) {
+    try { await screen.orientation.lock('landscape'); } catch { /* 不支持则忽略 */ }
+  }
+}
+
 // 播放意图函数:键盘 onKeydown 与底部控制条共用同一套行为
 function stopAll() { player.stop(); stopSpeech(); isPlaying.value = false; }
 function replayCurrent() {                       // 未选则播第一句
@@ -540,6 +603,12 @@ function onKeydown(e) {
   if (e.key === '[') { e.preventDefault(); toggleFab('left'); return; }
   if (e.key === ']') { e.preventDefault(); toggleFab('right'); return; }
   if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleCollapse(); return; }
+  // 回车:视频全屏切换(需媒体手势授权,键盘事件算 user activation)。全屏后快捷键仍走此全局监听。
+  if (e.key === 'Enter' && mediaKind.value === 'video') {
+    e.preventDefault();
+    toggleFullscreen();
+    return;
+  }
   if (!sentences.value.length) return;
   switch (e.key) {
     case 'ArrowDown':
@@ -571,6 +640,7 @@ onMounted(() => {
     }
   });
   window.addEventListener('keydown', onKeydown);
+  document.addEventListener('fullscreenchange', onFullscreenChange);
   // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
   // 注意:getVoices() 中途可能返回空数组,直接覆盖会清空已加载声音 → 声音下拉只剩"默认"。
   // 空结果忽略。
@@ -594,6 +664,8 @@ onUnmounted(() => {
     document.removeEventListener('mousemove', onSideResize);
     document.removeEventListener('mouseup', stopSideResize);
   }
+  document.removeEventListener('fullscreenchange', onFullscreenChange);
+  if (vcDrag) window.removeEventListener('pointermove', onVcPillMove);
   toasts.forEach(t => clearTimeout(t.timer));
   toasts.splice(0);
 });
@@ -639,10 +711,30 @@ onUnmounted(() => {
     />
     <main class="panel-center">
       <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
-        <video v-show="!videoCollapsed" ref="mediaEl" class="media-video"
-               preload="metadata" :style="{ height: videoHeight + 'px' }"
-               @loadedmetadata="onVideoMeta"
-               @dblclick.prevent="toggleCollapse"></video>
+        <div v-show="!videoCollapsed" ref="stageRef" class="video-stage"
+             :style="isFullscreen ? undefined : { height: videoHeight + 'px' }"
+             @click="videoOverlay = !videoOverlay">
+          <video ref="mediaEl" class="media-video"
+                 preload="metadata"
+                 @loadedmetadata="onVideoMeta"
+                 @dblclick.prevent="toggleCollapse"></video>
+          <!-- 非全屏:右下角"进全屏"按钮(点击视频显隐) -->
+          <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="toggleFullscreen">
+            <i :class="isFullscreen ? 'fas fa-compress' : 'fas fa-expand'"></i>
+          </button>
+          <!-- 全屏:播控药丸(可拖动定位,位置持久化) -->
+          <div v-if="isFullscreen && videoOverlay" ref="pillRef" class="vc-pill"
+               :style="{ left: vcPos.x * 100 + '%', top: vcPos.y * 100 + '%' }"
+               @pointerdown="onVcPillDown" @click.stop>
+            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardVcClick(goPrev)"><i class="fas fa-chevron-up"></i></button>
+            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardVcClick(isPlaying ? stopAll : replayCurrent)">
+              <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
+            </button>
+            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardVcClick(goNext)"><i class="fas fa-chevron-down"></i></button>
+          </div>
+          <!-- 1px 全透明钉子:画面内容区顶部居中,阻止 Chromium 把拖进黑边的药丸剔除不绘制 -->
+          <div class="vc-anchor"></div>
+        </div>
         <div v-show="!videoCollapsed" class="resize-handle"
              @pointerdown="startResize" @pointermove="onResize"
              @pointerup="stopResize" @pointercancel="stopResize"></div>
@@ -665,13 +757,13 @@ onUnmounted(() => {
       />
       <nav v-if="controlsBarOn" class="control-bar">
         <button class="control-btn" title="上一句" :disabled="!sentences.length" @click="goPrev">
-          <i class="fas fa-backward-step"></i>
+          <i class="fas fa-chevron-up"></i>
         </button>
         <button class="control-btn" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="isPlaying ? stopAll() : replayCurrent()">
-          <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-rotate-right'"></i>
+          <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
         </button>
         <button class="control-btn" title="下一句" :disabled="!sentences.length" @click="goNext">
-          <i class="fas fa-forward-step"></i>
+          <i class="fas fa-chevron-down"></i>
         </button>
       </nav>
     </main>

@@ -158,6 +158,7 @@ function tokStyle(tok) {
           <div class="empty-key"><kbd>←</kbd><kbd>→</kbd>重读/停止</div>
           <div class="empty-key"><kbd>[</kbd><kbd>]</kbd>收起左/右边栏</div>
           <div class="empty-key"><kbd>F</kbd>收起视频(或双击)</div>
+          <div class="empty-key"><kbd>Enter</kbd>视频全屏切换</div>
         </div>
       </div>
       <div class="empty-actions">
