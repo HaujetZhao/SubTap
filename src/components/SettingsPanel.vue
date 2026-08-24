@@ -16,9 +16,11 @@ const props = defineProps({
   // 若叫 ttsVoiceURI,Vue 的 kebab 归并会把 tts-voice-uri 解析成 ttsVoiceUri 而非 ttsVoiceURI,
   // 导致 prop 拿不到值、声音 select 一直显示"默认"。
   ttsVoiceUri: { type: String, default: '' },
-  voices: { type: Array, default: () => [] }
+  voices: { type: Array, default: () => [] },
+  theme: { type: String, default: 'light' },   // 'light' | 'dark'
+  controlsOn: { type: Boolean, default: false }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'toggle-controls', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -88,6 +90,20 @@ function cycleEndMode() {
     <!-- 功能开关 -->
     <section class="toggles">
       <h3 class="panel-title">功能开关</h3>
+      <div class="level-pill theme-row">
+        <span class="dot muted"></span>
+        <span class="label-text">主题</span>
+        <div class="theme-seg" role="radiogroup" aria-label="主题">
+          <button type="button" role="radio" :aria-checked="theme === 'light'"
+                  :class="{ active: theme === 'light' }" @click="emit('set-theme', 'light')">
+            亮色
+          </button>
+          <button type="button" role="radio" :aria-checked="theme === 'dark'"
+                  :class="{ active: theme === 'dark' }" @click="emit('set-theme', 'dark')">
+            暗色
+          </button>
+        </div>
+      </div>
       <label class="level-pill" :class="{ off: !highlightOn }">
         <input type="checkbox" class="sr-only" :checked="highlightOn"
                @change="emit('toggle-highlight', $event.target.checked)" />
@@ -95,6 +111,14 @@ function cycleEndMode() {
         <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
         <span class="tip">用背景色高亮句中生词</span>
+      </label>
+      <label class="level-pill" :class="{ off: !controlsOn }">
+        <input type="checkbox" class="sr-only" :checked="controlsOn"
+               @change="emit('toggle-controls', $event.target.checked)" />
+        <span class="dot muted"></span>
+        <span class="label-text">底部控制条</span>
+        <span class="switch" aria-hidden="true"></span>
+        <span class="tip">底部显示上一句/暂停/下一句</span>
       </label>
       <label class="level-pill" :class="{ off: !ttsOn }">
         <input type="checkbox" class="sr-only" :checked="ttsOn"

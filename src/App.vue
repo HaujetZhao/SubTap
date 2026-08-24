@@ -35,6 +35,13 @@ if (_s.enabled) {
 // 高亮总开关（默认开，只控中栏）
 const highlightOn = ref(_s.highlightOn ?? true);
 
+// 主题:'light' | 'dark'(以后可加第三种),写 html[data-theme],CSS 按 data-theme 覆盖 token
+const theme = ref(_s.theme ?? 'light');
+watch(theme, v => document.documentElement.dataset.theme = v, { immediate: true });
+
+// 底部控制条（手机盲操）
+const controlsBarOn = ref(_s.controlsBarOn ?? false);
+
 // 语音朗读(Web Speech API,无媒体时的播放替代)
 const ttsOn = ref(_s.ttsOn ?? false);
 const ttsLang = ref(_s.ttsLang ?? 'en-US');
@@ -244,12 +251,13 @@ function onToggleLevel(level, val) {
 
 // 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调）
 watch(
-  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset],
+  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, controlsBarOn],
   () => {
     try {
       localStorage.setItem(LS_S, JSON.stringify({
         enabled: { ...enabled },
         highlightOn: highlightOn.value,
+        theme: theme.value, controlsBarOn: controlsBarOn.value,
         ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
         offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
       }));
@@ -382,6 +390,24 @@ function playSentence(sentence) {
 const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
 
 const sentenceListRef = ref(null);
+
+// 播放意图函数:键盘 onKeydown 与底部控制条共用同一套行为
+function stopAll() { player.stop(); stopSpeech(); isPlaying.value = false; }
+function replayCurrent() {                       // 未选则播第一句
+  const i = currentIdx.value;
+  if (i >= 0) playSentence(sentences.value[i]);
+  else if (sentences.value.length) playSentence(sentences.value[0]);
+}
+function goPrev() {
+  const i = currentIdx.value;
+  if (i > 0) { playSentence(sentences.value[i - 1]); ensureActiveVisible(); }
+  else if (i === 0) replayCurrent();             // 首句:重播
+}
+function goNext() {
+  const i = currentIdx.value, n = sentences.value.length;
+  if (i < 0) { playSentence(sentences.value[0]); ensureActiveVisible(); }  // 未选 → 第一句
+  else if (i < n - 1) { playSentence(sentences.value[i + 1]); ensureActiveVisible(); }
+}
 // 键盘上下切换后，若目标句不在视窗内则滚到容器顶部（平滑）；在视窗内则不动。
 function ensureActiveVisible() {
   nextTick(() => sentenceListRef.value?.ensureVisible());
@@ -396,29 +422,22 @@ function onKeydown(e) {
   if (e.key === ']') { e.preventDefault(); toggleFab('right'); return; }
   if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleCollapse(); return; }
   if (!sentences.value.length) return;
-  const n = sentences.value.length;
-  const idx = currentIdx.value;
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault();
-      if (idx < 0) { playSentence(sentences.value[0]); ensureActiveVisible(); }            // 未选 → 第一句
-      else if (idx < n - 1) { playSentence(sentences.value[idx + 1]); ensureActiveVisible(); } // 下一句
-      break; // 末句 → 不操作
+      goNext(); break;                    // 末句 → 不操作
     case 'ArrowUp':
       e.preventDefault();
-      if (idx > 0) { playSentence(sentences.value[idx - 1]); ensureActiveVisible(); }      // 上一句
-      break; // 未选/首句 → 不操作
+      goPrev(); break;                    // 首句 → 重播当前句
     case 'ArrowLeft':
       e.preventDefault();
-      if (idx >= 0) playSentence(sentences.value[idx]);          // 重读当前句（不滚动）
+      if (currentIdx.value >= 0) replayCurrent();   // 重读当前句（不滚动）
       break;
     case 'ArrowRight':
     case ' ':              // 空格 = 结束播放（同 →）
     case 'Spacebar':
       e.preventDefault();
-      if (player) player.stop();                                 // 结束媒体播放
-      stopSpeech();                                              // 结束语音朗读
-      isPlaying.value = false;
+      stopAll();                          // 停媒体 + 停语音朗读
       break;
   }
 }
@@ -475,12 +494,16 @@ onUnmounted(() => {
       :tts-rate="ttsRate"
       :tts-voice-uri="ttsVoiceURI"
       :voices="voices"
+      :theme="theme"
+      :controls-on="controlsBarOn"
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
+      @set-theme="val => theme = val"
+      @toggle-controls="val => controlsBarOn = val"
       @collapse="collapseLeft"
       @resizestart="startSideResize('left', $event)"
     />
@@ -509,6 +532,17 @@ onUnmounted(() => {
         @sample="loadSample"
         @restore="restoreLast"
       />
+      <nav v-if="controlsBarOn" class="control-bar">
+        <button class="control-btn" title="上一句" :disabled="!sentences.length" @click="goPrev">
+          <i class="fas fa-backward-step"></i>
+        </button>
+        <button class="control-btn" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="isPlaying ? stopAll() : replayCurrent()">
+          <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-rotate-right'"></i>
+        </button>
+        <button class="control-btn" title="下一句" :disabled="!sentences.length" @click="goNext">
+          <i class="fas fa-forward-step"></i>
+        </button>
+      </nav>
     </main>
     <WordPanel
       :store="store"
@@ -522,7 +556,7 @@ onUnmounted(() => {
     <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
-  <div class="toast-container">
+  <div class="toast-container" :class="{ lifted: controlsBarOn }">
     <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
          @click="dismiss(t.id)"
          @mouseenter="pauseToast(t)" @mouseleave="resumeToast(t)">
