@@ -18,7 +18,6 @@ const props = defineProps({
   ttsVoiceUri: { type: String, default: '' },
   voices: { type: Array, default: () => [] },
   theme: { type: String, default: 'light' },   // 'light' | 'dark'
-  controlsOn: { type: Boolean, default: false },
   hasSrt: { type: Boolean, default: false },
   srtFromFile: { type: Boolean, default: false },   // 用户载入的外部字幕(VAD 生成的句子不算)
   hasMedia: { type: Boolean, default: false },
@@ -28,7 +27,7 @@ const props = defineProps({
   vadMinSpeech: { type: Number, default: 0.2 },
   vadMinSilence: { type: Number, default: 0.1 }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'toggle-controls', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -120,14 +119,6 @@ const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
         <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
         <span class="tip">用背景色高亮句中生词</span>
-      </label>
-      <label class="level-pill" :class="{ off: !controlsOn }">
-        <input type="checkbox" class="sr-only" :checked="controlsOn"
-               @change="emit('toggle-controls', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">底部控制条</span>
-        <span class="switch" aria-hidden="true"></span>
-        <span class="tip">底部显示上一句/暂停/下一句</span>
       </label>
       <label class="level-pill" :class="{ off: !ttsOn }">
         <input type="checkbox" class="sr-only" :checked="ttsOn"

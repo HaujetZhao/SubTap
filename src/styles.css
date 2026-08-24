@@ -13,7 +13,6 @@
   --r-sm: 5px;
   --r-md: 9px;
   --r-lg: 14px;
-  --ctrl-h: 56px;             /* 底部控制条按钮高(toast 上移量同源引用) */
   --shadow-soft: 0 2px 6px rgba(60,50,40,.06);
   --shadow-toast: 0 8px 24px -6px rgba(60,50,40,.25), 0 2px 6px rgba(60,50,40,.1);
   /* 栏宽(响应式断点在 App.vue 的 BP 对象,迟滞双阈值) */
@@ -254,17 +253,19 @@ body {
   width: 36px; height: 36px; border: none; border-radius: 50%;
   background: rgba(0, 0, 0, .55); color: #fff; font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(2px);
 }
 .vc-fs:hover { background: rgba(0, 0, 0, .75); }
-/* 播控药丸:大触点(盲操),可拖动,位置由 JS 按百分比写入 left/top */
-.vc-pill {
-  position: absolute; transform: translate(-50%, -50%);
+/* 播控药丸(全屏 .vc-pill / 常驻底部控制条 .control-bar 同一款):大触点(盲操),可拖动 */
+.vc-pill, .control-bar {
+  transform: translate(-50%, -50%);
   display: flex; flex-direction: column; gap: 6px;
   background: rgba(0, 0, 0, .55); border-radius: 999px; padding: 8px 12px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(2px);
   cursor: grab; user-select: none; touch-action: none;
 }
+.vc-pill { position: absolute; }              /* 位置由 JS 按百分比写入 left/top(相对视频区) */
+.control-bar { position: fixed; z-index: 60; }
 .vc-big {
   width: 50px; height: 50px; border: none; border-radius: 50%;
   background: rgba(255, 255, 255, .08); color: #fff; font-size: 20px; cursor: pointer;
@@ -609,24 +610,4 @@ body {
 }
 .scrim.show { opacity: 1; pointer-events: auto; }
 
-/* ===== 底部控制条(手机盲操:上一句/暂停(重播)/下一句) ===== */
-.control-bar {
-  flex-shrink: 0;
-  display: flex; justify-content: center; gap: 12px;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  background: var(--panel);
-  border-top: 1px solid var(--border);
-}
-/* 三键等宽分满(封顶防宽屏撑太大),纯图标大触点 */
-.control-btn {
-  flex: 1; max-width: 168px; height: var(--ctrl-h);
-  border: 1px solid var(--border-strong); border-radius: var(--r-lg);
-  background: var(--bg-soft); color: var(--ink);
-  font-size: 22px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s;
-}
-.control-btn:hover:not(:disabled) { background: var(--bg-soft-hover); }
-.control-btn:disabled { opacity: .4; cursor: default; }
-/* 底部控制条出现时,toast 上移避免盖住按钮 */
-.toast-container.lifted { bottom: calc(var(--ctrl-h) + 40px + env(safe-area-inset-bottom)); }
+/* ===== 底部控制条(手机盲操:上一句/暂停(重播)/下一句) — 样式见上方 .vc-pill 共用块,此处只声明定位差异 ===== */

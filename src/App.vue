@@ -40,8 +40,7 @@ const highlightOn = ref(_s.highlightOn ?? true);
 const theme = ref(_s.theme ?? 'light');
 watch(theme, v => document.documentElement.dataset.theme = v, { immediate: true });
 
-// 底部控制条（手机盲操）
-const controlsBarOn = ref(_s.controlsBarOn ?? false);
+// 底部控制条（手机盲操）:有字幕时常驻,竖版悬浮药丸可拖
 
 // 语音朗读(Web Speech API,无媒体时的播放替代)
 const ttsOn = ref(_s.ttsOn ?? false);
@@ -273,13 +272,13 @@ function onToggleLevel(level, val) {
 
 // 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调/VAD 后处理参数）
 watch(
-  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, controlsBarOn, vadThreshold, vadMinSpeech, vadMinSilence],
+  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, vadThreshold, vadMinSpeech, vadMinSilence],
   () => {
     try {
       localStorage.setItem(LS_S, JSON.stringify({
         enabled: { ...enabled },
         highlightOn: highlightOn.value,
-        theme: theme.value, controlsBarOn: controlsBarOn.value,
+        theme: theme.value,
         ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
         offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
         vadThreshold: vadThreshold.value, vadMinSpeech: vadMinSpeech.value, vadMinSilence: vadMinSilence.value,
@@ -516,48 +515,106 @@ const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏�
 const isFullscreen = ref(false);
 const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(非全屏的 ⛶ 与全屏的播控药丸共用)
 
-// 播控药丸拖动:位移 <5px 视为点按钮;位置按"药丸中心占视频比例"存 localStorage,任意尺寸/全屏下等比复现
+// ===== 可拖药丸共用机制(全屏播控药丸/底部控制条) =====
+// 位移 <5px 视为点按钮;拖动中把"期望中心点"交给调用方的 clamp 写入自己的 pos;抬起时持久化并吞掉紧随的 click。
+// getEl 在 down 时调用一次,调用方可在此缓存拖动期间不变的 rect(热路径零 DOM 读取)。
+let pillSuppressClick = false;
+function makePillDrag({ getEl, clamp, persist }) {
+  let d = null;
+  function down(e) {
+    const pl = getEl().getBoundingClientRect();
+    d = {
+      sx: e.clientX, sy: e.clientY,
+      grabDX: e.clientX - (pl.left + pl.width / 2),
+      grabDY: e.clientY - (pl.top + pl.height / 2),
+      halfX: pl.width / 2, halfY: pl.height / 2,   // 拖动中尺寸不变,down 时量一次
+      moved: false,
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  }
+  function move(e) {
+    if (!d) return;
+    if (!d.moved) {
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 5) return;
+      d.moved = true;
+    }
+    clamp(e.clientX - d.grabDX, e.clientY - d.grabDY, d.halfX, d.halfY);
+  }
+  function up() {
+    if (d?.moved) {
+      persist();
+      pillSuppressClick = true;   // 拖完后吞掉紧随的 click,避免误触按钮
+    }
+    d = null;
+    window.removeEventListener('pointermove', move);
+  }
+  return { down, cancel: () => window.removeEventListener('pointermove', move) };
+}
+function guardPillClick(fn) {
+  if (pillSuppressClick) { pillSuppressClick = false; return; }
+  fn();
+}
+
+// 播控药丸拖动:位置按"药丸中心占视频比例"存 localStorage,任意尺寸/全屏下等比复现
 const VC_POS_KEY = 'videoCtrlPos';
 const pillRef = ref(null);
 const vcPos = ref((() => { try { return JSON.parse(localStorage.getItem(VC_POS_KEY)) } catch { return null } })() || { x: 0.5, y: 0.55 });
-let vcDrag = null;
-let vcSuppressClick = false;
-
-function onVcPillDown(e) {
-  const st = stageRef.value.getBoundingClientRect();
-  const pl = pillRef.value.getBoundingClientRect();
-  vcDrag = {
-    st,
-    sx: e.clientX, sy: e.clientY,
-    grabDX: e.clientX - (pl.left + pl.width / 2),
-    grabDY: e.clientY - (pl.top + pl.height / 2),
-    halfX: pl.width / 2, halfY: pl.height / 2,   // 拖动中尺寸不变,down 时量一次
-    moved: false,
-  };
-  window.addEventListener('pointermove', onVcPillMove);
-  window.addEventListener('pointerup', onVcPillUp, { once: true });
-}
-function onVcPillMove(e) {
-  if (!vcDrag) return;
-  if (!vcDrag.moved) {
-    if (Math.hypot(e.clientX - vcDrag.sx, e.clientY - vcDrag.sy) < 5) return;
-    vcDrag.moved = true;
+const vcPillDrag = makePillDrag({
+  getEl: () => pillRef.value,
+  clamp: (cx, cy, halfX, halfY) => {
+    const st = stageRef.value.getBoundingClientRect();
+    const x = Math.min(Math.max(cx, st.left + halfX), st.right - halfX);
+    const y = Math.min(Math.max(cy, st.top + halfY), st.bottom - halfY);
+    vcPos.value = { x: (x - st.left) / st.width, y: (y - st.top) / st.height };
+  },
+  persist: () => localStorage.setItem(VC_POS_KEY, JSON.stringify(vcPos.value)),
+});
+// 底部控制条:悬浮竖版药丸(同 vc-pill 样式),可拖动,中心点 px 坐标存 localStorage
+const CB_POS_KEY = 'ctrlBarPos';
+const cbRef = ref(null);
+const cbPos = ref((() => { try { return JSON.parse(localStorage.getItem(CB_POS_KEY)) } catch { return null } })()
+  || { x: innerWidth / 2, y: innerHeight - 140 });
+// 活动范围限中栏可见区:中栏 rect(侧栏为绝对定位叠放,需把展开的侧栏扣掉),不会钻进侧栏/飞出屏幕
+let cbBounds = null;
+function measureCbBounds() {
+  const r = cbRef.value.parentElement.getBoundingClientRect();
+  let left = r.left, right = r.right;
+  for (const p of document.querySelectorAll('.panel-left, .panel-right')) {
+    const pr = p.getBoundingClientRect();
+    if (pr.right <= r.left || pr.left >= r.right || pr.height < 10) continue;   // 折叠/不占中栏
+    if (p.classList.contains('panel-left')) left = Math.max(left, pr.right);
+    else right = Math.min(right, pr.left);
   }
-  const { st, grabDX, grabDY, halfX, halfY } = vcDrag;
-  const cx = Math.min(Math.max(e.clientX - grabDX, st.left + halfX), st.right - halfX);
-  const cy = Math.min(Math.max(e.clientY - grabDY, st.top + halfY), st.bottom - halfY);
-  vcPos.value = { x: (cx - st.left) / st.width, y: (cy - st.top) / st.height };
+  return { left, right, top: r.top, bottom: r.bottom };
 }
-function onVcPillUp() {
-  if (vcDrag?.moved) localStorage.setItem(VC_POS_KEY, JSON.stringify(vcPos.value));
-  vcSuppressClick = !!vcDrag?.moved;   // 拖完后吞掉紧随的 click,避免误触按钮
-  vcDrag = null;
-  window.removeEventListener('pointermove', onVcPillMove);
+const cbDrag = makePillDrag({
+  getEl: () => { cbBounds = measureCbBounds(); return cbRef.value; },   // down 时量一次,拖动热路径零 DOM 读取
+  clamp: (cx, cy, halfX, halfY) => {
+    const pad = 8, b = cbBounds;
+    cbPos.value = {
+      x: Math.min(Math.max(cx, b.left + halfX + pad), b.right - halfX - pad),
+      y: Math.min(Math.max(cy, b.top + halfY + pad), b.bottom - halfY - pad),
+    };
+  },
+  persist: () => localStorage.setItem(CB_POS_KEY, JSON.stringify(cbPos.value)),
+});
+// 药丸出现/窗口尺寸/布局变化时夹回可见区(存的位置可能已被侧栏盖住或跑到屏幕外)
+function clampCbIntoView() {
+  nextTick(() => {
+    if (!cbRef.value) return;
+    cbBounds = measureCbBounds();
+    const pl = cbRef.value.getBoundingClientRect();
+    const p = cbPos.value;
+    const pad = 8, hx = pl.width / 2, hy = pl.height / 2;
+    cbPos.value = {
+      x: Math.min(Math.max(p.x, cbBounds.left + hx + pad), cbBounds.right - hx - pad),
+      y: Math.min(Math.max(p.y, cbBounds.top + hy + pad), cbBounds.bottom - hy - pad),
+    };
+  });
 }
-function guardVcClick(fn) {
-  if (vcSuppressClick) { vcSuppressClick = false; return; }
-  fn();
-}
+watch([() => sentences.value.length, layoutClass, leftWidth, rightWidth], clampCbIntoView);
+window.addEventListener('resize', clampCbIntoView);
 
 // 全屏切换。进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
 // 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
@@ -665,7 +722,9 @@ onUnmounted(() => {
     document.removeEventListener('mouseup', stopSideResize);
   }
   document.removeEventListener('fullscreenchange', onFullscreenChange);
-  if (vcDrag) window.removeEventListener('pointermove', onVcPillMove);
+  window.removeEventListener('resize', clampCbIntoView);
+  vcPillDrag.cancel();
+  cbDrag.cancel();
   toasts.forEach(t => clearTimeout(t.timer));
   toasts.splice(0);
 });
@@ -686,7 +745,6 @@ onUnmounted(() => {
       :tts-voice-uri="ttsVoiceURI"
       :voices="voices"
       :theme="theme"
-      :controls-on="controlsBarOn"
       :has-srt="sentences.length > 0"
       :srt-from-file="srtFromFile"
       :has-media="mediaKind !== null"
@@ -705,7 +763,6 @@ onUnmounted(() => {
       @toggle-highlight="val => highlightOn = val"
       @toggle-tts="onToggleTts"
       @set-theme="val => theme = val"
-      @toggle-controls="val => controlsBarOn = val"
       @collapse="collapseLeft"
       @resizestart="startSideResize('left', $event)"
     />
@@ -725,12 +782,12 @@ onUnmounted(() => {
           <!-- 全屏:播控药丸(可拖动定位,位置持久化) -->
           <div v-if="isFullscreen && videoOverlay" ref="pillRef" class="vc-pill"
                :style="{ left: vcPos.x * 100 + '%', top: vcPos.y * 100 + '%' }"
-               @pointerdown="onVcPillDown" @click.stop>
-            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardVcClick(goPrev)"><i class="fas fa-chevron-up"></i></button>
-            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardVcClick(isPlaying ? stopAll : replayCurrent)">
+               @pointerdown="vcPillDrag.down" @click.stop>
+            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev)"><i class="fas fa-chevron-up"></i></button>
+            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent)">
               <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
             </button>
-            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardVcClick(goNext)"><i class="fas fa-chevron-down"></i></button>
+            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext)"><i class="fas fa-chevron-down"></i></button>
           </div>
           <!-- 1px 全透明钉子:画面内容区顶部居中,阻止 Chromium 把拖进黑边的药丸剔除不绘制 -->
           <div class="vc-anchor"></div>
@@ -755,14 +812,16 @@ onUnmounted(() => {
         @sample="loadSample"
         @restore="restoreLast"
       />
-      <nav v-if="controlsBarOn" class="control-bar">
-        <button class="control-btn" title="上一句" :disabled="!sentences.length" @click="goPrev">
+      <nav v-if="sentences.length" ref="cbRef" class="control-bar"
+           :style="{ left: cbPos.x + 'px', top: cbPos.y + 'px' }"
+           @pointerdown="cbDrag.down" @click.stop>
+        <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev)">
           <i class="fas fa-chevron-up"></i>
         </button>
-        <button class="control-btn" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="isPlaying ? stopAll() : replayCurrent()">
+        <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent)">
           <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
         </button>
-        <button class="control-btn" title="下一句" :disabled="!sentences.length" @click="goNext">
+        <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext)">
           <i class="fas fa-chevron-down"></i>
         </button>
       </nav>
@@ -779,7 +838,7 @@ onUnmounted(() => {
     <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
-  <div class="toast-container" :class="{ lifted: controlsBarOn }">
+  <div class="toast-container">
     <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type"
          @click="dismiss(t.id)"
          @mouseenter="pauseToast(t)" @mouseleave="resumeToast(t)">
