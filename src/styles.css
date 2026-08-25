@@ -283,8 +283,9 @@ body {
 /* .sentences-wrap:中栏 flex 子,撑满剩余高度并让内部滚动器独占滚动。
    内容限宽居中与视频区对齐。min-height:0 是 flex 子允许内部滚动的关键。 */
 .sentences-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; max-width: var(--content-max); margin-inline: auto; }
-/* .sentences:TanStack 滚动容器(自己设 overflow-y:auto + relative 让内部绝对定位 item 定锚)。 */
-.sentences { flex: 1; min-height: 0; overflow-y: auto; scroll-behavior: smooth; scrollbar-width: none; }
+/* .sentences:TanStack 滚动容器(自己设 overflow-y:auto + relative 让内部绝对定位 item 定锚)。
+   不开 scroll-behavior:smooth——动态测高的 scrollTop 补偿会被平滑化,向上滚抖动;平滑由 scrollToIndex 的 behavior 参数按次指定。 */
+.sentences { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .sentences::-webkit-scrollbar { display: none; }
 /* TanStack 虚拟滚动轨道:高度 = 所有 item 累积高度,撑出正确滚动条 */
 .ts-track { position: relative; width: 100%; }

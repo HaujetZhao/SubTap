@@ -69,11 +69,11 @@ const virtualizer = useVirtualizer({
   getItemKey: (i) => props.sentences[i].id
 });
 
-let restoreSmoothTimer = 0;
-
 // 供父组件调用:仅当当前选中句【不在视窗内】时,滚动让其顶部对齐容器顶部。
 // 设计:只在键盘上下切换时按需调用,避免每次切换都滚动干扰注意力。
-// instant=true(恢复上次的远距离跳转)时临时关掉 CSS smooth,避免长动画。
+// 平滑由 scrollToIndex 的 behavior 参数按次指定——容器 CSS 不开 smooth,
+// 否则动态测高的 scrollTop 补偿也会被平滑化,向上滚时抖动跳变。
+// instant=true(恢复上次的远距离跳转)用 'auto',避免长动画。
 function ensureVisible(instant = false) {
   const c = scrollRef.value;
   if (!c) return;
@@ -85,13 +85,7 @@ function ensureVisible(instant = false) {
   }
   const idx = props.sentences.findIndex(s => s.id === props.currentId);
   if (idx < 0) return;
-  if (instant) {
-    c.style.scrollBehavior = 'auto';
-    // 虚拟列表实测修正还会连续补几帧 scrollTop,延后恢复平滑
-    clearTimeout(restoreSmoothTimer);
-    restoreSmoothTimer = setTimeout(() => { c.style.scrollBehavior = ''; }, 800);
-  }
-  virtualizer.value.scrollToIndex(idx, { align: 'start' });
+  virtualizer.value.scrollToIndex(idx, { align: 'start', behavior: instant ? 'auto' : 'smooth' });
 }
 defineExpose({ ensureVisible });
 
