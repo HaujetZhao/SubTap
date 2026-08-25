@@ -155,6 +155,7 @@ body {
 .panel-inner {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;               /* 子项比栏宽时不产生隐藏的横向滚动 */
   scrollbar-width: none;           /* Firefox 隐藏滚动条 */
   -ms-overflow-style: none;        /* IE/Edge 旧版 */
   display: flex;
