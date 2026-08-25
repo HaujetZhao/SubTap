@@ -522,6 +522,7 @@ let pillSuppressClick = false;
 function makePillDrag({ getEl, clamp, persist }) {
   let d = null;
   function down(e) {
+    pillSuppressClick = false;  // 上一轮拖动若无 click 派发,标志会残留,新按下时清掉
     const pl = getEl().getBoundingClientRect();
     d = {
       sx: e.clientX, sy: e.clientY,
@@ -545,6 +546,9 @@ function makePillDrag({ getEl, clamp, persist }) {
     if (d?.moved) {
       persist();
       pillSuppressClick = true;   // 拖完后吞掉紧随的 click,避免误触按钮
+      // 若 click 落在无处理器的药丸背景上,guardPillClick 不会执行,标志残留会误吞下一次点按钮;
+      // 故本轮 click 派发结束后(bubble 到 window)自行清除。
+      window.addEventListener('click', () => { pillSuppressClick = false; }, { once: true });
     }
     d = null;
     window.removeEventListener('pointermove', move);
@@ -679,10 +683,10 @@ function onKeydown(e) {
       if (currentIdx.value >= 0) replayCurrent();   // 重读当前句（不滚动）
       break;
     case 'ArrowRight':
-    case ' ':              // 空格 = 结束播放（同 →）
+    case ' ':              // 空格 = 播放中暂停、未播放重播（同药丸中间按钮）
     case 'Spacebar':
       e.preventDefault();
-      stopAll();                          // 停媒体 + 停语音朗读
+      isPlaying.value ? stopAll() : replayCurrent();
       break;
   }
 }
