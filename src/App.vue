@@ -581,11 +581,17 @@ const vcPillDrag = makePillDrag({
   },
   persist: () => localStorage.setItem(VC_POS_KEY, JSON.stringify(vcPos.value)),
 });
-// 底部控制条:悬浮竖版药丸(同 vc-pill 样式),可拖动,中心点 px 坐标存 localStorage
+// 底部控制条:悬浮竖版药丸(同 vc-pill 样式),可拖动,中心点按视口比例存 localStorage,
+// 转屏/换设备后等比复现(手机全屏锁横屏→退出的转场不会把位置夹丢)。旧版 px 坐标超界作废。
 const CB_POS_KEY = 'ctrlBarPos';
 const cbRef = ref(null);
-const cbPos = ref((() => { try { return JSON.parse(localStorage.getItem(CB_POS_KEY)) } catch { return null } })()
-  || { x: innerWidth / 2, y: innerHeight - 140 });
+const cbPos = ref((() => {
+  try {
+    const p = JSON.parse(localStorage.getItem(CB_POS_KEY));
+    if (p && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1) return p;
+  } catch {}
+  return { x: 0.5, y: 0.82 };
+})());
 // 活动范围限中栏可见区:中栏 rect(侧栏为绝对定位叠放,需把展开的侧栏扣掉),不会钻进侧栏/飞出屏幕
 let cbBounds = null;
 function measureCbBounds() {
@@ -604,14 +610,15 @@ const cbDrag = makePillDrag({
   clamp: (cx, cy, halfX, halfY) => {
     const b = cbBounds;
     cbPos.value = {
-      x: Math.min(Math.max(cx, b.left + halfX), b.right - halfX),
-      y: Math.min(Math.max(cy, b.top + halfY), b.bottom - halfY),
+      x: Math.min(Math.max(cx, b.left + halfX), b.right - halfX) / innerWidth,
+      y: Math.min(Math.max(cy, b.top + halfY), b.bottom - halfY) / innerHeight,
     };
   },
   persist: () => localStorage.setItem(CB_POS_KEY, JSON.stringify(cbPos.value)),
 });
 // 药丸出现/窗口尺寸/布局变化时夹回可见区(存的位置可能已被侧栏盖住或跑到屏幕外)
 function clampCbIntoView() {
+  if (document.fullscreenElement) return;   // 全屏期药丸不可见,别按全屏视口夹比例;退出时再夹
   nextTick(() => {
     if (!cbRef.value) return;
     cbBounds = measureCbBounds();
@@ -619,8 +626,8 @@ function clampCbIntoView() {
     const p = cbPos.value;
     const hx = pl.width / 2, hy = pl.height / 2;
     cbPos.value = {
-      x: Math.min(Math.max(p.x, cbBounds.left + hx), cbBounds.right - hx),
-      y: Math.min(Math.max(p.y, cbBounds.top + hy), cbBounds.bottom - hy),
+      x: Math.min(Math.max(p.x * innerWidth, cbBounds.left + hx), cbBounds.right - hx) / innerWidth,
+      y: Math.min(Math.max(p.y * innerHeight, cbBounds.top + hy), cbBounds.bottom - hy) / innerHeight,
     };
   });
 }
@@ -629,7 +636,7 @@ window.addEventListener('resize', clampCbIntoView);
 
 // 全屏切换。进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
 // 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
-function onFullscreenChange() { isFullscreen.value = !!document.fullscreenElement; }
+function onFullscreenChange() { isFullscreen.value = !!document.fullscreenElement; clampCbIntoView(); }
 
 async function toggleFullscreen() {
   if (document.fullscreenElement) { document.exitFullscreen(); return; }
@@ -869,7 +876,7 @@ onUnmounted(() => {
         @restore="restoreLast"
       />
       <nav v-if="sentences.length && controlBarOn" ref="cbRef" class="control-bar"
-           :style="{ left: cbPos.x + 'px', top: cbPos.y + 'px' }"
+           :style="{ left: cbPos.x * 100 + '%', top: cbPos.y * 100 + '%' }"
            @pointerdown="cbDrag.down" @click.stop>
         <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)">
           <i class="fas fa-chevron-up"></i>
