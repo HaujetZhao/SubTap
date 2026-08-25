@@ -104,8 +104,7 @@ function fmt(sec) {
 // 片段背景:高亮开 + 片段有级别 + 该级勾选 → 该级色半透明；否则无
 function tokStyle(tok) {
   if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
-  const c = props.colors[tok.level];
-  return c ? { backgroundColor: c + '26' } : {};
+  return { backgroundColor: props.colors[tok.level] + '26' };
 }
 </script>
 

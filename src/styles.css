@@ -120,7 +120,6 @@ body {
 /* 中栏:absolute + padding 让位给 pinned 栏;overflow:hidden 让内部 .sentences 独占滚动 */
 .panel-center {
   position: absolute; inset: 0; z-index: 1;
-  padding-left: 0; padding-right: 0;
   transition: padding var(--dur-panel) var(--ease-panel);
   overflow: hidden;
   display: flex; flex-direction: column;
@@ -157,7 +156,6 @@ body {
   overflow-y: auto;
   overflow-x: hidden;               /* 子项比栏宽时不产生隐藏的横向滚动 */
   scrollbar-width: none;           /* Firefox 隐藏滚动条 */
-  -ms-overflow-style: none;        /* IE/Edge 旧版 */
   display: flex;
   flex-direction: column;
 }
@@ -203,7 +201,6 @@ body {
   color: var(--ink);
 }
 .float-btn i { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 18px; }
-.float-btn svg { display: block; width: 20px; height: 20px; }
 .layout:not(.left-pinned)  .float-btn-left,
 .layout:not(.right-pinned) .float-btn-right {
   opacity: 1; transform: scale(1); pointer-events: auto;
@@ -378,7 +375,6 @@ body {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: none;
   transition: background .15s;
 }
 .empty-sample-btn:hover:not(:disabled) { background: var(--btn-primary-hover); }
@@ -512,11 +508,11 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px; border-radius: var(--r-md);
   font-size: 13px; font-weight: 500; cursor: pointer;
-  color: var(--fg-inverse); background: var(--btn-primary); box-shadow: none;
+  color: var(--fg-inverse); background: var(--btn-primary);
   transition: background .15s; position: relative;
 }
 .file-btn:hover { background: var(--btn-primary-hover); }
-.file-btn.alt { background: var(--btn-secondary); box-shadow: none; }
+.file-btn.alt { background: var(--btn-secondary); }
 .file-btn.alt:hover { background: var(--btn-secondary-hover); }
 .file-btn .file-ico {
   width: 20px; height: 20px; border-radius: 6px;

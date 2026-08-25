@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import vocab from './vocabulary.json';
 import { parseSRT } from './srt-parser.js';
-import { buildVocab, classifyWords, tokenizeForRender } from './word-lookup.js';
+import { tokenizeForRender } from './word-lookup.js';
 import { createVocabStore } from './vocab-store.js';
 import { Player } from './player.js';
 import { computeEffectiveRanges } from './subtitle-tweak.js';
@@ -12,6 +12,7 @@ import { FireRedVadStream, createSession, decodeAudio16k, postprocess, FRAME_SHI
 import { createToasts } from './toast.js';
 import { ttsSupported, stopSpeech, loadVoices, speak } from './tts.js';
 import { createTwoFingerRecognizer } from './gestures.js';
+import { createLayout } from './useLayout.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
@@ -20,7 +21,7 @@ import sampleSrt from './assets/sample/sample.srt?raw';
 import sampleAudio from './assets/sample/sample.aac';
 
 // 词库 store（框架无关，非响应式）
-const store = createVocabStore(buildVocab, classifyWords);
+const store = createVocabStore();
 store.init(vocab);
 const vocabTable = store.getVocab();
 
@@ -71,7 +72,6 @@ const sentences = ref([]);
 const currentId = ref(null);
 const currentText = ref('');
 const isPlaying = ref(false);
-const mediaName = ref('');
 const mediaKind = ref(null); // 'video' | 'audio' | null
 let mediaBlob = null;        // 当前媒体的原始 File/Blob(VAD 解码用,非响应式)
 
@@ -92,91 +92,11 @@ const vadCfg = () => ({
   minSilence: Math.round(vadMinSilence.value / FRAME_SHIFT_S),
 });
 
-// 三态状态机(仿 DeepSeek):迟滞双阈值自动 pin,手动 hide/overlay 覆盖。
-const BP = { leftPin: 1100, leftUnpin: 1080, rightPin: 800, rightUnpin: 780 };
-const leftPin  = ref(window.innerWidth > BP.leftPin);
-const rightPin = ref(window.innerWidth > BP.rightPin);
-const leftHide  = ref(false);   // 手动折叠覆盖 pin
-const rightHide = ref(false);
-const leftOv  = ref(false);      // 窄屏手动 overlay
-const rightOv = ref(false);
-const sideDragging = ref(false);
+// 侧栏布局(三态状态机/拖宽/收展)独立在 useLayout.js;resize 后需把控制条药丸夹回可见区
+const { leftWidth, rightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
 
 // 有内容时 FAB 自动半透明（不遮挡视频），空载页全可见
 const hasContent = computed(() => mediaKind.value !== null || sentences.value.length > 0);
-
-function recompute() {
-  const w = window.innerWidth;
-  const lp = leftPin.value, rp = rightPin.value;
-  if (w > BP.leftPin)        leftPin.value  = true;
-  else if (w < BP.leftUnpin) leftPin.value  = false;
-  if (w > BP.rightPin)        rightPin.value = true;
-  else if (w < BP.rightUnpin) rightPin.value = false;
-  // 跨阈值时清手动标志,让自动态重新接管
-  if (leftPin.value  !== lp) { leftHide.value  = false; leftOv.value  = false; }
-  if (rightPin.value !== rp) { rightHide.value = false; rightOv.value = false; }
-}
-let resizeRaf = 0;
-const onWindowResize = () => {
-  cancelAnimationFrame(resizeRaf);
-  resizeRaf = requestAnimationFrame(() => { recompute(); clampCbIntoView(); });
-};
-
-const leftPinned  = computed(() => leftPin.value  && !leftHide.value  && !leftOv.value);
-const rightPinned = computed(() => rightPin.value && !rightHide.value && !rightOv.value);
-const hasOverlay  = computed(() => leftOv.value || rightOv.value);
-const layoutClass = computed(() => ({
-  'left-pinned':   leftPinned.value,
-  'right-pinned':  rightPinned.value,
-  'left-overlay':  leftOv.value,
-  'right-overlay': rightOv.value,
-  'has-overlay':   hasOverlay.value,
-  'side-dragging': sideDragging.value,
-}));
-
-// push 模式拖拽调左右栏宽(180–480),持久化。应用走 .layout 的 :style 绑定 CSS var。
-const LS_W = 'subtap-widths';
-const _w = loadJson(LS_W, {});
-const leftWidth  = ref(_w.leftWidth  ?? 230);
-const rightWidth = ref(_w.rightWidth ?? 280);
-// 宽度持久化在 stopSideResize 写一次,不随拖动热路径每个 pointermove 写盘
-let sideDrag = null;
-function startSideResize(panel, e) {
-  sideDragging.value = true;
-  sideDrag = { panel, x: e.clientX, w: panel === 'left' ? leftWidth.value : rightWidth.value };
-  document.addEventListener('pointermove', onSideResize);
-  document.addEventListener('pointerup', stopSideResize);
-  e.preventDefault();
-}
-function onSideResize(e) {
-  if (!sideDrag) return;
-  const delta = sideDrag.panel === 'left' ? e.clientX - sideDrag.x : sideDrag.x - e.clientX;
-  const w = Math.min(480, Math.max(180, sideDrag.w + delta));
-  (sideDrag.panel === 'left' ? leftWidth : rightWidth).value = w;
-}
-function stopSideResize() {
-  sideDragging.value = false;
-  sideDrag = null;
-  document.removeEventListener('pointermove', onSideResize);
-  document.removeEventListener('pointerup', stopSideResize);
-  try { localStorage.setItem(LS_W, JSON.stringify({ leftWidth: leftWidth.value, rightWidth: rightWidth.value })); } catch {}
-}
-
-// 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
-const collapseLeft  = () => leftOv.value  ? (leftOv.value = false)  : (leftHide.value = true);
-const collapseRight = () => rightOv.value ? (rightOv.value = false) : (rightHide.value = true);
-// FAB/快捷键:宽屏 toggle hide(折叠↔展开,与栏顶收起按钮一致),窄屏 toggle overlay(两栏互斥)
-function toggleFab(side) {
-  if (side === 'left') {
-    if (leftPin.value) { leftHide.value = !leftHide.value; leftOv.value = false; }
-    else leftOv.value = !leftOv.value;
-  } else {
-    if (rightPin.value) { rightHide.value = !rightHide.value; rightOv.value = false; }
-    else rightOv.value = !rightOv.value;
-  }
-  if (leftOv.value && rightOv.value) rightOv.value = false;   // 互斥
-}
-const closeBoth = () => { leftOv.value = false; rightOv.value = false; };
 
 // toast:自动消失的状态消息(成功/错误均 2.5s)
 const { toasts, notify, dismiss, pauseToast, resumeToast, disposeToasts } = createToasts();
@@ -246,8 +166,7 @@ const cfgRefs = {
 };
 
 function onTweak(key, val) {
-  if (key in cfgRefs) cfgRefs[key].value = val;
-  else console.warn('未知微调参数：', key);
+  cfgRefs[key].value = val;
 }
 // 语音朗读开关:关闭时停止正在进行的朗读
 function onToggleTts(val) {
@@ -297,7 +216,6 @@ function applyMediaSrc(url, name, kind) {
   stopSpeech();
   isPlaying.value = false;
   player.setSrc(url);
-  mediaName.value = name;
   mediaKind.value = kind;
   // 设媒体元数据激活 media session,蓝牙线控才会派发按钮事件
   if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: name });
@@ -380,7 +298,8 @@ async function generateVadSrt() {
     }
     appendVadSegments(await vad.flush(vadGen.value.dur));
     vadProbs.value = { probs: vad.probs, dur: vadGen.value.dur };
-    putCachedProbs(new Float32Array(vad.probs), vadGen.value.dur).catch(() => {});
+    // 两笔写同一条记录,必须串行(并发读-改-写会把先写的一方整体覆盖掉)
+    await putCachedProbs(new Float32Array(vad.probs), vadGen.value.dur).catch(() => {});
     saveVadSegs(segsSnapshot()).catch(() => {});
     notify('VAD 分段完成：' + sentences.value.length + ' 句');
   } catch (e) {
@@ -463,7 +382,7 @@ function speakCurrent(text) {
 function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
-  if (!mediaName.value) {
+  if (mediaKind.value === null) {
     if (ttsOn.value) speakCurrent(sentence.text);
     else notify('请先打开音/视频文件或打开语音朗读功能', 'error');
     return;
@@ -665,7 +584,7 @@ onMounted(() => {
   player = new Player(mediaEl.value);
   player.onStop(() => { isPlaying.value = false; });
   mediaEl.value.addEventListener('error', () => {
-    if (mediaEl.value.error && mediaName.value) {
+    if (mediaEl.value.error && mediaKind.value !== null) {
       isPlaying.value = false;
       notify('音/视频无法播放（编码不支持），建议改用 mp4/mp3', 'error');
     }
@@ -684,12 +603,10 @@ onMounted(() => {
   const syncVoices = () => { const l = loadVoices(); if (l) voices.value = l; };
   syncVoices();
   if (ttsSupported) window.speechSynthesis.onvoiceschanged = syncVoices;
-  window.addEventListener('resize', onWindowResize);
   // 双指手势:识别在 gestures.js,这里只绑监听(禁原生双指缩放)
   window.addEventListener('touchstart', gesture.onTouch, { passive: false });
   window.addEventListener('touchmove', gesture.onTouch, { passive: false });
   window.addEventListener('touchend', gesture.onTouchEnd, { passive: false });
-  recompute();
 });
 
 // 双指手势:上/下滑切句,轻点播放中停止/未播重播(同空格)
@@ -700,11 +617,6 @@ const gesture = createTwoFingerRecognizer({
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
-  window.removeEventListener('resize', onWindowResize);
-  cancelAnimationFrame(resizeRaf);
-  // 未注册时 remove 是 no-op,无条件清(拖拽进行中卸载仅开发期热重载会走到)
-  document.removeEventListener('pointermove', onSideResize);
-  document.removeEventListener('pointerup', stopSideResize);
   document.removeEventListener('fullscreenchange', onFullscreenChange);
   vcPillDrag.cancel();
   cbDrag.cancel();
@@ -743,10 +655,7 @@ onUnmounted(() => {
       @clear-media="clearMedia"
       @vad-run="runVad"
       @tweak="onTweak"
-      @toggle-highlight="val => highlightOn = val"
-      @toggle-control-bar="val => controlBarOn = val"
       @toggle-tts="onToggleTts"
-      @set-theme="val => theme = val"
       @collapse="collapseLeft"
       @resizestart="startSideResize('left', $event)"
     />
@@ -760,7 +669,7 @@ onUnmounted(() => {
                  @loadedmetadata="onVideoMeta"
                  @dblclick.prevent="toggleCollapse"></video>
           <!-- 非全屏:右下角"进全屏"按钮(点击视频显隐) -->
-          <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="toggleFullscreen(); $event.currentTarget.blur()">
+          <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="guardPillClick(toggleFullscreen, $event)">
             <i :class="isFullscreen ? 'fas fa-compress' : 'fas fa-expand'"></i>
           </button>
           <!-- 全屏:播控药丸(可拖动定位,位置持久化) -->
@@ -796,7 +705,8 @@ onUnmounted(() => {
       <nav v-if="sentences.length && controlBarOn" ref="cbRef" class="control-bar"
            :style="{ left: cbPos.x * 100 + '%', top: cbPos.y * 100 + '%' }"
            @pointerdown="cbDrag.down" @click.stop>
-        <PillControls :guard="guardPillClick" :disabled="!sentences.length" :playing="isPlaying"
+        <!-- 外层 v-if 已保证有字幕,disabled 免传 -->
+        <PillControls :guard="guardPillClick" :playing="isPlaying"
                       @prev="goPrev" @toggle="isPlaying ? stopAll() : replayCurrent()" @next="goNext" />
       </nav>
     </main>

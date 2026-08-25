@@ -27,7 +27,7 @@ function convolveFull(arr, kernel) {
 
 /** probs: 概率数组。cfg 可覆盖 CFG 任意字段(平滑窗/阈值/最短语音帧等)。返回 [start_s, end_s] 分段列表。 */
 export function postprocess(probs, wavDur, cfg = {}) {
-  const CFG = { smoothWindow: 5, threshold: 0.4, minSpeech: 20, maxSpeech: 2000, minSilence: 20, mergeSilence: 0, extendSpeech: 0, ...cfg };
+  const CFG = { smoothWindow: 5, threshold: 0.4, minSpeech: 20, maxSpeech: 2000, minSilence: 20, ...cfg };
   // 1. 概率滑窗平滑(边界用累积平均)
   const w = CFG.smoothWindow;
   let smoothed;
@@ -73,28 +73,8 @@ export function postprocess(probs, wavDur, cfg = {}) {
       for (let i = start; i < t; i++) nd[i] = 1;
     }
   }
-  let dec = nd;
-  // 5. 短静音并入语音(默认关) / 6. 语音段前后扩展(默认关)
-  if (CFG.mergeSilence > 0) {
-    const md = [...dec];
-    let ss = null;
-    for (let t = 1; t < dec.length; t++) {
-      if (dec[t - 1] === 1 && dec[t] === 0 && ss === null) ss = t;
-      else if (dec[t - 1] === 0 && dec[t] === 1 && ss !== null) {
-        if (t - ss < CFG.mergeSilence)
-          for (let i = ss; i < t; i++) md[i] = 1;
-        ss = null;
-      }
-    }
-    dec = md;
-  }
-  if (CFG.extendSpeech > 0) {
-    const e = CFG.extendSpeech, kernel = new Array(2 * e + 1).fill(1);
-    const ext = convolveFull(dec, kernel)
-      .slice(Math.trunc(kernel.length / 2), Math.trunc(kernel.length / 2) + dec.length);
-    dec = Array.from(ext, v => (v > 0 ? 1 : 0));
-  }
-  // 7. 超长段(>maxSpeech 帧)在概率最低点切开
+  const dec = nd;
+  // 5. 超长段(>maxSpeech 帧)在概率最低点切开
   const toSeg = dd => {
     const segs = [];
     let start = null;

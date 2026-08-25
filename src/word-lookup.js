@@ -35,25 +35,6 @@ export function buildVocab(vocabObj) {
   return table;
 }
 
-// 句子文本 + 大表 → Word[]（按句中首次出现顺序、按原形去重、只返回命中的）
-// 命中项 word 字段存【原形】（如 raises → word='raise'）；直接命中时 word 即原词小写。
-// 单字母 token（噪声）整体跳过，不进任何结果。
-export function lookupWords(text, vocab) {
-  const lower = (text || '').toLowerCase();
-  const tokens = lower.split(/[^a-z']+/).filter(Boolean);
-  const seen = {};
-  const result = [];
-  for (const tok of tokens) {
-    if (tok.length < 2) continue;
-    const r = resolve(tok, vocab);
-    if (!r) continue;
-    if (seen[r.lemma]) continue;
-    seen[r.lemma] = true;
-    result.push({ word: r.lemma, level: r.level, def: r.def });
-  }
-  return result;
-}
-
 // 中栏渲染用：句子 → 片段数组（按位置，保留标点/空格，不去重）
 // 每片段 { text, level }；level = 还原后命中级别 / '超纲'（还原后仍未命中）/ null（非词标点空格）
 // text 始终保留原文形式（raises 仍显示 raises），仅级别随还原结果走。

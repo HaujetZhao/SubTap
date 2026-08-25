@@ -2,33 +2,35 @@
 import { computed } from 'vue';
 import { LEVEL_COLORS } from '../level-colors.js';
 
+// prop 全部由 App.vue 显式传入,不设 default
 const props = defineProps({
   levels: { type: Array, required: true },
   enabled: { type: Object, required: true },
-  offset: { type: Number, default: 0 },
-  endMode: { type: String, default: 'extend' },     // 'extend' | 'linkNext'
-  endOffset: { type: Number, default: 0 },
-  highlightOn: { type: Boolean, default: true },
-  ttsOn: { type: Boolean, default: false },
-  controlBarOn: { type: Boolean, default: true },
-  ttsLang: { type: String, default: 'en-US' },
-  ttsRate: { type: Number, default: 1 },
+  offset: { type: Number, required: true },
+  endMode: { type: String, required: true },     // 'extend' | 'linkNext'
+  endOffset: { type: Number, required: true },
+  highlightOn: { type: Boolean, required: true },
+  ttsOn: { type: Boolean, required: true },
+  controlBarOn: { type: Boolean, required: true },
+  ttsLang: { type: String, required: true },
+  ttsRate: { type: Number, required: true },
   // 注意:prop 名必须叫 ttsVoiceUri(对应父级 :tts-voice-uri)。
   // 若叫 ttsVoiceURI,Vue 的 kebab 归并会把 tts-voice-uri 解析成 ttsVoiceUri 而非 ttsVoiceURI,
   // 导致 prop 拿不到值、声音 select 一直显示"默认"。
-  ttsVoiceUri: { type: String, default: '' },
-  voices: { type: Array, default: () => [] },
-  theme: { type: String, default: 'light' },   // 'light' | 'dark'
-  hasSrt: { type: Boolean, default: false },
-  srtFromFile: { type: Boolean, default: false },   // 用户载入的外部字幕(VAD 生成的句子不算)
-  hasMedia: { type: Boolean, default: false },
-  vadHasProbs: { type: Boolean, default: false },
-  vadGen: { type: Object, default: null },   // { doneSec, dur, ready, dlDone, dlTotal } | null,null = 空闲
-  vadThreshold: { type: Number, default: 0.6 },
-  vadMinSpeech: { type: Number, default: 0.2 },
-  vadMinSilence: { type: Number, default: 0.1 }
+  ttsVoiceUri: { type: String, required: true },
+  voices: { type: Array, required: true },
+  theme: { type: String, required: true },   // 'light' | 'dark'
+  hasSrt: { type: Boolean, required: true },
+  srtFromFile: { type: Boolean, required: true },   // 用户载入的外部字幕(VAD 生成的句子不算)
+  hasMedia: { type: Boolean, required: true },
+  vadHasProbs: { type: Boolean, required: true },
+  // null = 空闲是合法值,不能用 required(Vue 对 null 仍做类型断言),用 default: null 放行
+  vadGen: { type: Object, default: null },   // { doneSec, dur, ready, dlDone, dlTotal } | null
+  vadThreshold: { type: Number, required: true },
+  vadMinSpeech: { type: Number, required: true },
+  vadMinSilence: { type: Number, required: true }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-control-bar', 'toggle-tts', 'set-theme', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-tts', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -39,7 +41,20 @@ const ttsVoiceList = computed(() => {
 // Vue 3 的 vModelSelect 时序下,选中后显示会回退到默认(已实测复现)。
 // 改用 :value + @change 直绑 prop。
 
-function dotColor(lv) { return LEVEL_COLORS[lv] || '#9ca3af'; }
+function dotColor(lv) { return LEVEL_COLORS[lv]; }
+
+// 功能开关统一配置:文案/提示/开态取值/切换动作(默认走 tweak 通道,朗读除外——关闭要停播)。
+// isOn 是函数:模板渲染时求值,props 变化才会反映到开关样式。
+const toggles = [
+  { text: '暗色模式', tip: '', isOn: () => props.theme === 'dark',
+    onToggle: v => emit('tweak', 'theme', v ? 'dark' : 'light') },
+  { text: '词汇提示', tip: '用背景色高亮句中生词', isOn: () => props.highlightOn,
+    onToggle: v => emit('tweak', 'highlightOn', v) },
+  { text: '控制条', tip: '非全屏时显示底部药丸控制条', isOn: () => props.controlBarOn,
+    onToggle: v => emit('tweak', 'controlBarOn', v) },
+  { text: '语音朗读', tip: '无音视频时点句朗读', isOn: () => props.ttsOn,
+    onToggle: v => emit('toggle-tts', v) }
+];
 
 function onSrtChange(e) {
   const f = e.target.files[0];
@@ -106,36 +121,13 @@ const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
     <!-- 功能开关 -->
     <section class="toggles">
       <h3 class="panel-title">功能开关</h3>
-      <label class="level-pill" :class="{ off: theme !== 'dark' }">
-        <input type="checkbox" class="sr-only" :checked="theme === 'dark'"
-               @change="emit('set-theme', $event.target.checked ? 'dark' : 'light')" />
+      <label v-for="t in toggles" :key="t.text" class="level-pill" :class="{ off: !t.isOn() }">
+        <input type="checkbox" class="sr-only" :checked="t.isOn()"
+               @change="t.onToggle($event.target.checked)" />
         <span class="dot muted"></span>
-        <span class="label-text">暗色模式</span>
+        <span class="label-text">{{ t.text }}</span>
         <span class="switch" aria-hidden="true"></span>
-      </label>
-      <label class="level-pill" :class="{ off: !highlightOn }">
-        <input type="checkbox" class="sr-only" :checked="highlightOn"
-               @change="emit('toggle-highlight', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">词汇提示</span>
-        <span class="switch" aria-hidden="true"></span>
-        <span class="tip">用背景色高亮句中生词</span>
-      </label>
-      <label class="level-pill" :class="{ off: !controlBarOn }">
-        <input type="checkbox" class="sr-only" :checked="controlBarOn"
-               @change="emit('toggle-control-bar', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">控制条</span>
-        <span class="switch" aria-hidden="true"></span>
-        <span class="tip">非全屏时显示底部药丸控制条</span>
-      </label>
-      <label class="level-pill" :class="{ off: !ttsOn }">
-        <input type="checkbox" class="sr-only" :checked="ttsOn"
-               @change="emit('toggle-tts', $event.target.checked)" />
-        <span class="dot muted"></span>
-        <span class="label-text">语音朗读</span>
-        <span class="switch" aria-hidden="true"></span>
-        <span class="tip">无音视频时点句朗读</span>
+        <span v-if="t.tip" class="tip">{{ t.tip }}</span>
       </label>
       <div v-if="ttsOn" class="sub-options">
         <label class="opt-row">

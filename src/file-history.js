@@ -25,31 +25,36 @@ async function idbOp(mode, fn) {
   } finally { db.close(); }
 }
 
-// 读-改-写合并：单独更新字幕或媒体，另一边保留；换字幕/媒体时旧进度与旧概率作废
-// srtSource 标志字幕来源('file'=外部字幕文件 / 'vad'=VAD 生成分段),恢复时决定 VAD 功能是否可用
-export async function saveFile(kind, file) {
+// 读-改-写合并:fn 收到当前记录(无则空对象),就地改后写回
+async function update(fn) {
   const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
-  prev[kind] = file;
-  if (kind === 'srt') { prev.sentenceId = null; prev.srtSource = 'file'; prev.vadSegs = null; }
-  if (kind === 'media') prev.probs = null;
+  fn(prev);
   await idbOp('readwrite', s => s.put(prev, KEY));
+}
+
+// 单独更新字幕或媒体,另一边保留;换字幕/媒体时旧进度与旧概率作废
+// srtSource 标志字幕来源('file'=外部字幕文件 / 'vad'=VAD 生成分段),恢复时决定 VAD 功能是否可用
+export function saveFile(kind, file) {
+  return update(prev => {
+    prev[kind] = file;
+    if (kind === 'srt') { prev.sentenceId = null; prev.srtSource = 'file'; prev.vadSegs = null; }
+    if (kind === 'media') prev.probs = null;
+  });
 }
 
 /** VAD 生成/重切后留存分段(直接存数组,不经 srt 文本往返),顶替记录里的外部字幕。 */
-export async function saveVadSegs(segs) {
-  const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
-  prev.srt = null;
-  prev.srtSource = 'vad';
-  prev.vadSegs = segs;
-  prev.sentenceId = null;
-  await idbOp('readwrite', s => s.put(prev, KEY));
+export function saveVadSegs(segs) {
+  return update(prev => {
+    prev.srt = null;
+    prev.srtSource = 'vad';
+    prev.vadSegs = segs;
+    prev.sentenceId = null;
+  });
 }
 
 // 记住上次点到的句子 id（句 id 由解析顺序决定，同文件重开稳定）
-export async function saveProgress(sentenceId) {
-  const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
-  prev.sentenceId = sentenceId;
-  await idbOp('readwrite', s => s.put(prev, KEY));
+export function saveProgress(sentenceId) {
+  return update(prev => { prev.sentenceId = sentenceId; });
 }
 
 export async function loadFiles() {
@@ -70,9 +75,9 @@ export async function getCachedProbs(blob) {
   } catch { return null; }
 }
 
-export async function putCachedProbs(probs, dur) {
-  const prev = (await idbOp('readonly', s => s.get(KEY))) || {};
-  prev.probs = probs;
-  prev.dur = dur;
-  await idbOp('readwrite', s => s.put(prev, KEY));
+export function putCachedProbs(probs, dur) {
+  return update(prev => {
+    prev.probs = probs;
+    prev.dur = dur;
+  });
 }

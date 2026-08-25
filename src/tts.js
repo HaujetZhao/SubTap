@@ -13,13 +13,13 @@ export function loadVoices() {
   return list.length ? list : null;
 }
 
-// 朗读一句话(双语字幕取首行英文)。返回 'ok' | 'empty' | 'unsupported';
+// 朗读一句话(双语字幕取首行英文)。返回 'ok' | 'unsupported'(空文本返回 undefined);
 // 结束/出错经 onDone 回调(调用方用来清 isPlaying)。
 export function speak(text, { lang, rate, voiceURI, voices = [] }, onDone) {
   if (!ttsSupported) return 'unsupported';
   stopSpeech();
-  const english = (text.split('\n')[0] || text).trim();   // 双语字幕取首行英文
-  if (!english) return 'empty';
+  const english = text.split('\n')[0].trim();   // 双语字幕取首行英文
+  if (!english) return;
   const u = new SpeechSynthesisUtterance(english);
   u.lang = lang;
   u.rate = rate;

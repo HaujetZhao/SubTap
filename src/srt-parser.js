@@ -3,14 +3,6 @@
 
 import subsrt from 'subsrt';
 
-// 保留:把 "HH:MM:SS,mmm"/"HH:MM:SS.mmm" 转秒(test.html 仍引用)
-export function timestampToSeconds(ts) {
-  const m = /^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})$/.exec(ts.trim());
-  if (!m) return null;
-  const h = +m[1], min = +m[2], s = +m[3], ms = +m[4];
-  return h * 3600 + min * 60 + s + ms / 1000;
-}
-
 // 任意字幕文本 → Sentence[];容错:subsrt 抛错或无有效条目时返回 []
 export function parseSRT(text) {
   let captions;
@@ -26,7 +18,6 @@ export function parseSRT(text) {
   } catch (e) {
     return [];
   }
-  if (!Array.isArray(captions)) return [];
   const sentences = [];
   for (const c of captions) {
     if (typeof c.start !== 'number' || typeof c.end !== 'number') continue;

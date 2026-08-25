@@ -30,7 +30,7 @@ const visibleLevels = computed(() =>
   )
 );
 
-function titleColor(lv) { return props.colors[lv] || '#2563eb'; }
+function titleColor(lv) { return props.colors[lv]; }
 </script>
 
 <template>

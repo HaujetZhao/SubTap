@@ -6,7 +6,7 @@
 export class Player {
   constructor(mediaEl) {
     this.media = mediaEl;
-    this._endHandler = null;   // { end } 或 null
+    this._playing = false;
     this._stopCb = null;
     this._pauseBound = false;
     this._rafId = null;
@@ -30,7 +30,7 @@ export class Player {
   }
 
   playSegment(start, end) {
-    this._endHandler = { end };
+    this._playing = true;
     const go = () => {
       this.media.currentTime = start;
       this.media.play().catch(() => {}); // 忽略自动播放策略报错
@@ -52,7 +52,7 @@ export class Player {
   _startRafLoop(end) {
     this._clearRaf();
     const check = () => {
-      if (!this._endHandler) return; // 已 stop
+      if (!this._playing) return; // 已 stop
       if (this.media.currentTime >= end) {
         this.media.pause();
         return;
@@ -66,7 +66,7 @@ export class Player {
   _bindEndCheck(end) {
     this._unbindEndCheck();
     this._onTimeUpdate = () => {
-      if (this._endHandler && this.media.currentTime >= end) {
+      if (this._playing && this.media.currentTime >= end) {
         this.media.pause();
       }
     };
@@ -87,7 +87,7 @@ export class Player {
   }
 
   stop() {
-    this._endHandler = null;
+    this._playing = false;
     this._clearRaf();
     this._unbindEndCheck();
     this.media.pause();

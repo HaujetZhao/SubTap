@@ -12,11 +12,10 @@
 <body>
 <div id="out"></div>
 <script type="module">
-import { parseSRT, timestampToSeconds } from './src/srt-parser.js';
-import { buildVocab, lookupWords } from './src/word-lookup.js';
+import { parseSRT } from './src/srt-parser.js';
+import { buildVocab, tokenizeForRender, classifyWords } from './src/word-lookup.js';
 import { createVocabStore } from './src/vocab-store.js';
 import { computeEffectiveRanges } from './src/subtitle-tweak.js';
-import { tokenizeForRender, classifyWords } from './src/word-lookup.js';
 import { lemmatize } from './src/lemmatize.js';
 
 const out = document.getElementById('out');
@@ -25,12 +24,6 @@ function check(name, cond) {
   if (cond) { pass++; out.innerHTML += '<span class="pass">✓ ' + name + '</span>\n'; }
   else { fail++; out.innerHTML += '<span class="fail">✗ ' + name + '</span>\n'; }
 }
-
-// --- timestampToSeconds ---
-check('ts: 00:00:01,480 → 1.48', timestampToSeconds('00:00:01,480') === 1.48);
-check('ts: 00:01:02,500 → 62.5', timestampToSeconds('00:01:02,500') === 62.5);
-check('ts: 点分隔 00:00:05.000 → 5', timestampToSeconds('00:00:05.000') === 5);
-check('ts: 非法返回 null', timestampToSeconds('abc') === null);
 
 // --- parseSRT ---
 const sample = '1\n00:00:00,080 --> 00:00:01,480\nWhen you encode text into binary\n\n'
@@ -44,22 +37,17 @@ check('第1句文本正确', s[0].text === 'When you encode text into binary');
 check('第2句多行文本合并', s[1].text === "it's often nice\nto use as little data as possible");
 check('容错：坏块跳过', parseSRT('1\n00:00:00,080 --> 00:00:01,480\nhello\n\n坏块\n\n2\n00:00:02,000 --> 00:00:03,000\nworld\n').length === 2);
 
-// --- buildVocab / lookupWords ---
+// --- buildVocab ---
 const vo = { '初中': { 'encode': 'v. 编码', 'text': 'n. 文本' }, '四级': { 'compress': 'v. 压缩', 'binary': 'n. 二进制' } };
 const v = buildVocab(vo);
 check('buildVocab: encode 命中 初中', v['encode'].level === '初中' && v['encode'].def === 'v. 编码');
 check('buildVocab: compress 命中 四级', v['compress'].level === '四级');
-const w = lookupWords('When you ENCODE text into binary!', v);
-check('lookup: 数量=3', w.length === 3);
-check('lookup: 大小写归一', w[0].word === 'encode');
-check('lookup: 去标点', w[2].word === 'binary');
-check('lookup: 重复去重', lookupWords('text text text', v).length === 1);
-check('lookup: 未命中不返回', lookupWords('hello world', v).length === 0);
+check('classify: 大小写归一+去重', classifyWords('When you ENCODE text into binary!', v)['初中'].length === 3);
+check('classify: 未命中归超纲不返回', classifyWords('hello world', v)['初中'] === undefined);
 
 // --- VocabStore ---
-const store = createVocabStore(buildVocab, classifyWords);
+const store = createVocabStore();
 store.init(vo);
-check('VocabStore: isReady', store.isReady() === true);
 check('VocabStore: levels 顺序(含超纲)', JSON.stringify(store.getLevels()) === '["初中","四级","超纲"]');
 check('VocabStore: 四级默认不勾选', store.isEnabled('四级') === false);
 // 为查询测试启用 初中/四级（默认是关闭的）
@@ -82,7 +70,7 @@ store.setEnabled('超纲', false);
 check('VocabStore: 取消超纲后无超纲栏', store.lookupByLevel('encode zzz')['超纲'] === undefined);
 store.setEnabled('超纲', true);
 // 默认勾选状态
-const s2 = createVocabStore(buildVocab, classifyWords);
+const s2 = createVocabStore();
 s2.init(vo);
 check('VocabStore: 初中默认不勾选', s2.isEnabled('初中') === false);
 check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
@@ -129,6 +117,14 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('lem: studies→含 study', lemmatize('studies').includes('study'));
   check('lem: went→含 go', lemmatize('went').includes('go'));
   check('lem: happily→含 happy', lemmatize('happily').includes('happy'));
+  // 精简 IRREGULAR_VERBS 后靠后缀规则还原的三单/ing/规则过去式
+  check('lem: goes→go（规则 es）', lemmatize('goes').includes('go'));
+  check('lem: flies→fly（规则 ies）', lemmatize('flies').includes('fly'));
+  check('lem: catches→catch（规则 es）', lemmatize('catches').includes('catch'));
+  check('lem: buying→buy（规则 ying）', lemmatize('buying').includes('buy'));
+  check('lem: showed→show（规则 ed）', lemmatize('showed').includes('show'));
+  check('lem: caught→catch（不规则表）', lemmatize('caught').includes('catch'));
+  check('lem: taken→take（不规则表）', lemmatize('taken').includes('take'));
   // 缩约形式还原
   check("lem: don't→do", lemmatize("don't").includes('do'));
   check("lem: can't→can", lemmatize("can't").includes('can'));
@@ -147,7 +143,7 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   // --- 词形还原查词（端到端） ---
   const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习', letter: 'n. 字母' } };
   const lv = buildVocab(lvo);
-  check('lookup: raises 还原命中 raise', lookupWords('He raises his hand', lv)[0].word === 'raise');
+  check('classify: raises 还原命中 raise', classifyWords('He raises his hand', lv)['初中'][0].word === 'raise');
   check('classify: raises→raise 显示原形', classifyWords('raises', lv)['初中'][0].word === 'raise');
   check('classify: raises+raising 合并一条', classifyWords('raises raising raised', lv)['初中'].length === 1);
   check('classify: 超纲词还原失败仍超纲', !!classifyWords('zzzz', lv)['超纲']);

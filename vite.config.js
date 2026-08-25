@@ -7,11 +7,10 @@ export default defineConfig({
   base: './',
   resolve: { conditions: ['onnxruntime-web-use-extern-wasm'] },
   server: {
-    // 跨域隔离:开启后 ort 的 wasm 多线程才可用(wasm-bench.html 里测 threads 变体)
+    // 跨域隔离:开启后 ort 的 wasm 多线程才可用(bench-vad.html 里测 threads 变体)
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Resource-Policy': 'same-origin',
     },
   },
   build: {
@@ -20,6 +19,7 @@ export default defineConfig({
     // 否则打包后运行时会抛 "Could not dynamically require" 导致整页空白。
     commonjsOptions: {
       // 大小写敏感:Windows 下 cwd 是 d:/ 但依赖解析成 D:/,必须用绝对路径匹配盘符
+      // (本机开发路径;CI 在 Linux 上 cwd 小写匹配默认 root,不走这项)
       dynamicRequireRoot: 'D:/repos/SubTap/node_modules/subsrt/lib',
       dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js'],
     },
