@@ -10,6 +10,7 @@ const props = defineProps({
   endOffset: { type: Number, default: 0 },
   highlightOn: { type: Boolean, default: true },
   ttsOn: { type: Boolean, default: false },
+  controlBarOn: { type: Boolean, default: true },
   ttsLang: { type: String, default: 'en-US' },
   ttsRate: { type: Number, default: 1 },
   // 注意:prop 名必须叫 ttsVoiceUri(对应父级 :tts-voice-uri)。
@@ -27,7 +28,7 @@ const props = defineProps({
   vadMinSpeech: { type: Number, default: 0.2 },
   vadMinSilence: { type: Number, default: 0.1 }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-tts', 'set-theme', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-highlight', 'toggle-control-bar', 'toggle-tts', 'set-theme', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -119,6 +120,14 @@ const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
         <span class="label-text">词汇提示</span>
         <span class="switch" aria-hidden="true"></span>
         <span class="tip">用背景色高亮句中生词</span>
+      </label>
+      <label class="level-pill" :class="{ off: !controlBarOn }">
+        <input type="checkbox" class="sr-only" :checked="controlBarOn"
+               @change="emit('toggle-control-bar', $event.target.checked)" />
+        <span class="dot muted"></span>
+        <span class="label-text">控制条</span>
+        <span class="switch" aria-hidden="true"></span>
+        <span class="tip">非全屏时显示底部药丸控制条</span>
       </label>
       <label class="level-pill" :class="{ off: !ttsOn }">
         <input type="checkbox" class="sr-only" :checked="ttsOn"

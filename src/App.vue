@@ -36,6 +36,9 @@ if (_s.enabled) {
 // 高亮总开关（默认开，只控中栏）
 const highlightOn = ref(_s.highlightOn ?? true);
 
+// 底部药丸控制条开关(非全屏;全屏播控药丸不受此控)
+const controlBarOn = ref(_s.controlBarOn ?? true);
+
 // 主题:'light' | 'dark'(以后可加第三种),写 html[data-theme],CSS 按 data-theme 覆盖 token
 const theme = ref(_s.theme ?? 'light');
 watch(theme, v => document.documentElement.dataset.theme = v, { immediate: true });
@@ -272,12 +275,13 @@ function onToggleLevel(level, val) {
 
 // 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调/VAD 后处理参数）
 watch(
-  [enabled, highlightOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, vadThreshold, vadMinSpeech, vadMinSilence],
+  [enabled, highlightOn, controlBarOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, vadThreshold, vadMinSpeech, vadMinSilence],
   () => {
     try {
       localStorage.setItem(LS_S, JSON.stringify({
         enabled: { ...enabled },
         highlightOn: highlightOn.value,
+        controlBarOn: controlBarOn.value,
         theme: theme.value,
         ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
         offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
@@ -789,6 +793,7 @@ onUnmounted(() => {
       :end-mode="endMode"
       :end-offset="endOffset"
       :highlight-on="highlightOn"
+      :control-bar-on="controlBarOn"
       :tts-on="ttsOn"
       :tts-lang="ttsLang"
       :tts-rate="ttsRate"
@@ -811,6 +816,7 @@ onUnmounted(() => {
       @vad-run="runVad"
       @tweak="onTweak"
       @toggle-highlight="val => highlightOn = val"
+      @toggle-control-bar="val => controlBarOn = val"
       @toggle-tts="onToggleTts"
       @set-theme="val => theme = val"
       @collapse="collapseLeft"
@@ -862,7 +868,7 @@ onUnmounted(() => {
         @sample="loadSample"
         @restore="restoreLast"
       />
-      <nav v-if="sentences.length" ref="cbRef" class="control-bar"
+      <nav v-if="sentences.length && controlBarOn" ref="cbRef" class="control-bar"
            :style="{ left: cbPos.x + 'px', top: cbPos.y + 'px' }"
            @pointerdown="cbDrag.down" @click.stop>
         <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)">
