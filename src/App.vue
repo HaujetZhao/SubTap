@@ -313,6 +313,8 @@ function applyMediaSrc(url, name, kind) {
   player.setSrc(url);
   mediaName.value = name;
   mediaKind.value = kind;
+  // 设媒体元数据激活 media session,蓝牙线控才会派发按钮事件
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: name });
   if (kind === 'video') videoCollapsed.value = false;
 }
 
@@ -703,6 +705,13 @@ onMounted(() => {
   });
   window.addEventListener('keydown', onKeydown);
   document.addEventListener('fullscreenchange', onFullscreenChange);
+  // 蓝牙耳机线控 → 药丸同款功能(需要媒体会话激活,applyMediaSrc 里设 metadata)
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('previoustrack', () => goPrev());
+    navigator.mediaSession.setActionHandler('nexttrack', () => goNext());
+    navigator.mediaSession.setActionHandler('play', () => replayCurrent());
+    navigator.mediaSession.setActionHandler('pause', () => stopAll());
+  }
   // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
   // 注意:getVoices() 中途可能返回空数组,直接覆盖会清空已加载声音 → 声音下拉只剩"默认"。
   // 空结果忽略。
@@ -715,8 +724,44 @@ onMounted(() => {
   loadVoices();
   if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
   window.addEventListener('resize', onWindowResize);
+  // 实验:双指手势监控(禁原生双指缩放,识别双指点击/滑动方向)
+  window.addEventListener('touchstart', onTwoFingerTouch, { passive: false });
+  window.addEventListener('touchmove', onTwoFingerTouch, { passive: false });
+  window.addEventListener('touchend', onTwoFingerTouchEnd, { passive: false });
   recompute();
 });
+
+// 双指手势:touchstart/move 时 preventDefault 禁掉原生双指缩放;
+// 结束时分类:上滑→下一句,下滑→上一句,轻点→播放中停止/未播重播(同空格)。
+// 间距变化大(捏合)不算任何手势,并用来排除点击误判
+let twoFinger = null;
+function onTwoFingerTouch(e) {
+  if (e.touches.length === 2) {
+    const pts = [...e.touches].map(t => [t.clientX, t.clientY]);
+    if (!twoFinger) twoFinger = { t: performance.now(), start: pts, last: pts };
+    else twoFinger.last = pts;
+    e.preventDefault();
+  } else if (twoFinger && e.touches.length > 2) {
+    // 有第三根手指加入,放弃本次手势
+    twoFinger = null;
+  }
+}
+function onTwoFingerTouchEnd() {
+  if (!twoFinger) return;
+  const { t, start, last } = twoFinger;
+  twoFinger = null;
+  const dt = performance.now() - t;
+  const [v1, v2] = start.map((p, i) => [last[i][0] - p[0], last[i][1] - p[1]]);
+  const spread0 = Math.hypot(start[1][0] - start[0][0], start[1][1] - start[0][1]);
+  const spread1 = Math.hypot(last[1][0] - last[0][0], last[1][1] - last[0][1]);
+  const pinch = Math.abs(spread1 - spread0);
+  const move = Math.hypot(v1[0] + v2[0], v1[1] + v2[1]) / 2; // 两指平均位移
+  const sameDir = v1[0] * v2[0] + v1[1] * v2[1] > 0;         // 两指方向一致(滑动),相反(捏合)
+  if (move >= 30 && sameDir && Math.abs(v1[1] + v2[1]) > Math.abs(v1[0] + v2[0])) {
+    if (v1[1] + v2[1] < 0) goNext(); else goPrev();
+  }
+  else if (move < 30 && pinch < 50 && dt < 400) { isPlaying.value ? stopAll() : replayCurrent(); }
+}
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
