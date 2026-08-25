@@ -602,10 +602,10 @@ function measureCbBounds() {
 const cbDrag = makePillDrag({
   getEl: () => { cbBounds = measureCbBounds(); return cbRef.value; },   // down 时量一次,拖动热路径零 DOM 读取
   clamp: (cx, cy, halfX, halfY) => {
-    const pad = 8, b = cbBounds;
+    const b = cbBounds;
     cbPos.value = {
-      x: Math.min(Math.max(cx, b.left + halfX + pad), b.right - halfX - pad),
-      y: Math.min(Math.max(cy, b.top + halfY + pad), b.bottom - halfY - pad),
+      x: Math.min(Math.max(cx, b.left + halfX), b.right - halfX),
+      y: Math.min(Math.max(cy, b.top + halfY), b.bottom - halfY),
     };
   },
   persist: () => localStorage.setItem(CB_POS_KEY, JSON.stringify(cbPos.value)),
@@ -617,10 +617,10 @@ function clampCbIntoView() {
     cbBounds = measureCbBounds();
     const pl = cbRef.value.getBoundingClientRect();
     const p = cbPos.value;
-    const pad = 8, hx = pl.width / 2, hy = pl.height / 2;
+    const hx = pl.width / 2, hy = pl.height / 2;
     cbPos.value = {
-      x: Math.min(Math.max(p.x, cbBounds.left + hx + pad), cbBounds.right - hx - pad),
-      y: Math.min(Math.max(p.y, cbBounds.top + hy + pad), cbBounds.bottom - hy - pad),
+      x: Math.min(Math.max(p.x, cbBounds.left + hx), cbBounds.right - hx),
+      y: Math.min(Math.max(p.y, cbBounds.top + hy), cbBounds.bottom - hy),
     };
   });
 }
