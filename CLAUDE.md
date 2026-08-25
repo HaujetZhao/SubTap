@@ -43,6 +43,9 @@ npm run sync-ort     # 从 node_modules/onnxruntime-web 拷 wasm 到 public/ort/
 | `player.js` | `Player` 类：区间播放，**前台 `requestAnimationFrame` 精准停播**（~16ms），**后台 tab 用 `timeupdate` 兜底**（rAF 后台被浏览器暂停，故媒体自身时钟兜底到点停，~250ms） |
 | `subtitle-tweak.js` | `computeEffectiveRanges(sentences,{offset,extend,linkNext,linkNextOffset})`：linkNext 与 extend 互斥（linkNext 优先） |
 | `level-colors.js` | `LEVEL_COLORS`（8 级 → hex，集中配色） |
+| `tts.js` | 语音朗读封装（Web Speech API）：`speak`（取双语首行英文，返回 'ok'/'empty'/'unsupported'，参数由调用方传入）、`stopSpeech`、`loadVoices`（空结果返回 null 不覆盖，见下 #11）、`ttsSupported` |
+| `gestures.js` | `createTwoFingerRecognizer({onSwipe,onTap})`：双指滑动切句/轻点播放暂停的纯几何识别（含捏合排除），阈值常量住此 |
+| `toast.js` | `createToasts()`：toast 队列小机器（同文案去重、2.5s 自动消失、hover 暂停、`dispose` 清计时器），App 取返回值绑模板 |
 | `vad.js` | **VAD 自动分段**（FireRedVAD onnx 流式推理）：`createSession`（webgpu 优先、wasm 回退）、`FireRedVadStream`（攒 30s 块推理、渐进吐分段）、`postprocess`（平滑+状态机切分，参数可覆盖）、`decodeAudio16k`、`prefetchVadAssets`（预取 wasm+模型进 HTTP 缓存）。运行时从 `public/ort/`、`public/models/` 按 URL fetch |
 
 **UI 层（Vue 3 `<script setup>`）：**

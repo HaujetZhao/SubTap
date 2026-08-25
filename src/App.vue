@@ -9,9 +9,13 @@ import { computeEffectiveRanges } from './subtitle-tweak.js';
 import { LEVEL_COLORS } from './level-colors.js';
 import { saveFile, saveVadSegs, saveProgress, loadFiles, getCachedProbs, putCachedProbs } from './file-history.js';
 import { FireRedVadStream, createSession, decodeAudio16k, postprocess, FRAME_SHIFT_S, prefetchVadAssets } from './vad.js';
+import { createToasts } from './toast.js';
+import { ttsSupported, stopSpeech, loadVoices, speak } from './tts.js';
+import { createTwoFingerRecognizer } from './gestures.js';
 import SettingsPanel from './components/SettingsPanel.vue';
 import SentenceList from './components/SentenceList.vue';
 import WordPanel from './components/WordPanel.vue';
+import PillControls from './components/PillControls.vue';
 import sampleSrt from './assets/sample/sample.srt?raw';
 import sampleAudio from './assets/sample/sample.aac';
 
@@ -20,9 +24,19 @@ const store = createVocabStore(buildVocab, classifyWords);
 store.init(vocab);
 const vocabTable = store.getVocab();
 
+// localStorage JSON 读取统一入口(解析失败/为空返回 fallback)
+function loadJson(key, fallback) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch { return fallback; }
+}
+// 药丸位置(0..1 比例坐标)读取:越界/缺字段作废用默认值
+function loadPos(key, def) {
+  const p = loadJson(key, null);
+  return (p && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1) ? p : def;
+}
+
 // ponytail: 侧栏参数持久化（分级勾选/高亮/TTS/字幕微调），单 key 存 localStorage
 const LS_S = 'subtap-settings';
-const _s = (() => { try { return JSON.parse(localStorage.getItem(LS_S) || '{}'); } catch { return {}; } })();
+const _s = loadJson(LS_S, {});
 
 // 响应式勾选镜像：从 store 默认值读取（初中/高中/四级=false，其余=true），再用存档覆盖
 const enabled = reactive({});
@@ -103,7 +117,10 @@ function recompute() {
   if (rightPin.value !== rp) { rightHide.value = false; rightOv.value = false; }
 }
 let resizeRaf = 0;
-const onWindowResize = () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(recompute); };
+const onWindowResize = () => {
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => { recompute(); clampCbIntoView(); });
+};
 
 const leftPinned  = computed(() => leftPin.value  && !leftHide.value  && !leftOv.value);
 const rightPinned = computed(() => rightPin.value && !rightHide.value && !rightOv.value);
@@ -119,12 +136,10 @@ const layoutClass = computed(() => ({
 
 // push 模式拖拽调左右栏宽(180–480),持久化。应用走 .layout 的 :style 绑定 CSS var。
 const LS_W = 'subtap-widths';
-const _w = (() => { try { return JSON.parse(localStorage.getItem(LS_W) || '{}'); } catch { return {}; } })();
+const _w = loadJson(LS_W, {});
 const leftWidth  = ref(_w.leftWidth  ?? 230);
 const rightWidth = ref(_w.rightWidth ?? 280);
-watch([leftWidth, rightWidth], ([l, r]) => {
-  try { localStorage.setItem(LS_W, JSON.stringify({ leftWidth: l, rightWidth: r })); } catch {}
-});
+// 宽度持久化在 stopSideResize 写一次,不随拖动热路径每个 pointermove 写盘
 let sideDrag = null;
 function startSideResize(panel, e) {
   sideDragging.value = true;
@@ -144,6 +159,7 @@ function stopSideResize() {
   sideDrag = null;
   document.removeEventListener('pointermove', onSideResize);
   document.removeEventListener('pointerup', stopSideResize);
+  try { localStorage.setItem(LS_W, JSON.stringify({ leftWidth: leftWidth.value, rightWidth: rightWidth.value })); } catch {}
 }
 
 // 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
@@ -163,35 +179,7 @@ function toggleFab(side) {
 const closeBoth = () => { leftOv.value = false; rightOv.value = false; };
 
 // toast:自动消失的状态消息(成功/错误均 2.5s)
-const toasts = reactive([]);
-let toastSeq = 0;
-function notify(message, type = 'success') {
-  // 相同文案的 toast 先关掉旧的,避免连续点击堆叠一串(如未载媒体时连点句子)
-  for (let i = toasts.length - 1; i >= 0; i--) {
-    if (toasts[i].message === message) {
-      clearTimeout(toasts[i].timer);
-      toasts.splice(i, 1);
-    }
-  }
-  const t = { id: ++toastSeq, message, type, key: 0 };
-  toasts.push(t);
-  t.key++;                        // 触发进度条动画重启
-  t.timer = setTimeout(() => dismiss(t.id), 2500);
-}
-function dismiss(id) {
-  const i = toasts.findIndex(x => x.id === id);
-  if (i < 0) return;
-  clearTimeout(toasts[i].timer);
-  toasts.splice(i, 1);
-}
-function pauseToast(t) {
-  clearTimeout(t.timer);
-}
-function resumeToast(t) {
-  if (!toasts.find(x => x.id === t.id)) return;   // 已被关闭,不再重设定时器
-  t.key++;                        // 重启进度条动画
-  t.timer = setTimeout(() => dismiss(t.id), 2500);
-}
+const { toasts, notify, dismiss, pauseToast, resumeToast, disposeToasts } = createToasts();
 
 // 字幕微调参数:endMode 为末尾处理模式(延长/衔接),endOffset 为两者共用的偏移(秒)
 const offset = ref(_s.offset ?? 0);
@@ -249,16 +237,16 @@ const effectiveRanges = computed(() => {
   return computeEffectiveRanges(sentences.value, opts);
 });
 
+// 持久化设置的字段清单(单一来源):onTweak 分发与存档写回都从这里取
+const cfgRefs = {
+  highlightOn, controlBarOn, theme,
+  ttsOn, ttsLang, ttsRate, ttsVoiceURI,
+  offset, endMode, endOffset,
+  vadThreshold, vadMinSpeech, vadMinSilence,
+};
+
 function onTweak(key, val) {
-  if (key === 'offset') offset.value = val;
-  else if (key === 'endMode') endMode.value = val;
-  else if (key === 'endOffset') endOffset.value = val;
-  else if (key === 'ttsLang') ttsLang.value = val;
-  else if (key === 'ttsRate') ttsRate.value = val;
-  else if (key === 'ttsVoiceURI') ttsVoiceURI.value = val;
-  else if (key === 'vadThreshold') vadThreshold.value = val;
-  else if (key === 'vadMinSpeech') vadMinSpeech.value = val;
-  else if (key === 'vadMinSilence') vadMinSilence.value = val;
+  if (key in cfgRefs) cfgRefs[key].value = val;
   else console.warn('未知微调参数：', key);
 }
 // 语音朗读开关:关闭时停止正在进行的朗读
@@ -273,20 +261,14 @@ function onToggleLevel(level, val) {
   store.setEnabled(level, val);
 }
 
-// 侧栏参数写回存档（分级勾选/高亮/TTS/字幕微调/VAD 后处理参数）
+// 侧栏参数写回存档（分级勾选 + cfgRefs 全部字段）
 watch(
-  [enabled, highlightOn, controlBarOn, ttsOn, ttsLang, ttsRate, ttsVoiceURI, offset, endMode, endOffset, theme, vadThreshold, vadMinSpeech, vadMinSilence],
+  [enabled, ...Object.values(cfgRefs)],
   () => {
     try {
-      localStorage.setItem(LS_S, JSON.stringify({
-        enabled: { ...enabled },
-        highlightOn: highlightOn.value,
-        controlBarOn: controlBarOn.value,
-        theme: theme.value,
-        ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceURI: ttsVoiceURI.value,
-        offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
-        vadThreshold: vadThreshold.value, vadMinSpeech: vadMinSpeech.value, vadMinSilence: vadMinSilence.value,
-      }));
+      const data = { enabled: { ...enabled } };
+      for (const [k, r] of Object.entries(cfgRefs)) data[k] = r.value;
+      localStorage.setItem(LS_S, JSON.stringify(data));
     } catch {}
   },
   { deep: true }
@@ -330,13 +312,7 @@ function onSrtFile(file, save = true, selectId = null) {
     try {
       applySubtitle(reader.result);
       // 恢复上次:选中并滚到上次的句子
-      if (selectId !== null) {
-        const s = sentences.value.find(x => x.id === selectId);
-        if (s) {
-          currentId.value = s.id; currentText.value = s.text;
-          nextTick(() => sentenceListRef.value?.ensureVisible(true));
-        }
-      }
+      if (selectId !== null) selectSentenceById(selectId);
       if (save) notify('已载入 ' + sentences.value.length + ' 句字幕');
     } catch (e) {
       notify('字幕解析失败：' + e.message, 'error');
@@ -456,8 +432,7 @@ async function restoreLast() {
   // VAD 生成的字幕:直接重建分段(不走解析),srtFromFile 保持 false,VAD 面板仍可用
   if (rec.srtSource === 'vad' && rec.vadSegs) {
     sentences.value = toSentences(rec.vadSegs);
-    const s = sentences.value.find(x => x.id === rec.sentenceId);
-    if (s) { currentId.value = s.id; currentText.value = s.text; nextTick(() => sentenceListRef.value?.ensureVisible(true)); }
+    selectSentenceById(rec.sentenceId);
   } else if (rec.srt) {
     onSrtFile(rec.srt, false, rec.sentenceId ?? null);
   }
@@ -467,33 +442,21 @@ async function restoreLast() {
 // 点句即记进度(异步,失败静默)
 watch(currentId, id => { if (sentences.value.length) saveProgress(id); });
 
-function onSentenceClick(sentence) {
-  playSentence(sentence);
+// 按选中并滚到可见(恢复上次进度时用;找不到 id 则不动)
+function selectSentenceById(id) {
+  const s = sentences.value.find(x => x.id === id);
+  if (s) { currentId.value = s.id; currentText.value = s.text; nextTick(() => sentenceListRef.value?.ensureVisible(true)); }
 }
 
-// 浏览器语音朗读(Web Speech API)。无媒体时作为播放替代。
-function stopSpeech() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-}
-function speakSentence(text) {
-  if (!('speechSynthesis' in window)) {
-    notify('当前浏览器不支持语音朗读', 'error');
-    return;
-  }
-  stopSpeech();
-  const english = (text.split('\n')[0] || text).trim();   // 双语字幕取首行英文
-  if (!english) return;
-  const u = new SpeechSynthesisUtterance(english);
-  u.lang = ttsLang.value;
-  u.rate = ttsRate.value;
-  if (ttsVoiceURI.value) {
-    const vc = voices.value.find(v => v.voiceURI === ttsVoiceURI.value);
-    if (vc) u.voice = vc;
-  }
-  u.onend = () => { isPlaying.value = false; };
-  u.onerror = () => { isPlaying.value = false; };
-  window.speechSynthesis.speak(u);
-  isPlaying.value = true;
+// 语音朗读:朗读逻辑在 tts.js,这里只做响应式桥(isPlaying)与提示
+function speakCurrent(text) {
+  const r = speak(
+    text,
+    { lang: ttsLang.value, rate: ttsRate.value, voiceURI: ttsVoiceURI.value, voices: voices.value },
+    () => { isPlaying.value = false; },
+  );
+  if (r === 'unsupported') notify('当前浏览器不支持语音朗读', 'error');
+  else if (r === 'ok') isPlaying.value = true;
 }
 
 // 播放指定句子（点击与键盘共用）：选中 + 区间播放(无媒体时改用语音朗读)
@@ -501,7 +464,7 @@ function playSentence(sentence) {
   currentId.value = sentence.id;
   currentText.value = sentence.text;
   if (!mediaName.value) {
-    if (ttsOn.value) speakSentence(sentence.text);
+    if (ttsOn.value) speakCurrent(sentence.text);
     else notify('请先打开音/视频文件或打开语音朗读功能', 'error');
     return;
   }
@@ -570,11 +533,12 @@ function guardPillClick(fn, e) {
 // 播控药丸拖动:位置按"药丸中心占视频比例"存 localStorage,任意尺寸/全屏下等比复现
 const VC_POS_KEY = 'videoCtrlPos';
 const pillRef = ref(null);
-const vcPos = ref((() => { try { return JSON.parse(localStorage.getItem(VC_POS_KEY)) } catch { return null } })() || { x: 0.5, y: 0.55 });
+const vcPos = ref(loadPos(VC_POS_KEY, { x: 0.5, y: 0.55 }));
+let vcStageRect = null;   // down 时量一次,拖动热路径零 DOM 读取(同 cbBounds)
 const vcPillDrag = makePillDrag({
-  getEl: () => pillRef.value,
+  getEl: () => { vcStageRect = stageRef.value.getBoundingClientRect(); return pillRef.value; },
   clamp: (cx, cy, halfX, halfY) => {
-    const st = stageRef.value.getBoundingClientRect();
+    const st = vcStageRect;
     const x = Math.min(Math.max(cx, st.left + halfX), st.right - halfX);
     const y = Math.min(Math.max(cy, st.top + halfY), st.bottom - halfY);
     vcPos.value = { x: (x - st.left) / st.width, y: (y - st.top) / st.height };
@@ -585,13 +549,7 @@ const vcPillDrag = makePillDrag({
 // 转屏/换设备后等比复现(手机全屏锁横屏→退出的转场不会把位置夹丢)。旧版 px 坐标超界作废。
 const CB_POS_KEY = 'ctrlBarPos';
 const cbRef = ref(null);
-const cbPos = ref((() => {
-  try {
-    const p = JSON.parse(localStorage.getItem(CB_POS_KEY));
-    if (p && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1) return p;
-  } catch {}
-  return { x: 0.5, y: 0.82 };
-})());
+const cbPos = ref(loadPos(CB_POS_KEY, { x: 0.5, y: 0.82 }));
 // 活动范围限中栏可见区:中栏 rect(侧栏为绝对定位叠放,需把展开的侧栏扣掉),不会钻进侧栏/飞出屏幕
 let cbBounds = null;
 function measureCbBounds() {
@@ -625,14 +583,12 @@ function clampCbIntoView() {
     const pl = cbRef.value.getBoundingClientRect();
     const p = cbPos.value;
     const hx = pl.width / 2, hy = pl.height / 2;
-    cbPos.value = {
-      x: Math.min(Math.max(p.x * innerWidth, cbBounds.left + hx), cbBounds.right - hx) / innerWidth,
-      y: Math.min(Math.max(p.y * innerHeight, cbBounds.top + hy), cbBounds.bottom - hy) / innerHeight,
-    };
+    const nx = Math.min(Math.max(p.x * innerWidth, cbBounds.left + hx), cbBounds.right - hx) / innerWidth;
+    const ny = Math.min(Math.max(p.y * innerHeight, cbBounds.top + hy), cbBounds.bottom - hy) / innerHeight;
+    if (nx !== p.x || ny !== p.y) cbPos.value = { x: nx, y: ny };   // 不越界不写,免触发无谓更新
   });
 }
 watch([() => sentences.value.length, layoutClass, leftWidth, rightWidth], clampCbIntoView);
-window.addEventListener('resize', clampCbIntoView);
 
 // 全屏切换。进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
 // 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
@@ -724,70 +680,35 @@ onMounted(() => {
     navigator.mediaSession.setActionHandler('pause', () => stopAll());
   }
   // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
-  // 注意:getVoices() 中途可能返回空数组,直接覆盖会清空已加载声音 → 声音下拉只剩"默认"。
-  // 空结果忽略。
-  function loadVoices() {
-    if ('speechSynthesis' in window) {
-      const list = window.speechSynthesis.getVoices();
-      if (list.length) voices.value = list;
-    }
-  }
-  loadVoices();
-  if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoices;
+  // getVoices() 中途可能返回空数组 → loadVoices 空结果返回 null,不覆盖已加载声音。
+  const syncVoices = () => { const l = loadVoices(); if (l) voices.value = l; };
+  syncVoices();
+  if (ttsSupported) window.speechSynthesis.onvoiceschanged = syncVoices;
   window.addEventListener('resize', onWindowResize);
-  // 实验:双指手势监控(禁原生双指缩放,识别双指点击/滑动方向)
-  window.addEventListener('touchstart', onTwoFingerTouch, { passive: false });
-  window.addEventListener('touchmove', onTwoFingerTouch, { passive: false });
-  window.addEventListener('touchend', onTwoFingerTouchEnd, { passive: false });
+  // 双指手势:识别在 gestures.js,这里只绑监听(禁原生双指缩放)
+  window.addEventListener('touchstart', gesture.onTouch, { passive: false });
+  window.addEventListener('touchmove', gesture.onTouch, { passive: false });
+  window.addEventListener('touchend', gesture.onTouchEnd, { passive: false });
   recompute();
 });
 
-// 双指手势:touchstart/move 时 preventDefault 禁掉原生双指缩放;
-// 结束时分类:上滑→下一句,下滑→上一句,轻点→播放中停止/未播重播(同空格)。
-// 间距变化大(捏合)不算任何手势,并用来排除点击误判
-let twoFinger = null;
-function onTwoFingerTouch(e) {
-  if (e.touches.length === 2) {
-    const pts = [...e.touches].map(t => [t.clientX, t.clientY]);
-    if (!twoFinger) twoFinger = { t: performance.now(), start: pts, last: pts };
-    else twoFinger.last = pts;
-    e.preventDefault();
-  } else if (twoFinger && e.touches.length > 2) {
-    // 有第三根手指加入,放弃本次手势
-    twoFinger = null;
-  }
-}
-function onTwoFingerTouchEnd() {
-  if (!twoFinger) return;
-  const { t, start, last } = twoFinger;
-  twoFinger = null;
-  const dt = performance.now() - t;
-  const [v1, v2] = start.map((p, i) => [last[i][0] - p[0], last[i][1] - p[1]]);
-  const spread0 = Math.hypot(start[1][0] - start[0][0], start[1][1] - start[0][1]);
-  const spread1 = Math.hypot(last[1][0] - last[0][0], last[1][1] - last[0][1]);
-  const pinch = Math.abs(spread1 - spread0);
-  const move = Math.hypot(v1[0] + v2[0], v1[1] + v2[1]) / 2; // 两指平均位移
-  const sameDir = v1[0] * v2[0] + v1[1] * v2[1] > 0;         // 两指方向一致(滑动),相反(捏合)
-  if (move >= 30 && sameDir && Math.abs(v1[1] + v2[1]) > Math.abs(v1[0] + v2[0])) {
-    if (v1[1] + v2[1] < 0) goNext(); else goPrev();
-  }
-  else if (move < 30 && pinch < 50 && dt < 400) { isPlaying.value ? stopAll() : replayCurrent(); }
-}
+// 双指手势:上/下滑切句,轻点播放中停止/未播重播(同空格)
+const gesture = createTwoFingerRecognizer({
+  onSwipe: dir => (dir > 0 ? goNext() : goPrev()),
+  onTap: () => { isPlaying.value ? stopAll() : replayCurrent(); },
+});
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('resize', onWindowResize);
   cancelAnimationFrame(resizeRaf);
-  if (sideDrag) {                      // 拖拽进行中卸载(仅开发期热重载),清掉 mouse listener
-    document.removeEventListener('mousemove', onSideResize);
-    document.removeEventListener('mouseup', stopSideResize);
-  }
+  // 未注册时 remove 是 no-op,无条件清(拖拽进行中卸载仅开发期热重载会走到)
+  document.removeEventListener('pointermove', onSideResize);
+  document.removeEventListener('pointerup', stopSideResize);
   document.removeEventListener('fullscreenchange', onFullscreenChange);
-  window.removeEventListener('resize', clampCbIntoView);
   vcPillDrag.cancel();
   cbDrag.cancel();
-  toasts.forEach(t => clearTimeout(t.timer));
-  toasts.splice(0);
+  disposeToasts();
 });
 </script>
 
@@ -846,11 +767,8 @@ onUnmounted(() => {
           <div v-if="isFullscreen && videoOverlay" ref="pillRef" class="vc-pill"
                :style="{ left: vcPos.x * 100 + '%', top: vcPos.y * 100 + '%' }"
                @pointerdown="vcPillDrag.down" @click.stop>
-            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)"><i class="fas fa-chevron-up"></i></button>
-            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent, $event)">
-              <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
-            </button>
-            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext, $event)"><i class="fas fa-chevron-down"></i></button>
+            <PillControls :guard="guardPillClick" :disabled="!sentences.length" :playing="isPlaying"
+                          @prev="goPrev" @toggle="isPlaying ? stopAll() : replayCurrent()" @next="goNext" />
           </div>
           <!-- 1px 全透明钉子:画面内容区顶部居中,阻止 Chromium 把拖进黑边的药丸剔除不绘制 -->
           <div class="vc-anchor"></div>
@@ -870,7 +788,7 @@ onUnmounted(() => {
         :colors="LEVEL_COLORS"
         :can-restore="canRestore"
         :media-loaded="mediaKind !== null"
-        @click="onSentenceClick"
+        @click="playSentence"
         @copy="notify('已复制')"
         @sample="loadSample"
         @restore="restoreLast"
@@ -878,15 +796,8 @@ onUnmounted(() => {
       <nav v-if="sentences.length && controlBarOn" ref="cbRef" class="control-bar"
            :style="{ left: cbPos.x * 100 + '%', top: cbPos.y * 100 + '%' }"
            @pointerdown="cbDrag.down" @click.stop>
-        <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)">
-          <i class="fas fa-chevron-up"></i>
-        </button>
-        <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent, $event)">
-          <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
-        </button>
-        <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext, $event)">
-          <i class="fas fa-chevron-down"></i>
-        </button>
+        <PillControls :guard="guardPillClick" :disabled="!sentences.length" :playing="isPlaying"
+                      @prev="goPrev" @toggle="isPlaying ? stopAll() : replayCurrent()" @next="goNext" />
       </nav>
     </main>
     <WordPanel
