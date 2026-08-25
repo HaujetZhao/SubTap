@@ -42,7 +42,8 @@ const vo = { '初中': { 'encode': 'v. 编码', 'text': 'n. 文本' }, '四级':
 const v = buildVocab(vo);
 check('buildVocab: encode 命中 初中', v['encode'].level === '初中' && v['encode'].def === 'v. 编码');
 check('buildVocab: compress 命中 四级', v['compress'].level === '四级');
-check('classify: 大小写归一+去重', classifyWords('When you ENCODE text into binary!', v)['初中'].length === 3);
+check('classify: 大小写归一', classifyWords('When you ENCODE text into binary!', v)['初中'].map(w => w.word).join() === 'encode,text');
+check('classify: 去重', classifyWords('ENCODE encode text!', v)['初中'].length === 2);
 check('classify: 未命中归超纲不返回', classifyWords('hello world', v)['初中'] === undefined);
 
 // --- VocabStore ---
