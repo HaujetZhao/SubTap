@@ -1,6 +1,6 @@
 import { ref } from 'vue';
-import { saveVadSegs, putCachedProbs } from './file-history.js';
-import { FireRedVadStream, createSession, decodeAudio16k, postprocess, FRAME_SHIFT_S, prefetchVadAssets } from './vad.js';
+import { saveVadSegs, putCachedProbs } from '../logic/file-history.js';
+import { FireRedVadStream, createSession, decodeAudio16k, postprocess, FRAME_SHIFT_S, prefetchVadAssets } from '../logic/vad.js';
 
 // VAD 分段转句子(空文本);base 为起始编号(恢复上次/批量追加共用)
 export const toSentences = (segs, base = 0) => segs.map(([s, e], i) => ({ id: base + i + 1, start: s, end: e, text: '' }));

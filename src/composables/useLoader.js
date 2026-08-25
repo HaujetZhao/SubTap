@@ -1,9 +1,9 @@
 import { ref } from 'vue';
-import { parseSRT } from './srt-parser.js';
-import { saveFile, loadFiles, getCachedProbs } from './file-history.js';
+import { parseSRT } from '../logic/srt-parser.js';
+import { saveFile, loadFiles, getCachedProbs } from '../logic/file-history.js';
 import { toSentences } from './useVad.js';
-import sampleSrt from './assets/sample/sample.srt?raw';
-import sampleAudio from './assets/sample/sample.aac';
+import sampleSrt from '../assets/sample/sample.srt?raw';
+import sampleAudio from '../assets/sample/sample.aac';
 
 // 文件载入层:外部字幕/音视频载入、清除、内置示例、恢复上次。
 // 依赖注入:核心状态 refs、stopAll(playback)、getPlayer、vad(reset/setProbs)、

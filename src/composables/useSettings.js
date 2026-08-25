@@ -1,5 +1,5 @@
 import { ref, reactive, watch } from 'vue';
-import { stopSpeech } from './tts.js';
+import { stopSpeech } from '../logic/tts.js';
 import { loadJson } from './pill-drag.js';
 
 // ponytail: 侧栏参数持久化（分级勾选/高亮/TTS/字幕微调/VAD 后处理），单 key 存 localStorage

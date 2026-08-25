@@ -1,6 +1,6 @@
 import { computed } from 'vue';
-import { stopSpeech, speak } from './tts.js';
-import { createTwoFingerRecognizer } from './gestures.js';
+import { stopSpeech, speak } from '../logic/tts.js';
+import { createTwoFingerRecognizer } from '../logic/gestures.js';
 
 // 播放意图层:点句播放/键盘/双指手势/蓝牙线控共用同一套命令。
 // 依赖注入:核心状态 refs、effectiveRanges computed、getPlayer(挂载前为 null)、

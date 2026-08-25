@@ -12,11 +12,11 @@
 <body>
 <div id="out"></div>
 <script type="module">
-import { parseSRT } from './src/srt-parser.js';
-import { buildVocab, tokenizeForRender, classifyWords } from './src/word-lookup.js';
-import { createVocabStore } from './src/vocab-store.js';
-import { computeEffectiveRanges } from './src/subtitle-tweak.js';
-import { lemmatize } from './src/lemmatize.js';
+import { parseSRT } from './src/logic/srt-parser.js';
+import { buildVocab, tokenizeForRender, classifyWords } from './src/logic/word-lookup.js';
+import { createVocabStore } from './src/logic/vocab-store.js';
+import { computeEffectiveRanges } from './src/logic/subtitle-tweak.js';
+import { lemmatize } from './src/logic/lemmatize.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import PillControls from './PillControls.vue';
-import { createPillSystem, loadPos } from '../pill-drag.js';
+import { createPillSystem, loadPos } from '../composables/pill-drag.js';
 
 defineProps({
   mediaKind: { type: String, default: null },      // 'video' | 'audio' | null

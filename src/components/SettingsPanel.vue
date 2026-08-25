@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { LEVEL_COLORS } from '../level-colors.js';
+import { LEVEL_COLORS } from '../logic/level-colors.js';
 
 // prop 全部由 App.vue 显式传入,不设 default
 const props = defineProps({
