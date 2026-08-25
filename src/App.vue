@@ -555,8 +555,9 @@ function makePillDrag({ getEl, clamp, persist }) {
   }
   return { down, cancel: () => window.removeEventListener('pointermove', move) };
 }
-function guardPillClick(fn) {
+function guardPillClick(fn, e) {
   if (pillSuppressClick) { pillSuppressClick = false; return; }
+  e?.currentTarget.blur();   // 点击后不滞留焦点,否则空格时按钮显焦点环
   fn();
 }
 
@@ -780,18 +781,18 @@ onUnmounted(() => {
                  @loadedmetadata="onVideoMeta"
                  @dblclick.prevent="toggleCollapse"></video>
           <!-- 非全屏:右下角"进全屏"按钮(点击视频显隐) -->
-          <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="toggleFullscreen">
+          <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="toggleFullscreen(); $event.currentTarget.blur()">
             <i :class="isFullscreen ? 'fas fa-compress' : 'fas fa-expand'"></i>
           </button>
           <!-- 全屏:播控药丸(可拖动定位,位置持久化) -->
           <div v-if="isFullscreen && videoOverlay" ref="pillRef" class="vc-pill"
                :style="{ left: vcPos.x * 100 + '%', top: vcPos.y * 100 + '%' }"
                @pointerdown="vcPillDrag.down" @click.stop>
-            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev)"><i class="fas fa-chevron-up"></i></button>
-            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent)">
+            <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)"><i class="fas fa-chevron-up"></i></button>
+            <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent, $event)">
               <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
             </button>
-            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext)"><i class="fas fa-chevron-down"></i></button>
+            <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext, $event)"><i class="fas fa-chevron-down"></i></button>
           </div>
           <!-- 1px 全透明钉子:画面内容区顶部居中,阻止 Chromium 把拖进黑边的药丸剔除不绘制 -->
           <div class="vc-anchor"></div>
@@ -819,13 +820,13 @@ onUnmounted(() => {
       <nav v-if="sentences.length" ref="cbRef" class="control-bar"
            :style="{ left: cbPos.x + 'px', top: cbPos.y + 'px' }"
            @pointerdown="cbDrag.down" @click.stop>
-        <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev)">
+        <button class="vc-big" title="上一句" :disabled="!sentences.length" @click="guardPillClick(goPrev, $event)">
           <i class="fas fa-chevron-up"></i>
         </button>
-        <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent)">
+        <button class="vc-big" :title="isPlaying ? '暂停' : '重播'" :disabled="!sentences.length" @click="guardPillClick(isPlaying ? stopAll : replayCurrent, $event)">
           <i :class="isPlaying ? 'fas fa-stop' : 'fas fa-play'"></i>
         </button>
-        <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext)">
+        <button class="vc-big" title="下一句" :disabled="!sentences.length" @click="guardPillClick(goNext, $event)">
           <i class="fas fa-chevron-down"></i>
         </button>
       </nav>

@@ -250,7 +250,7 @@ body {
 /* 视频自定义控件:非全屏右下角常驻"进全屏"小按钮;全屏内仅播控药丸(可拖动) */
 .vc-fs {
   position: absolute; right: 10px; bottom: 10px; z-index: 5;
-  width: 36px; height: 36px; border: none; border-radius: 50%;
+  width: 40px; height: 40px; border: none; border-radius: 50%;
   background: rgba(0, 0, 0, .55); color: #fff; font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(2px);
@@ -259,12 +259,12 @@ body {
 /* 播控药丸(全屏 .vc-pill / 常驻底部控制条 .control-bar 同一款):大触点(盲操),可拖动 */
 .vc-pill, .control-bar {
   transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; gap: 6px;
-  background: rgba(0, 0, 0, .55); border-radius: 999px; padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: rgba(0, 0, 0, .55); border-radius: 999px; padding: 12px;
   backdrop-filter: blur(2px);
   cursor: grab; user-select: none; touch-action: none;
 }
-.vc-pill { position: absolute; }              /* 位置由 JS 按百分比写入 left/top(相对视频区) */
+.vc-pill { position: absolute; z-index: 6; }   /* 位置由 JS 按百分比写入 left/top(相对视频区);盖过 vc-fs(5) */
 .control-bar { position: fixed; z-index: 60; }
 .vc-big {
   width: 50px; height: 50px; border: none; border-radius: 50%;
