@@ -54,6 +54,10 @@ const { toasts, notify, dismiss, pauseToast, resumeToast, disposeToasts } = crea
 const renderedSentences = computed(() =>
   sentences.value.map(s => ({ ...s, tokens: tokenizeForRender(s.text, vocabTable) }))
 );
+// 画面内字幕层用：当前句 tokens（复用中栏缓存，不重切词）
+const currentTokens = computed(() =>
+  renderedSentences.value.find(s => s.id === currentId.value)?.tokens ?? []
+);
 // 末尾处理二选一:延长模式传 extend;衔接模式传 linkNext + linkNextOffset(底层互斥)
 const effectiveRanges = computed(() => {
   const opts = endMode.value === 'linkNext'
@@ -238,7 +242,10 @@ onUnmounted(() => {
         :media-kind="mediaKind"
         :playing="isPlaying"
         :has-sentences="sentences.length > 0"
-        :current-text="currentText"
+        :current-tokens="currentTokens"
+        :enabled="enabled"
+        :highlight-on="highlightOn"
+        :colors="LEVEL_COLORS"
         :fs-right-width="fsRightWidth"
         @fullscreenchange="onFullscreenChange"
         @prev="goPrev"

@@ -4,13 +4,22 @@ import PillControls from './PillControls.vue';
 import { createPillSystem, loadPos } from '../composables/pill-drag.js';
 import { createSwipeRecognizer } from '../logic/gestures.js';
 
-defineProps({
+const props = defineProps({
   mediaKind: { type: String, default: null },      // 'video' | 'audio' | null
   playing: { type: Boolean, default: false },
   hasSentences: { type: Boolean, default: false },
-  currentText: { type: String, default: '' },      // 当前句文本(画面内字幕层)
+  currentTokens: { type: Array, default: () => [] }, // 当前句 tokens(画面内字幕层,分级着色)
+  enabled: { type: Object, default: () => ({}) },   // 分级勾选(与中栏一致)
+  highlightOn: { type: Boolean, default: true },    // 高亮开关(与中栏一致)
+  colors: { type: Object, default: () => ({}) },    // LEVEL_COLORS
   fsRightWidth: { type: Number, default: 320 },    // 全屏生词栏宽度(独立于普通右栏)
 });
+
+// 黑底上纯色文字仍偏暗:级别色叠加到白字上(color-mix 向白混),亮且保色调
+function tokStyle(tok) {
+  if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
+  return { color: `color-mix(in srgb, ${props.colors[tok.level]} 55%, white)` };
+}
 const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next']);
 
 const mediaEl = ref(null);
@@ -141,7 +150,9 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
       <!-- 全屏生词栏遮罩:点栏外收起(WordPanel 本体由 App Teleport 到 stage 末尾,z 更高) -->
       <div v-if="isFullscreen && wordOpen" class="fs-word-scrim" @click.stop="wordOpen = false"></div>
       <!-- 画面内字幕层(右下按钮开关) -->
-      <div v-if="showSub && currentText" class="video-sub">{{ currentText }}</div>
+      <div v-if="showSub && currentTokens.length" class="video-sub">
+        <span v-for="(tok, i) in currentTokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>
+      </div>
       <!-- 字幕开关:全屏按钮左边,点击视频显隐(全屏同) -->
       <button v-if="videoOverlay" class="vc-sub" :class="{ off: !showSub }"
               :title="showSub ? '隐藏字幕' : '显示字幕'" @click.stop="showSub = !showSub">
