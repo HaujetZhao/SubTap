@@ -104,6 +104,7 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
          :style="isFullscreen ? undefined : { height: videoHeight + 'px' }"
          @click="videoOverlay = !videoOverlay">
       <video ref="mediaEl" class="media-video"
+             playsinline webkit-playsinline
              preload="metadata"
              @loadedmetadata="onVideoMeta"
              @dblclick.prevent="toggleCollapse"></video>
