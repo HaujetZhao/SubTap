@@ -2,9 +2,12 @@
 // 输出统一为 Sentence[]:{id,start,end,text}(start/end 为秒;保留换行供双语 pre-line 渲染)
 
 import subsrt from 'subsrt';
+import { isWordTimedVtt, resplitWordTimedVtt } from './yt-vtt-resplit.js';
 
 // 任意字幕文本 → Sentence[];容错:subsrt 抛错或无有效条目时返回 []
 export function parseSRT(text) {
+  // YouTube 自动字幕(字级时间戳滚动 VTT)先重分句成规整句子,常规解析接不住滚动重复
+  if (isWordTimedVtt(text)) return resplitWordTimedVtt(text);
   let captions;
   try {
     // subsrt 的块分割正则对 LF 换行有 bug(VTT 等会被整段误判),统一成 CRLF 规避

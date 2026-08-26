@@ -25,7 +25,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 
 | 文件 | 职责 |
 |------|------|
-| `srt-parser.js` | `parseSRT`→`Sentence[]`，经 subsrt 库解析多格式（SRT/VTT/ASS/SSA/SUB/SBV/SMI）；内部 LF→CRLF 预处理（规避 subsrt bug）；LRC 不支持（无逐句结束时间） |
+| `srt-parser.js` | `parseSRT`→`Sentence[]`，经 subsrt 库解析多格式（SRT/VTT/ASS/SSA/SUB/SBV/SMI）；内部 LF→CRLF 预处理（规避 subsrt bug）；LRC 不支持（无逐句结束时间）。VTT 含字级时间戳（YouTube 自动字幕）时改走 `yt-vtt-resplit` |
 | `word-lookup.js` | `buildVocab`、`tokenizeForRender`（中栏渲染，保留标点+超纲）、`classifyWords`（右栏分组，去重）；`resolve` 先查原词、未命中再试 lemmatize 候选 |
 | `lemmatize.js` | 变形→原形候选（不规则动词表 + 后缀规则） |
 | `vocab-store.js` | `createVocabStore`：词库+分级+勾选状态 |
@@ -36,6 +36,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 | `gestures.js` | `createTwoFingerRecognizer`：双指滑动/轻点纯几何识别 |
 | `toast.js` | `createToasts()`：toast 队列（去重、自动消失、hover 暂停） |
 | `vad.js` | FireRedVAD onnx 流式推理（session、流式分段、后处理、音频解码、资产预取） |
+| `yt-vtt-resplit.js` | YouTube 自动字幕 VTT 重分句：node-webvtt 切 cue → `<ts><c>` 词级 token 化 → 滚动去重 → CapsWriter 式标点分句 → 顺序对齐；`isWordTimedVtt` 识别（普通 VTT/SRT 不走此路） |
 
 **组合层（Vue composable，`src/composables/`，依赖注入接线）**：`useLayout.js`（侧栏布局）、`useSettings.js`（设置持久化+勾选镜像）、`useVad.js`（VAD 工作流）、`usePlayback.js`（播放命令/键盘/手势/线控）、`useLoader.js`（文件载入/示例/恢复上次）、`pill-drag.js`（药丸拖拽纯机制+loadJson/loadPos，无 Vue 依赖）。共享核心状态（`sentences/currentId/isPlaying/player/mediaBlob`）留在 App.vue，工厂函数接收依赖返回 API，不用 provide/inject。
 

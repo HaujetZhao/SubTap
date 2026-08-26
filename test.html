@@ -13,6 +13,7 @@
 <div id="out"></div>
 <script type="module">
 import { parseSRT } from './src/logic/srt-parser.js';
+import { isWordTimedVtt, resplitWordTimedVtt } from './src/logic/yt-vtt-resplit.js';
 import { buildVocab, tokenizeForRender, classifyWords } from './src/logic/word-lookup.js';
 import { createVocabStore } from './src/logic/vocab-store.js';
 import { computeEffectiveRanges } from './src/logic/subtitle-tweak.js';
@@ -37,7 +38,32 @@ check('第1句文本正确', s[0].text === 'When you encode text into binary');
 check('第2句多行文本合并', s[1].text === "it's often nice\nto use as little data as possible");
 check('容错：坏块跳过', parseSRT('1\n00:00:00,080 --> 00:00:01,480\nhello\n\n坏块\n\n2\n00:00:02,000 --> 00:00:03,000\nworld\n').length === 2);
 
-// --- buildVocab ---
+// --- YouTube 字级时间戳 VTT 重分句 ---
+const ytVtt = 'WEBVTT\nKind: captions\nLanguage: en\n\n'
+  + '00:00:00.080 --> 00:00:02.310 align:start position:0%\n \n'
+  + 'There\'s<00:00:00.320><c> a</c><00:00:00.560><c> wild</c><00:00:01.040><c> paper.</c>\n\n'
+  + '00:00:02.310 --> 00:00:02.320 align:start position:0%\nThere\'s a wild paper.\n \n\n'
+  + '00:00:02.320 --> 00:00:04.550 align:start position:0%\nThere\'s a wild paper.\n'
+  + 'called<00:00:02.800><c> language</c><00:00:03.280><c> trees.</c>\n\n';
+check('ytVtt: 识别字级时间戳 VTT', isWordTimedVtt(ytVtt));
+check('ytVtt: 普通 VTT 不识别', !isWordTimedVtt('WEBVTT\n\n00:00:00.080 --> 00:00:02.310\nhello world\n'));
+check('ytVtt: 普通 SRT 不识别', !isWordTimedVtt(sample));
+const ys = resplitWordTimedVtt(ytVtt);
+check('ytVtt: 分成 2 句', ys.length === 2);
+check('ytVtt: 第1句文本', ys[0].text === "There's a wild paper.");
+check('ytVtt: 第1句起点=首词时间戳', ys[0].start === 0.08);
+check('ytVtt: 第2句含滚动新增词', ys[1].text === 'called language trees.');
+check('ytVtt: 第2句起点=called 行首裸词用 cue start', ys[1].start === 2.32);
+check('ytVtt: 第2句末句时长兜底', ys[1].end > ys[1].start);
+check('ytVtt: parseSRT 自动走重分句', (() => { const r = parseSRT(ytVtt); return r.length === 2 && r[1].text === 'called language trees.'; })());
+// 无标签新词(document. 只出现在纯文本行)不丢
+const ytVtt2 = 'WEBVTT\n\n'
+  + '00:00:00.000 --> 00:00:01.000\nidentifying<00:00:00.200><c> who</c><00:00:00.500><c> authored</c><00:00:00.800><c> a</c>\n\n'
+  + '00:00:01.000 --> 00:00:01.010\nidentifying who authored a\n \n\n'
+  + '00:00:01.010 --> 00:00:02.000\nidentifying who authored a\ndocument.\n\n';
+const ys2 = resplitWordTimedVtt(ytVtt2);
+check('ytVtt: 无标签新词不丢', ys2.length === 1 && ys2[0].text === 'identifying who authored a document.');
+
 const vo = { '初中': { 'encode': 'v. 编码', 'text': 'n. 文本' }, '四级': { 'compress': 'v. 压缩', 'binary': 'n. 二进制' } };
 const v = buildVocab(vo);
 check('buildVocab: encode 命中 初中', v['encode'].level === '初中' && v['encode'].def === 'v. 编码');
