@@ -245,6 +245,22 @@ body {
 /* 全屏时点击 video 默认是播放/暂停，挡掉指针事件避免误触;点击事件落在 stage 上切换控件层 */
 .video-stage:fullscreen { height: 100%; }
 .video-stage:fullscreen .media-video { pointer-events: none; }
+/* 全屏生词栏:WordPanel Teleport 进 stage,复用 .panel-right 的 fixed/滑入动画,
+   --panel-right-w 沿 DOM 继承自 .layout 的 :style,与普通布局同一套宽度。
+   注意 stage 本身在 .layout 里,宽屏 .layout.right-pinned .panel-right 的显示规则
+   会命中 Teleport 进来的 panel,这里同特异度、位置靠后,先强制隐藏再按 fs-word-open 放行 */
+.video-stage:fullscreen .panel-right {
+  transform: translateX(100%); opacity: 0;
+}
+.video-stage:fullscreen.fs-word-open .panel-right {
+  transform: translateX(0); opacity: 1;
+  box-shadow: var(--shadow-overlay);
+  max-width: 60vw;
+}
+.fs-word-scrim {
+  position: absolute; inset: 0; z-index: 90;
+  background: var(--scrim);
+}
 /* 视频自定义控件:非全屏右下角常驻"进全屏"小按钮;全屏内仅播控药丸(可拖动) */
 .vc-fs {
   position: absolute; right: 10px; bottom: 10px; z-index: 5;

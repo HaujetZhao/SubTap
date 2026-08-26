@@ -9,7 +9,7 @@ export function createPlayback({
   sentences, currentId, currentText, isPlaying, mediaKind,
   voices, ttsOn, ttsLang, ttsRate, ttsVoiceURI,
   effectiveRanges, getPlayer, notify,
-  scrollActiveIntoView, toggleFab, toggleVideoCollapse, toggleFullscreen,
+  scrollActiveIntoView, toggleFab, toggleFabRight, toggleVideoCollapse, toggleFullscreen,
 }) {
   // 当前选中句在列表中的索引（未选为 -1）
   const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
@@ -63,7 +63,7 @@ export function createPlayback({
     if (tag === 'input' || tag === 'textarea') return;
     // 面板收展快捷键:不依赖字幕,空载引导页也可用。
     if (e.key === '[') { e.preventDefault(); toggleFab('left'); return; }
-    if (e.key === ']') { e.preventDefault(); toggleFab('right'); return; }
+    if (e.key === ']') { e.preventDefault(); toggleFabRight(); return; }
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleVideoCollapse(); return; }
     // 回车:视频全屏切换(需媒体手势授权,键盘事件算 user activation)。全屏后快捷键仍走此全局监听。
     if (e.key === 'Enter' && mediaKind.value === 'video') {

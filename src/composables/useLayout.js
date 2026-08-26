@@ -1,4 +1,5 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, toRef, onMounted, onUnmounted } from 'vue';
+import { loadJson } from './pill-drag.js';
 
 // 侧栏布局状态机(仿 DeepSeek 三态):迟滞双阈值自动 pin,手动 hide/overlay 覆盖。
 // 独立于 App 的其余状态:输入只有 window 尺寸与用户拖拽,输出 refs/computed
@@ -42,17 +43,37 @@ export function createLayout(onAfterResize) {
     'side-dragging': sideDragging.value,
   }));
 
-  // push 模式拖拽调左右栏宽(180–480),持久化。应用走 .layout 的 :style 绑定 CSS var。
+  // push 模式拖拽调左右栏宽(180–480,再按视口宽夹取),持久化。
+  // 应用走 .layout 的 :style 绑定 CSS var。宽度分横竖屏各存一套:手机转屏后视口宽度
+  // 差异大,同一宽度两头都不合适(旧单套格式字段对不上,自然回默认)。
   const LS_W = 'subtap-widths';
-  let _w = {};
-  try { _w = JSON.parse(localStorage.getItem(LS_W)) || {}; } catch {}
-  const leftWidth  = ref(_w.leftWidth  ?? 230);
-  const rightWidth = ref(_w.rightWidth ?? 280);
+  const DEF = { left: 230, right: 280 };
+  const _w = loadJson(LS_W, {});
+  const clamp = w => Math.max(180, Math.min(w, Math.min(480, window.innerWidth - 160)));
+  // reactive:computed getter 靠它建立依赖,set 后才能通知 App 的 :style 更新 CSS var
+  const saved = reactive({
+    landscape: { ...DEF, ..._w.landscape },
+    portrait:  { ...DEF, ..._w.portrait },
+    // 全屏生词栏是独立实例,宽度单独存(不分横竖屏:全屏基本恒为锁定的横屏)
+    fsRight: clamp(_w.fsRight ?? 320),
+  });
+  const om = matchMedia('(orientation: portrait)');
+  const cur = () => saved[om.matches ? 'portrait' : 'landscape'];
+  const leftWidth  = computed({ get: () => cur().left,  set: v => { cur().left = v; } });
+  const rightWidth = computed({ get: () => cur().right, set: v => { cur().right = v; } });
+  const fsRightWidth = toRef(saved, 'fsRight');
+  // 转屏:切到另一套值并把新视口放不下的宽度夹回来
+  function onOrientationChange() {
+    const c = cur();
+    c.left = clamp(c.left);
+    c.right = clamp(c.right);
+  }
   // 宽度持久化在 stopSideResize 写一次,不随拖动热路径每个 pointermove 写盘
   let sideDrag = null;
+  const WIDTH_REFS = { left: leftWidth, right: rightWidth, fs: fsRightWidth };
   function startSideResize(panel, e) {
     sideDragging.value = true;
-    sideDrag = { panel, x: e.clientX, w: panel === 'left' ? leftWidth.value : rightWidth.value };
+    sideDrag = { panel, x: e.clientX, w: WIDTH_REFS[panel].value };
     document.addEventListener('pointermove', onSideResize);
     document.addEventListener('pointerup', stopSideResize);
     e.preventDefault();
@@ -60,15 +81,14 @@ export function createLayout(onAfterResize) {
   function onSideResize(e) {
     if (!sideDrag) return;
     const delta = sideDrag.panel === 'left' ? e.clientX - sideDrag.x : sideDrag.x - e.clientX;
-    const w = Math.min(480, Math.max(180, sideDrag.w + delta));
-    (sideDrag.panel === 'left' ? leftWidth : rightWidth).value = w;
+    WIDTH_REFS[sideDrag.panel].value = clamp(sideDrag.w + delta);
   }
   function stopSideResize() {
     sideDragging.value = false;
     sideDrag = null;
     document.removeEventListener('pointermove', onSideResize);
     document.removeEventListener('pointerup', stopSideResize);
-    try { localStorage.setItem(LS_W, JSON.stringify({ leftWidth: leftWidth.value, rightWidth: rightWidth.value })); } catch {}
+    try { localStorage.setItem(LS_W, JSON.stringify(saved)); } catch {}
   }
 
   // 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
@@ -89,15 +109,18 @@ export function createLayout(onAfterResize) {
 
   onMounted(() => {
     window.addEventListener('resize', onWindowResize);
+    om.addEventListener('change', onOrientationChange);
+    onOrientationChange();   // 存的宽度可能超出当前视口(如换设备),先夹一次
     recompute();
   });
   onUnmounted(() => {
     window.removeEventListener('resize', onWindowResize);
+    om.removeEventListener('change', onOrientationChange);
     cancelAnimationFrame(resizeRaf);
     // 未注册时 remove 是 no-op,无条件清(拖拽进行中卸载仅开发期热重载会走到)
     document.removeEventListener('pointermove', onSideResize);
     document.removeEventListener('pointerup', stopSideResize);
   });
 
-  return { leftWidth, rightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth };
+  return { leftWidth, rightWidth, fsRightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth };
 }

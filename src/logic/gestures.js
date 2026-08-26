@@ -35,3 +35,26 @@ export function createTwoFingerRecognizer({ onSwipe, onTap }) {
 
   return { onTouch, onTouchEnd };
 }
+
+// 单指水平滑动识别(全屏视频区开/关生词栏):左滑 onSwipe(+1),右滑 onSwipe(-1)。
+// 水平位移 ≥60px 且 |dx|>|dy|*1.5 才算,否则不算(保留单击切控件层等行为)。
+// ignore: 选择器,命中的元素(药丸/生词栏等自带拖拽语义)不作为滑动起点,由调用方告知。
+export function createSwipeRecognizer(onSwipe, ignore) {
+  let start = null;
+  return {
+    down(e) {
+      start = ignore && e.target.closest(ignore) ? null : { x: e.clientX, y: e.clientY };
+    },
+    // 返回是否识别为滑动(调用方据此吞掉紧随的 click)
+    up(e) {
+      if (!start) return false;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        onSwipe(dx < 0 ? 1 : -1);
+        return true;
+      }
+      return false;
+    },
+  };
+}

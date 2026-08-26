@@ -71,7 +71,7 @@ let player = null;
 const getPlayer = () => player;
 
 // 侧栏布局(三态状态机/拖宽/收展)在 useLayout.js;resize 后需把控制条药丸夹回可见区
-const { leftWidth, rightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
+const { leftWidth, rightWidth, fsRightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
 
 // ===== 功能模块接线(依赖注入) =====
 const { vadGen, vadProbs, runVad, reset: resetVad, setProbs } = createVad({
@@ -87,6 +87,8 @@ const { playSentence, stopAll, replayCurrent, goPrev, goNext, attach: attachPlay
   effectiveRanges, getPlayer, notify,
   scrollActiveIntoView: () => nextTick(() => sentenceListRef.value?.ensureVisible()),
   toggleFab,
+  // 全屏时 ] 切全屏生词栏,平时切普通右栏(isFsWord/fsWordOpen 在下方声明,keydown 时已就绪)
+  toggleFabRight: () => isFsWord.value ? (fsWordOpen.value = !fsWordOpen.value) : toggleFab('right'),
   toggleVideoCollapse: () => stageRef.value?.toggleCollapse(),
   toggleFullscreen: () => stageRef.value?.toggleFullscreen(),
 });
@@ -155,6 +157,20 @@ function selectSentenceById(id) {
   if (s) { currentId.value = s.id; currentText.value = s.text; nextTick(() => sentenceListRef.value?.ensureVisible(true)); }
 }
 
+// ===== 全屏生词栏 =====
+// 全屏时 WordPanel Teleport 进 .video-stage(全屏元素内才可见);wordOpen 状态由 VideoStage 持有经 v-model
+const isFsWord = ref(false);
+const fsWordOpen = ref(false);
+// 全屏态以 VideoStage 的 fullscreenchange 载荷为准(单一事实源);收起由 VideoStage 侧置 wordOpen 完成
+function onFullscreenChange(fs) {
+  isFsWord.value = fs;
+  clampCbIntoView();
+}
+// 两个 WordPanel 实例(普通/全屏)共用 props;仅 collapse/resizestart 按挂载位置分派
+const wpProps = computed(() => ({ store, enabled, currentText: currentText.value, colors: LEVEL_COLORS }));
+const onWordCollapse = () => isFsWord.value ? (fsWordOpen.value = false) : collapseRight();
+const onWordResizeStart = e => startSideResize(isFsWord.value ? 'fs' : 'right', e);
+
 // ===== 挂载 =====
 onMounted(() => {
   const el = stageRef.value.mediaEl;
@@ -218,11 +234,13 @@ onUnmounted(() => {
     <main class="panel-center">
       <VideoStage
         ref="stageRef"
+        v-model:word-open="fsWordOpen"
         :media-kind="mediaKind"
         :playing="isPlaying"
         :has-sentences="sentences.length > 0"
         :current-text="currentText"
-        @fullscreenchange="clampCbIntoView"
+        :fs-right-width="fsRightWidth"
+        @fullscreenchange="onFullscreenChange"
         @prev="goPrev"
         @toggle="isPlaying ? stopAll() : replayCurrent()"
         @next="goNext"
@@ -250,14 +268,15 @@ onUnmounted(() => {
                       @prev="goPrev" @toggle="isPlaying ? stopAll() : replayCurrent()" @next="goNext" />
       </nav>
     </main>
-    <WordPanel
-      :store="store"
-      :enabled="enabled"
-      :current-text="currentText"
-      :colors="LEVEL_COLORS"
-      @collapse="collapseRight"
-      @resizestart="startSideResize('right', $event)"
-    />
+    <!-- 全屏时 Teleport 进 .video-stage;用 v-if 双分支而非 :disabled 切换——
+         disabled 搬移节点在 VideoStage 同批更新下会触发 Vue moveTeleport 的 null 容器崩溃,
+         重新挂载走全新 mount 路径则无此问题 -->
+    <WordPanel v-if="!isFsWord" v-bind="wpProps"
+               @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
+    <Teleport v-else to=".video-stage">
+      <WordPanel v-bind="wpProps"
+                 @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
+    </Teleport>
     <button class="float-btn float-btn-left"  title="展开设置栏（[）" @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
     <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>

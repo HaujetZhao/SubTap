@@ -2,12 +2,14 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import PillControls from './PillControls.vue';
 import { createPillSystem, loadPos } from '../composables/pill-drag.js';
+import { createSwipeRecognizer } from '../logic/gestures.js';
 
 defineProps({
   mediaKind: { type: String, default: null },      // 'video' | 'audio' | null
   playing: { type: Boolean, default: false },
   hasSentences: { type: Boolean, default: false },
   currentText: { type: String, default: '' },      // 当前句文本(画面内字幕层)
+  fsRightWidth: { type: Number, default: 320 },    // 全屏生词栏宽度(独立于普通右栏)
 });
 const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next']);
 
@@ -55,6 +57,29 @@ const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏�
 const isFullscreen = ref(false);
 const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(仅非全屏的按钮层;全屏控件常驻)
 const showSub = ref(true);            // 画面内字幕层开关
+// 全屏生词栏开关(App 持有状态经 v-model,WordPanel 由 App Teleport 进本容器)
+const wordOpen = defineModel('wordOpen', { type: Boolean, default: false });
+
+// 全屏视频区单指左滑开右栏/右滑关;识别为滑动后吞掉紧跟的 click(不然会切控件层)
+const swipe = createSwipeRecognizer(
+  d => { wordOpen.value = d === 1; },
+  '.vc-pill, .panel-right',   // 药丸/生词栏(含调宽手柄)自带拖拽语义,不作滑动起点
+);
+let suppressClick = false;
+function onStageClick() {
+  if (suppressClick) { suppressClick = false; return; }
+  videoOverlay.value = !videoOverlay.value;
+}
+// 滑动只在全屏有意义,非全屏零开销直落单击路径
+function onSwipeDown(e) { if (isFullscreen.value) swipe.down(e); }
+function onSwipeUp(e) {
+  if (!isFullscreen.value) return;
+  if (swipe.up(e)) {
+    suppressClick = true;
+    // 若滑动后浏览器没派发 click,标志会残留误吞下一次点击;本轮 click 派发结束后自清
+    window.addEventListener('click', () => { suppressClick = false; }, { once: true });
+  }
+}
 
 // 进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
 // 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
@@ -69,7 +94,8 @@ async function toggleFullscreen() {
 }
 function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
-  emit('fullscreenchange');   // App 侧把底部控制条药丸夹回可见区
+  wordOpen.value = false;     // 退全屏收起生词栏(v-model 同步给 App)
+  emit('fullscreenchange', isFullscreen.value);   // App 侧切 Teleport 并把控制条药丸夹回可见区
 }
 
 // ===== 全屏播控药丸 =====
@@ -103,13 +129,17 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
 <template>
   <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
     <div v-show="!videoCollapsed" ref="stageRef" class="video-stage"
-         :style="isFullscreen ? undefined : { height: videoHeight + 'px' }"
-         @click="videoOverlay = !videoOverlay">
+         :class="{ 'fs-word-open': wordOpen }"
+         :style="isFullscreen ? { '--panel-right-w': fsRightWidth + 'px' } : { height: videoHeight + 'px' }"
+         @click="onStageClick"
+         @pointerdown="onSwipeDown" @pointerup="onSwipeUp">
       <video ref="mediaEl" class="media-video"
              playsinline webkit-playsinline
              preload="metadata"
              @loadedmetadata="onVideoMeta"
              @dblclick.prevent="toggleCollapse"></video>
+      <!-- 全屏生词栏遮罩:点栏外收起(WordPanel 本体由 App Teleport 到 stage 末尾,z 更高) -->
+      <div v-if="isFullscreen && wordOpen" class="fs-word-scrim" @click.stop="wordOpen = false"></div>
       <!-- 画面内字幕层(右下按钮开关) -->
       <div v-if="showSub && currentText" class="video-sub">{{ currentText }}</div>
       <!-- 字幕开关:全屏按钮左边,点击视频显隐(全屏同) -->
