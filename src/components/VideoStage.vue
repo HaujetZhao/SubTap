@@ -7,6 +7,7 @@ defineProps({
   mediaKind: { type: String, default: null },      // 'video' | 'audio' | null
   playing: { type: Boolean, default: false },
   hasSentences: { type: Boolean, default: false },
+  currentText: { type: String, default: '' },      // 当前句文本(画面内字幕层)
 });
 const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next']);
 
@@ -52,7 +53,8 @@ function expand() { videoCollapsed.value = false; }   // 载入视频时恢复�
 // ===== 全屏 =====
 const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏它而非 video 本身,控件层才能在全屏内显示
 const isFullscreen = ref(false);
-const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(非全屏的 ⛶ 与全屏的播控药丸共用)
+const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(仅非全屏的按钮层;全屏控件常驻)
+const showSub = ref(true);            // 画面内字幕层开关
 
 // 进全屏时:横版视频 + 设备竖屏 → 锁横屏(手机/平板观看体验);
 // 退全屏浏览器自动解除方向锁。iOS Safari 不支持 lock,失败静默(用户手动转屏)。
@@ -108,12 +110,19 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
              preload="metadata"
              @loadedmetadata="onVideoMeta"
              @dblclick.prevent="toggleCollapse"></video>
-      <!-- 非全屏:右下角"进全屏"按钮(点击视频显隐) -->
+      <!-- 画面内字幕层(右下按钮开关) -->
+      <div v-if="showSub && currentText" class="video-sub">{{ currentText }}</div>
+      <!-- 字幕开关:全屏按钮左边,点击视频显隐(全屏同) -->
+      <button v-if="videoOverlay" class="vc-sub" :class="{ off: !showSub }"
+              :title="showSub ? '隐藏字幕' : '显示字幕'" @click.stop="showSub = !showSub">
+        <i class="fas fa-closed-captioning"></i>
+      </button>
+      <!-- 右下角"进全屏/退出全屏"按钮(点击视频显隐) -->
       <button v-if="videoOverlay" class="vc-fs" :title="isFullscreen ? '退出全屏' : '全屏'" @click.stop="guard(toggleFullscreen, $event)">
         <i :class="isFullscreen ? 'fas fa-compress' : 'fas fa-expand'"></i>
       </button>
-      <!-- 全屏:播控药丸(可拖动定位,位置持久化) -->
-      <div v-if="isFullscreen && videoOverlay" ref="pillRef" class="vc-pill"
+      <!-- 全屏:播控药丸(可拖动定位,位置持久化),常驻不隐藏 -->
+      <div v-if="isFullscreen" ref="pillRef" class="vc-pill"
            :style="{ left: vcPos.x * 100 + '%', top: vcPos.y * 100 + '%' }"
            @pointerdown="vcPillDrag.down" @click.stop>
         <PillControls :guard="guard" :disabled="!hasSentences" :playing="playing"

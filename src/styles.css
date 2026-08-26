@@ -254,6 +254,27 @@ body {
   backdrop-filter: blur(2px);
 }
 .vc-fs:hover { background: rgba(0, 0, 0, .75); }
+/* 字幕开关按钮:与 vc-fs 同款,摆在它左边一格 */
+.vc-sub {
+  position: absolute; right: 58px; bottom: 10px; z-index: 5;
+  width: 40px; height: 40px; border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, .55); color: #fff; font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.vc-sub:hover { background: rgba(0, 0, 0, .75); }
+.vc-sub.off { opacity: .45; }
+/* 画面内字幕层:底部居中,压在视频上、按钮层之下;字号随视频容器尺寸(cqw)缩放,
+   半透明黑底药丸(B站/YT 同款做法),padding 用 em 跟字号等比 */
+.video-stage { container-type: size; }
+.video-sub {
+  position: absolute; left: 0; right: 0; bottom: 3%; margin-inline: auto; width: fit-content;
+  z-index: 4; max-width: 90%; text-align: center;
+  padding: 0.15em 0.5em; border-radius: 0.25em; box-sizing: border-box;
+  background: rgba(8, 8, 8, .75);
+  color: #fff; font-size: 2cqw; line-height: 1.4;
+  pointer-events: none; white-space: pre-wrap;
+}
 /* 播控药丸(全屏 .vc-pill / 常驻底部控制条 .control-bar 同一款):大触点(盲操),可拖动 */
 .vc-pill, .control-bar {
   transform: translate(-50%, -50%);

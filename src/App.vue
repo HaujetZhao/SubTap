@@ -221,6 +221,7 @@ onUnmounted(() => {
         :media-kind="mediaKind"
         :playing="isPlaying"
         :has-sentences="sentences.length > 0"
+        :current-text="currentText"
         @fullscreenchange="clampCbIntoView"
         @prev="goPrev"
         @toggle="isPlaying ? stopAll() : replayCurrent()"
