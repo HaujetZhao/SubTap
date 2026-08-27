@@ -94,14 +94,13 @@ async function jumpTo(word) {
 }
 
 // 词源展开体内点击：`/ciyuan/目标词` 交叉引用或落点在英文单词上 → 原位跳转；其余链接仅拦截导航。
-// 跳转前查选区,划词复制不受影响
+// 展开体本身不冒泡到词卡（收起只由上方词头区域触发）。跳转前查选区,划词复制不受影响
 async function onEtymClick(e) {
   const a = e.target.closest('a');
   if (a) {
     e.preventDefault();
     const href = a.getAttribute('href') || '';
     if (href.startsWith('/ciyuan/')) {
-      e.stopPropagation(); // 不冒泡到词卡（否则切换展开把词源收起）
       let target;
       try { target = decodeURIComponent(href.slice('/ciyuan/'.length)).toLowerCase(); }
       catch { return; }
@@ -112,9 +111,7 @@ async function onEtymClick(e) {
   const sel = window.getSelection();
   if (sel && !sel.isCollapsed) return;
   const word = wordAt(e.clientX, e.clientY);
-  if (!word) return;
-  e.stopPropagation();
-  jumpTo(word);
+  if (word) jumpTo(word);
 }
 </script>
 
@@ -142,8 +139,9 @@ async function onEtymClick(e) {
             <div class="w">{{ w.word }}</div>
             <div v-if="w.def" class="def">{{ w.def }}</div>
             <!-- capture 拦截词条 HTML 内的死链：/ciyuan/ 交叉引用走跳转,其余不导航 -->
-            <div v-if="openWord === w.word" class="etym-body">
-              <button v-if="nav" class="etym-back" @click.stop="nav = null">← {{ openWord }}</button>
+            <!-- .stop：展开体内点击（含词头返回链）不冒泡到词卡触发收起 -->
+            <div v-if="openWord === w.word" class="etym-body" @click.stop>
+              <button v-if="nav" class="etym-back" @click="nav = null">← {{ openWord }}</button>
               <div v-html="etym[nav || openWord]" @click.capture="onEtymClick"></div>
             </div>
           </div>
