@@ -110,6 +110,29 @@ const LEMMATIZE_RULES = [
   ['ily', 'y'],   // happily -> happy
   ['ly', ''],     // quickly -> quick
   ['ic', ''],     // logarithmic -> logarithm（形容词 -ic 回名词）
+  // 名词/形容词/副词派生后缀（词条以基础词为主，派生形还原成词根更易命中）
+  ['ically', 'ic'],   // mathematically -> mathematic / classically -> classic
+  ['ically', 'ical'], // classically -> classical
+  ['ically', 'y'],    // historically -> history
+  ['ical', 'ic'],     // electrical -> electric / logical -> logic
+  ['ical', 'y'],      // historic -> history（electric+al 类无 y，冗余候选无害）
+  ['ic', 'y'],        // economic -> economy（poetic→poet 由 ic 空候选兜住，poetry 收不到属词典覆盖）
+  ['ility', 'le'],    // compatibility -> compatible / responsibility -> responsible
+  ['ility', 'e'],     // fragility -> fragile
+  ['ity', 'e'],       // activity -> active / immensity -> immense
+  ['ity', ''],        // reality -> real / humanity -> human
+  ['ness', ''],       // kindness -> kind / darkness -> dark
+  ['iness', 'y'],     // happiness -> happy（y→i 再加 ness）
+  ['ful', ''],        // helpful -> help / careful -> care
+  ['less', ''],       // careless -> care / hopeless -> hope
+  ['ous', ''],        // dangerous -> danger
+  ['ous', 'e'],       // continuous -> continue / famous -> fame
+  ['ive', ''],        // active -> act
+  ['ive', 'e'],       // creative -> create / relative -> relate
+  ['ves', 'f'],       // leaves -> leaf / wolves -> wolf（-f/-fe 复数）
+  ['ves', 'fe'],      // knives -> knife / lives -> life
+  ['ses', 'sis'],     // bases -> basis / analyses -> analysis（-sis 复数）
+  ['ship', ''],       // friendship -> friend / relationship -> relation
 ];
 
 // 否定缩约（完整 token → 助动词原形）：don't→do, can't→can, won't→will ...

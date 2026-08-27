@@ -167,6 +167,36 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('lem: easiest→easy', lemmatize('easiest').includes('easy'));
   check('lem: inexorably→inexorable', lemmatize('inexorably').includes('inexorable'));
   check('lem: heard→hear（不规则）', lemmatize('heard').includes('hear'));
+  // 名词/形容词/副词派生后缀还原
+  check('lem: mathematically→mathematic', lemmatize('mathematically').includes('mathematic'));
+  check('lem: classically→classical', lemmatize('classically').includes('classical'));
+  check('lem: historically→history', lemmatize('historically').includes('history'));
+  check('lem: electrical→electric（-ical→ic）', lemmatize('electrical').includes('electric'));
+  check('lem: logical→logic（-ical→ic）', lemmatize('logical').includes('logic'));
+  check('lem: historic→history（-ical→y）', lemmatize('historic').includes('history'));
+  check('lem: economic→economy（-ic→y）', lemmatize('economic').includes('economy'));
+  check('lem: compatibility→compatible（-ility→le）', lemmatize('compatibility').includes('compatible'));
+  check('lem: responsibility→responsible（-ility→le）', lemmatize('responsibility').includes('responsible'));
+  check('lem: fragility→fragile（-ility→e）', lemmatize('fragility').includes('fragile'));
+  check('lem: activity→active（-ity→e）', lemmatize('activity').includes('active'));
+  check('lem: reality→real（-ity→空）', lemmatize('reality').includes('real'));
+  check('lem: humanity→human（-ity→空）', lemmatize('humanity').includes('human'));
+  check('lem: kindness→kind（-ness→空）', lemmatize('kindness').includes('kind'));
+  check('lem: happiness→happy（-iness→y）', lemmatize('happiness').includes('happy'));
+  check('lem: helpful→help（-ful）', lemmatize('helpful').includes('help'));
+  check('lem: careless→care（-less）', lemmatize('careless').includes('care'));
+  check('lem: dangerous→danger（-ous）', lemmatize('dangerous').includes('danger'));
+  check('lem: continuous→continue（-ous→e）', lemmatize('continuous').includes('continue'));
+  check('lem: famous→fame（-ous→e）', lemmatize('famous').includes('fame'));
+  check('lem: active→act（-ive）', lemmatize('active').includes('act'));
+  check('lem: creative→create（-ive→e）', lemmatize('creative').includes('create'));
+  check('lem: leaves→leaf（-ves→f）', lemmatize('leaves').includes('leaf'));
+  check('lem: knives→knife（-ves→fe）', lemmatize('knives').includes('knife'));
+  check('lem: lives→life（-ves→fe）', lemmatize('lives').includes('life'));
+  check('lem: bases→basis（-ses→sis）', lemmatize('bases').includes('basis'));
+  check('lem: analyses→analysis（-ses→sis）', lemmatize('analyses').includes('analysis'));
+  check('lem: friendship→friend（-ship）', lemmatize('friendship').includes('friend'));
+  check('lem: relationship→relation（-ship）', lemmatize('relationship').includes('relation'));
 
   // --- 词形还原查词（端到端） ---
   const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习', letter: 'n. 字母' } };
