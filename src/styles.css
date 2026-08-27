@@ -243,7 +243,8 @@ body {
 /* 全屏时隐藏 Chrome 给 video 弹出的原生控制条（本项目用键盘/底部控制条操作） */
 .media-video::-webkit-media-controls-enclosure { display: none !important; }
 /* 全屏时点击 video 默认是播放/暂停，挡掉指针事件避免误触;点击事件落在 stage 上切换控件层 */
-.video-stage:fullscreen { height: 100%; }
+/* touch-action:none:触屏横滑不触发浏览器滚动/手势,否则 pointerup 变 pointercancel,左滑开栏失效 */
+.video-stage:fullscreen { height: 100%; touch-action: none; }
 .video-stage:fullscreen .media-video { pointer-events: none; }
 /* 全屏生词栏:WordPanel Teleport 进 stage,复用 .panel-right 的 fixed/滑入动画,
    --panel-right-w 沿 DOM 继承自 .layout 的 :style,与普通布局同一套宽度。
