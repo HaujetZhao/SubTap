@@ -3,7 +3,7 @@
 // dev 由 dev server 伺服；PWA 构建成 assets/ciyuan-<hash>.mdx（runtime CacheFirst）；
 // 单文件构建被 vite-plugin-singlefile 内联成 base64 data URL，fetch(data:) 在 file:// 下可用。
 import mdxUrl from '../assets/mdx/ciyuan.mdx?url';
-import { lemmatize } from './lemmatize.js';
+import { lemmatizeChain } from './lemmatize.js';
 import { createMdx } from './mdx.js';
 
 let dict = null;          // createMdx 实例；false = 不可用（fetch 失败等），静默降级
@@ -39,7 +39,8 @@ function stripWrapper(html) {
 }
 
 /**
- * 查词源：先查原词（小写），未命中再试 lemmatize 变形候选。结果缓存。
+ * 查词源：先查原词（小写），未命中沿 lemmatizeChain 派生链逐个试
+ * （dangerously → dangerous → danger），命中即停。结果缓存。
  * @returns {Promise<string|null>} 词条 HTML 片段；无词条或词典不可用时为 null
  */
 export async function lookupEtymology(word) {
@@ -49,7 +50,7 @@ export async function lookupEtymology(word) {
   if (!d) return null;
   let html = await d.lookup(lower);
   if (html == null) {
-    for (const cand of lemmatize(lower)) {
+    for (const cand of lemmatizeChain(lower)) {
       html = await d.lookup(cand);
       if (html != null) break;
     }

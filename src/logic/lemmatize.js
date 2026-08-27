@@ -134,6 +134,37 @@ const LEMMATIZE_RULES = [
   ['ves', 'fe'],      // knives -> knife / lives -> life
   ['ses', 'sis'],     // bases -> basis / analyses -> analysis（-sis 复数）
   ['ship', ''],       // friendship -> friend / relationship -> relation
+  // 多级派生后缀：再派生形回中间形或裸基词（候选只生成能成词的形态）
+  ['ically', ''],       // paradoxically -> paradox（+ic/+ical/+y 候选已列上方）
+  ['ical', ''],         // paradoxical -> paradox
+  ['logist', 'logy'],   // biologist -> biology（按 geo+log+y 拆，非裸去 olist）
+  ['logical', 'logy'],  // geological -> geology
+  ['ification', 'ify'], // classification -> classify
+  ['ifications', 'ify'],
+  ['ously', 'ous'],     // dangerously -> dangerous
+  ['ousness', 'ous'],
+  ['lessly', 'less'],   // hopelessly -> hopeless
+  ['lessness', 'less'],
+  ['fulness', 'ful'],   // usefulness -> useful
+  ['able', 'e'],        // ridable -> ride（辅音结尾词基脱 e：lovable->love）  ['ively', 'ive'],     // actively -> active
+  ['iveness', 'ive'],
+  ['ability', 'able'],  // readability -> readable
+  // 跨后缀映射（词源查询走派生关系）：同族词从后缀 A 直接映到后缀 B
+  ['ation', 'e'],       // abjuration -> abjure
+  ['ation', 'ate'],     // creation -> create
+  ['ion', 'e'],         // completion -> complete / abdication -> abdicate
+  ['ment', ''],         // abasement -> abase
+  ['ement', 'e'],       // abasement -> abase（脱 e 词基）
+  ['ist', ''],          // actualist -> actual
+  ['ist', 'e'],         // absolutist -> absolute
+  ['ist', 'ism'],       // ableist -> ableism
+  ['ism', ''],          // alcoholism -> alcohol
+  ['or', 'e'],          // abator -> abate（施动者 -> 动词）
+  ['or', 'ion'],        // abductor -> abduction
+  ['ory', 'ion'],       // abbreviatory -> abbreviation
+  ['atory', 'ate'],     // abbreviatory -> abbreviate
+  ['edly', ''],         // abandonedly -> abandon（链第 2 层短后缀门槛的显式追回）
+  ['edness', ''],       // blessedness -> bless
 ];
 
 // 否定缩约（完整 token → 助动词原形）：don't→do, can't→can, won't→will ...
@@ -194,9 +225,17 @@ export function lemmatize(word) {
   if (IRREGULAR_VERBS[word]) return [IRREGULAR_VERBS[word]];
 
   // 5) 后缀规则：试所有候选
+  return applyRules(word, 0);
+}
+
+// 后缀规则循环。minSuffixLen：参与规则的最低后缀长度——链式还原第 2 层起
+// 只允许特征派生后缀（≥3），裸去 -er/-y/-s 这类短后缀在多层迭代里几乎全是
+// 词基本身的一部分（danger 的 er、duty 的 y），会产生 adult←adultery 式同形异源误配。
+function applyRules(word, minSuffixLen) {
   const cands = [];
   const n = word.length;
   for (const [suffix, repl] of LEMMATIZE_RULES) {
+    if (suffix.length < minSuffixLen) continue;
     if (!word.endsWith(suffix) || n <= suffix.length) continue;
     const stem = word.slice(0, n - suffix.length);
     if (repl === null) {
@@ -208,13 +247,37 @@ export function lemmatize(word) {
       if (stem.length >= 3 && !isVowel(last) && last === stem.at(-2) && last !== 's' && last !== 'z') {
         cands.push([stem.slice(0, -1), 1]);
       }
-    } else if (repl === 'e' && (suffix === 'ing' || suffix === 'ed') && isVowel(stem.at(-1))) {
-      // 补 e 候选基于"辅音结尾词基脱 e"（love→loving/loved）；stem 以元音结尾时
-      // 必是垃圾（doing→doe/being→bee/agreed→agreee），不生成
+    } else if (repl === 'e' && (suffix === 'ing' || suffix === 'ed' || suffix === 'able') && isVowel(stem.at(-1))) {
+      // 补 e 候选基于"辅音结尾词基脱 e"（love→loving/loved/lovable）；stem 以元音结尾时
+      // 必是垃圾（doing→doe/being→bee/agreed→agreee/doable→doe），不生成
       continue;
     } else {
       cands.push([stem + repl, 0]);
     }
   }
   return dedupe(cands);
+}
+
+// 链式还原：对单步候选迭代再还原，得到多级派生链上的全部节点。
+// 宽度优先：第一层（最近的派生形）整层先于第二层（dangerously: dangerous 先于 danger），
+// 层内保持 lemmatize 的优先级序；seen 去重防环（garbage 候选相互派生）。
+// 供词源查询用；词义查词仍用单步 lemmatize（链越长释义错配风险越高）。
+export function lemmatizeChain(word, maxDepth = 2) {
+  const seen = new Set();
+  const out = [];
+  let level = [word.toLowerCase()];
+  for (let d = 0; d < maxDepth && level.length; d++) {
+    const next = [];
+    for (const w of level) {
+      // 第 1 层全规则；第 2 层起仅特征派生后缀（≥3），见 applyRules 注释
+      for (const c of (d === 0 ? lemmatize(w) : applyRules(w, 3))) {
+        if (seen.has(c)) continue;
+        seen.add(c);
+        out.push(c);
+        next.push(c);
+      }
+    }
+    level = next;
+  }
+  return out;
 }

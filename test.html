@@ -17,7 +17,7 @@ import { isWordTimedVtt, resplitWordTimedVtt } from './src/logic/yt-vtt-resplit.
 import { buildVocab, tokenizeForRender, classifyWords } from './src/logic/word-lookup.js';
 import { createVocabStore } from './src/logic/vocab-store.js';
 import { computeEffectiveRanges } from './src/logic/subtitle-tweak.js';
-import { lemmatize } from './src/logic/lemmatize.js';
+import { lemmatize, lemmatizeChain } from './src/logic/lemmatize.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
@@ -162,6 +162,25 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check("lem: letters'→letter", lemmatize("letters'").includes('letter'));
   // 单字母不处理
   check('lem: 单字母 s→空', lemmatize('s').length === 0);
+  // 新增多级派生规则
+  check('lem: paradoxical→paradox', lemmatize('paradoxical').includes('paradox'));
+  check('lem: biologist→biology', lemmatize('biologist').includes('biology'));
+  check('lem: classification→classify', lemmatize('classification').includes('classify'));
+  check('lem: readability→readable', lemmatize('readability').includes('readable'));
+  // 链式还原：宽度优先，第一层（dangerous）先于第二层（danger）
+  check('chain: dangerously→含 danger', lemmatizeChain('dangerously').includes('danger'));
+  check('chain: dangerous 层次先于 danger',
+    lemmatizeChain('dangerously').indexOf('dangerous') < lemmatizeChain('dangerously').indexOf('danger'));
+  check('chain: hopelessly→含 hope', lemmatizeChain('hopelessly').includes('hope'));
+  // 链第 2 层后缀门槛：裸去短后缀（-er/-y/-s）不参与，挡同形异源误配
+  check('chain: ridability→ride（able 补 e）', lemmatizeChain('ridability').includes('ride'));
+  check('chain: adulterously 不含 adult', !lemmatizeChain('adulterously').includes('adult'));
+  // 跨后缀映射
+  check('lem: abjuration→abjure', lemmatize('abjuration').includes('abjure'));
+  check('lem: alcoholism→alcohol', lemmatize('alcoholism').includes('alcohol'));
+  check('lem: abductor→abduction', lemmatize('abductor').includes('abduction'));
+  check('chain: abbreviatory→abbreviation', lemmatizeChain('abbreviatory').includes('abbreviation'));
+  check('chain: abandonedly→abandon', lemmatizeChain('abandonedly').includes('abandon'));
   // 比较级 / 最高级 / 副词
   check('lem: easier→easy', lemmatize('easier').includes('easy'));
   check('lem: easiest→easy', lemmatize('easiest').includes('easy'));
