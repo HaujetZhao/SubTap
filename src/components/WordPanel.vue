@@ -66,21 +66,64 @@ function onClickWord(word) {
 const nav = ref(null);
 watch(openWord, () => { nav.value = null; });
 
-// 词源展开体内的链接点击：`/ciyuan/目标词` 交叉引用 → 原位加载目标词条；其余链接仅拦截导航
+// 词条 HTML 文本节点里的英文单词包成可点 span（词根词缀说明如"词源同 patient"里的 patient），点击即跳转查它
+function linkifyWords(html) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const walker = document.createTreeWalker(tpl.content, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  for (const t of texts) {
+    if (!/[A-Za-z]/.test(t.data)) continue;
+    const frag = document.createDocumentFragment();
+    for (const part of t.data.split(/([A-Za-z][A-Za-z'-]*)/)) {
+      if (!part) continue;
+      if (!/^[A-Za-z]/.test(part)) { frag.append(part); continue; }
+      const s = document.createElement('span');
+      s.className = 'etym-w';
+      s.dataset.word = part;
+      s.textContent = part;
+      frag.append(s);
+    }
+    t.replaceWith(frag);
+  }
+  return tpl.innerHTML;
+}
+const displayHtml = computed(() => {
+  const html = etym[nav.value || openWord.value];
+  return html ? linkifyWords(html) : '';
+});
+
+// 跳转到目标词：查词条,查无静默
+async function jumpTo(word) {
+  const html = await lookupEtymology(word);
+  if (!html) return;
+  etym[word.toLowerCase()] = html;
+  nav.value = word.toLowerCase();
+}
+
+// 词源展开体内点击：`/ciyuan/目标词` 交叉引用或英文单词 → 原位跳转；其余链接仅拦截导航。
+// 跳转前查选区,划词复制不受影响
 async function onEtymClick(e) {
   const a = e.target.closest('a');
-  if (a) e.preventDefault();
-  if (!a) return;
-  const href = a.getAttribute('href') || '';
-  if (!href.startsWith('/ciyuan/')) return;
-  e.stopPropagation(); // 不冒泡到词卡（否则切换展开把词源收起）
-  let target;
-  try { target = decodeURIComponent(href.slice('/ciyuan/'.length)).toLowerCase(); }
-  catch { return; }
-  const html = await lookupEtymology(target);
-  if (!html) return; // 查无：静默
-  etym[target] = html;
-  nav.value = target;
+  if (a) {
+    e.preventDefault();
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('/ciyuan/')) {
+      e.stopPropagation(); // 不冒泡到词卡（否则切换展开把词源收起）
+      let target;
+      try { target = decodeURIComponent(href.slice('/ciyuan/'.length)).toLowerCase(); }
+      catch { return; }
+      jumpTo(target);
+    }
+    return;
+  }
+  const w = e.target.closest('.etym-w');
+  if (!w) return;
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed) return;
+  e.stopPropagation();
+  jumpTo(w.dataset.word);
 }
 </script>
 
@@ -110,7 +153,7 @@ async function onEtymClick(e) {
             <!-- capture 拦截词条 HTML 内的死链：/ciyuan/ 交叉引用走跳转,其余不导航 -->
             <div v-if="openWord === w.word" class="etym-body">
               <button v-if="nav" class="etym-back" @click.stop="nav = null">← {{ openWord }}</button>
-              <div v-html="etym[nav || openWord]" @click.capture="onEtymClick"></div>
+              <div v-html="displayHtml" @click.capture="onEtymClick"></div>
             </div>
           </div>
         </div>

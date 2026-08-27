@@ -9,7 +9,8 @@
 ## 设计
 
 - 改动仅限 `src/components/WordPanel.vue`（+ 少量样式），纯逻辑层不动。
-- 词源展开体的点击 handler：取 `event.target.closest('a')`；href 以 `/ciyuan/` 开头 → 解码取目标词，`lookupEtymology` 查词条，展开体原位替换为目标词条，顶部加「← 返回 原词」返回链；非词源链照旧仅 prevent 导航。
+- 词条 HTML 渲染前对文本节点分词，英文单词包成可点 `span.etym-w`（词根词缀说明如「词源同 patient」里的 patient），点击即查该词词源并原位跳转。
+- `/ciyuan/` 交叉引用死链同样可点跳转；其余链接仅 prevent 导航。
 - 返回链只记一层（上一词），不做历史栈。
 - 查无词条：静默不响应。
 - 跳转查询结果写回 `etym` 缓存，复用免重查。
