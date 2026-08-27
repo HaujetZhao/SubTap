@@ -66,6 +66,8 @@ export function createPlayback({
     if (e.key === ']') { e.preventDefault(); toggleFabRight(); return; }
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleVideoCollapse(); return; }
     // 回车:视频全屏切换(需媒体手势授权,键盘事件算 user activation)。全屏后快捷键仍走此全局监听。
+    // Esc:退全屏(个别环境不触发浏览器默认行为,显式退出兜底)
+    if (e.key === 'Escape' && document.fullscreenElement) { document.exitFullscreen(); return; }
     if (e.key === 'Enter' && mediaKind.value === 'video') {
       e.preventDefault();
       toggleFullscreen();

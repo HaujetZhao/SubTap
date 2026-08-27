@@ -49,7 +49,11 @@ export function createLayout(onAfterResize) {
   const LS_W = 'subtap-widths';
   const DEF = { left: 230, right: 280 };
   const _w = loadJson(LS_W, {});
-  const clamp = w => Math.max(180, Math.min(w, Math.min(480, window.innerWidth - 160)));
+  // push 模式给中间区留 160px;overlay(窄屏)是浮层不占中间区,只留 48px 边缝即可拖到接近满屏
+  const clamp = w => {
+    const reserve = leftPin.value || rightPin.value ? 160 : 48;
+    return Math.max(180, Math.min(w, Math.min(480, window.innerWidth - reserve)));
+  };
   // reactive:computed getter 靠它建立依赖,set 后才能通知 App 的 :style 更新 CSS var
   const saved = reactive({
     landscape: { ...DEF, ..._w.landscape },
