@@ -26,14 +26,9 @@ async function ensureDict() {
   return dict || null;
 }
 
-/** 后台预热：解析一次词典（~0.5s，一次性），之后所有查询同步走缓存秒出 */
+/** 后台预热：解析一次词典（~0.5s，一次性），之后所有查询同步走缓存秒出。返回词典实例或 null */
 export function prewarm() {
   return ensureDict();
-}
-
-/** 词典是否已就绪（预热完成后 UI 才批量判断哪些词有词源） */
-export function dictReady() {
-  return !!dict;
 }
 
 /** 去掉词条开头的 MDict 包装：大字词头（<font size=+2>词</font>）+ 灰色虚线横线（<hr>），正文从首个锚点/正文起 */

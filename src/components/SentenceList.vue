@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useVirtualizer } from '@tanstack/vue-virtual';
+import { tokStyle as tokStyleBase } from '../logic/level-colors.js';
 
 const props = defineProps({
   sentences: { type: Array, required: true },   // 含 tokens 的 renderedSentences
@@ -98,10 +99,7 @@ function fmt(sec) {
 
 // 亮色:级别色半透明背景;暗色背景变暗,改为前景色叠加(同视频字幕层,级别色向白混)
 function tokStyle(tok) {
-  if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
-  return props.theme === 'dark'
-    ? { color: `color-mix(in srgb, ${props.colors[tok.level]} 55%, white)` }
-    : { backgroundColor: props.colors[tok.level] + '26' };
+  return tokStyleBase(tok, { ...props, dark: props.theme === 'dark' });
 }
 </script>
 

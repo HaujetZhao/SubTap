@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import PillControls from './PillControls.vue';
 import { createPillSystem, loadPos } from '../composables/pill-drag.js';
 import { createSwipeRecognizer } from '../logic/gestures.js';
+import { tokStyle as tokStyleBase } from '../logic/level-colors.js';
 
 const props = defineProps({
   mediaKind: { type: String, default: null },      // 'video' | 'audio' | null
@@ -16,10 +17,7 @@ const props = defineProps({
 });
 
 // 黑底上纯色文字仍偏暗:级别色叠加到白字上(color-mix 向白混),亮且保色调
-function tokStyle(tok) {
-  if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
-  return { color: `color-mix(in srgb, ${props.colors[tok.level]} 55%, white)` };
-}
+function tokStyle(tok) { return tokStyleBase(tok, { ...props, dark: true }); }
 const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next']);
 
 const mediaEl = ref(null);

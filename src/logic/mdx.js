@@ -128,7 +128,7 @@ async function unpackBlock(packed, expectSize, encrypted) {
 /**
  * 创建 MDX 词典实例：全量解析 key 列表（小写化排序），lookup 二分查找。
  * @param {ArrayBuffer} arrayBuffer 整个 .mdx 文件（如 `await file.arrayBuffer()`）
- * @returns {Promise<{wordCount:number, lookup(word:string):Promise<string|null>}>}
+ * @returns {Promise<{lookup(word:string):Promise<string|null>}>}
  */
 export async function createMdx(arrayBuffer) {
   const u8 = new Uint8Array(arrayBuffer);
@@ -164,11 +164,16 @@ export async function createMdx(arrayBuffer) {
 
   // ---- key blocks：全量解出词条 {lower, recordStart}；recordEnd 由下一项 recordStart 补齐 ----
   const kbStart = kbiStart + big64(kh + 24);
-  const entries = [];
+  // 各块并行解压（DecompressionStream 异步，逐块 await 白等调度开销）
   let fileOff = kbStart;
-  for (const { packSize, unpackSize } of keyBlocks) {
-    const block = await unpackBlock(u8.slice(fileOff, fileOff + packSize), unpackSize, false);
+  const slices = keyBlocks.map(({ packSize }) => {
+    const s = u8.subarray(fileOff, fileOff + packSize);
     fileOff += packSize;
+    return s;
+  });
+  const blocks = await Promise.all(keyBlocks.map(({ unpackSize }, i) => unpackBlock(slices[i], unpackSize, false)));
+  const entries = [];
+  for (const block of blocks) {
     const bdv = new DataView(block.buffer, block.byteOffset);
     for (let p = 0; p < block.length;) {
       const recordStart = Number(bdv.getBigUint64(p));
@@ -185,16 +190,15 @@ export async function createMdx(arrayBuffer) {
   const riStart = rh + 32;
   const rbFileStart = riStart + big64(rh + 16);
   const recordBlocks = []; // {fileStart, packSize, unpackAcc}
-  let packAcc = 0, unpackAcc = 0, unpackTotal = 0;
+  let packAcc = 0, unpackAcc = 0;
   for (let i = 0, q = riStart; i < numRecordBlocks; i++) {
     const packSize = big64(q); q += 8;
     const unpackSize = big64(q); q += 8;
     recordBlocks.push({ fileStart: rbFileStart + packAcc, packSize, unpackSize, unpackAcc });
     packAcc += packSize; unpackAcc += unpackSize;
   }
-  unpackTotal = unpackAcc;
   for (let i = 0; i < entries.length - 1; i++) entries[i].recordEnd = entries[i + 1].recordStart;
-  entries[entries.length - 1].recordEnd = unpackTotal;
+  entries[entries.length - 1].recordEnd = unpackAcc;
 
   // mdx 自带排序不可靠（大小写/多语言），照 js-mdict 策略：内存排序后二分
   entries.sort((a, b) => (a.lower < b.lower ? -1 : a.lower > b.lower ? 1 : 0));
@@ -203,9 +207,6 @@ export async function createMdx(arrayBuffer) {
   let cacheIdx = -1, cacheBlock = null;
 
   return {
-    wordCount: entries.length,
-    /** 排序后的小写词表（去重前；同词多条 record 相邻），供全量遍历 */
-    words: () => entries.map(e => e.lower),
     /** 查词（大小写不敏感）；未命中返回 null */
     async lookup(word) {
       const lower = word.toLowerCase();
@@ -217,8 +218,8 @@ export async function createMdx(arrayBuffer) {
         else if (k > lower) hi = mid - 1;
         else break;
       }
-      if (entries[mid].lower !== lower) return null;
       const item = entries[mid];
+      if (item.lower !== lower) return null;
       // 二分找 record 块：recordStart 落在 [unpackAcc, unpackAcc+unpackSize) 区间
       let l = 0, h = recordBlocks.length - 1, bi = 0;
       while (l <= h) {

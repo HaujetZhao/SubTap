@@ -10,3 +10,11 @@ export const LEVEL_COLORS = {
   'SAT': '#db2777',
   '超纲': '#6b7280'
 };
+
+// token 着色：亮色=级别色半透明背景；暗色=前景色 color-mix 向白混（黑底上纯色偏暗，亮且保色调）
+export function tokStyle(tok, { colors, enabled, highlightOn, dark = false }) {
+  if (!highlightOn || !tok.level || !enabled[tok.level]) return {};
+  return dark
+    ? { color: `color-mix(in srgb, ${colors[tok.level]} 55%, white)` }
+    : { backgroundColor: colors[tok.level] + '26' };
+}
