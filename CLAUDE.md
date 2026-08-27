@@ -27,7 +27,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 |------|------|
 | `srt-parser.js` | `parseSRT`→`Sentence[]`，经 subsrt 库解析多格式（SRT/VTT/ASS/SSA/SUB/SBV/SMI）；内部 LF→CRLF 预处理（规避 subsrt bug）；LRC 不支持（无逐句结束时间）。VTT 含字级时间戳（YouTube 自动字幕）时改走 `yt-vtt-resplit` |
 | `word-lookup.js` | `buildVocab`、`tokenizeForRender`（中栏渲染，保留标点+超纲）、`classifyWords`（右栏分组，去重）；`resolve` 先查原词、未命中再试 lemmatize 候选 |
-| `lemmatize.js` | 变形→原形候选（不规则动词表 + 后缀规则） |
+| `lemmatize.js` | 变形→原形候选（不规则动词表 + 后缀规则，覆盖名词/形容词/副词派生后缀；`lemmatizeChain` 沿派生链逐级回退） |
 | `vocab-store.js` | `createVocabStore`：词库+分级+勾选状态 |
 | `player.js` | 区间播放；前台 rAF 精准停播，后台 tab 用 `timeupdate` 兜底（rAF 后台被暂停） |
 | `subtitle-tweak.js` | `computeEffectiveRanges(sentences,{offset,extend,linkNext,linkNextOffset})`；linkNext 与 extend 互斥（linkNext 优先） |
@@ -37,10 +37,13 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 | `toast.js` | `createToasts()`：toast 队列（去重、自动消失、hover 暂停） |
 | `vad.js` | FireRedVAD onnx 流式推理（session、流式分段、后处理、音频解码、资产预取） |
 | `yt-vtt-resplit.js` | YouTube 自动字幕 VTT 重分句：node-webvtt 切 cue → `<ts><c>` 词级 token 化 → 滚动去重 → CapsWriter 式标点分句 → 顺序对齐；`isWordTimedVtt` 识别（普通 VTT/SRT 不走此路） |
+| `etymology.js` | 词源查询：查原词未命中沿 `lemmatizeChain` 回退；模块级缓存；词典加载失败静默降级 |
+| `mdx.js` | 精简版 MDX 词典解析（浏览器端，按 ciyuan.mdx 实际格式裁剪：v2.0 大端、UTF-8、Encrypted=2 key-info 段 ripemd128 XOR 流加密、全段 zlib 用原生 `DecompressionStream('deflate')` 异步解压） |
+| `file-history.js` | IndexedDB「最近打开」缓存（单记录 `last`：字幕/媒体/句子/VAD 概率），VAD 概率复用免重推理 |
 
-**组合层（Vue composable，`src/composables/`，依赖注入接线）**：`useLayout.js`（侧栏布局）、`useSettings.js`（设置持久化+勾选镜像）、`useVad.js`（VAD 工作流）、`usePlayback.js`（播放命令/键盘/手势/线控）、`useLoader.js`（文件载入/示例/恢复上次）、`pill-drag.js`（药丸拖拽纯机制+loadJson/loadPos，无 Vue 依赖）。共享核心状态（`sentences/currentId/isPlaying/player/mediaBlob`）留在 App.vue，工厂函数接收依赖返回 API，不用 provide/inject。
+**组合层（Vue composable，`src/composables/`，依赖注入接线）**：`useLayout.js`（侧栏布局）、`useSettings.js`（设置持久化+勾选镜像）、`useVad.js`（VAD 工作流）、`usePlayback.js`（播放命令/键盘/手势/线控）、`useLoader.js`（文件载入/示例/恢复上次；媒体优先 File System Access API 缓存 handle、不支持降级 input 缓存 File）、`pill-drag.js`（药丸拖拽纯机制+loadJson/loadPos，无 Vue 依赖）。共享核心状态（`sentences/currentId/isPlaying/player/mediaBlob`）留在 App.vue，工厂函数接收依赖返回 API，不用 provide/inject。
 
-**UI 层（Vue 3 `<script setup>`）**：`App.vue`（编排层：核心状态 + 模块接线 + 三栏模板 + 底部控制条药丸，<300 行）、`SettingsPanel.vue`（左栏设置）、`SentenceList.vue`（中栏句子渲染 + 空载引导页）、`VideoStage.vue`（视频区 + 拖高/折叠/全屏/播控药丸）、`WordPanel.vue`（右栏分组词卡）、`Toasts.vue`。样式集中在 `styles.css` 的 `:root` 设计 token。改 UI 时尽量不动纯逻辑层。
+**UI 层（Vue 3 `<script setup>`）**：`App.vue`（编排层：核心状态 + 模块接线 + 三栏模板 + 底部控制条药丸，<300 行）、`SettingsPanel.vue`（左栏设置）、`SentenceList.vue`（中栏句子渲染 + 空载引导页）、`VideoStage.vue`（视频区 + 拖高/折叠/全屏/播控药丸 + 画面内字幕层[复用中栏 tokens，级别色 color-mix 叠加，全屏左滑 Teleport 打开 WordPanel]）、`WordPanel.vue`（右栏分组词卡 + 词源展开/交叉引用跳转）、`Toasts.vue`。样式集中在 `styles.css` 的 `:root` 设计 token。改 UI 时尽量不动纯逻辑层。
 
 ## 关键约定（容易踩坑）
 
@@ -57,6 +60,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 ## 数据
 
 - `src/logic/vocabulary.json`：`{level: {word: 释义}}`，7 级约 34000 词，入库。生成脚本 `分级单词提取.py`（独立工具链）。
+- `src/assets/mdx/ciyuan.mdx`：优词词源词典（~3.5MB，入库），`?url` 导入三轨全兼容（dev 伺服 / PWA assets+SW 缓存 / 单文件内联 base64，`fetch(data:)` 在 file:// 下可用）。
 
 ## CI / 部署
 
