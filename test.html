@@ -197,6 +197,16 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('lem: analyses→analysis（-ses→sis）', lemmatize('analyses').includes('analysis'));
   check('lem: friendship→friend（-ship）', lemmatize('friendship').includes('friend'));
   check('lem: relationship→relation（-ship）', lemmatize('relationship').includes('relation'));
+  // 候选排序：去双写候选优先于同后缀直接去后缀的长候选
+  check('lem: putting 的 put 排在 putt 前', lemmatize('putting').indexOf('put') < lemmatize('putting').indexOf('putt'));
+  check('lem: planning 的 plan 排在 plann 前', lemmatize('planning').includes('plan') && lemmatize('planning').indexOf('plan') === 0);
+  check('lem: stopping 的 stop 排在 stopp 前', lemmatize('stopping').indexOf('stop') === 0);
+  check('lem: coding 不产伪双写候选 co', !lemmatize('coding').includes('co'));
+  check('lem: doing 不产补 e 候选 doe、do 在候选里', !lemmatize('doing').includes('doe') && lemmatize('doing').includes('do'));
+  check('lem: being 不产补 e 候选 bee、be 在候选里', !lemmatize('being').includes('bee') && lemmatize('being').includes('be'));
+  check('lem: discussed 不产伪双写候选 discus', !lemmatize('discussed').includes('discus') && lemmatize('discussed').includes('discuss'));
+  check('lem: coding 的 code 仍在 cod 前（长度降序不回退）', lemmatize('coding').indexOf('code') < lemmatize('coding').indexOf('cod'));
+  check('lem: owing 的 owe 仍在（w 不算元音）', lemmatize('owing').includes('owe'));
 
   // --- 词形还原查词（端到端） ---
   const lvo = { '初中': { raise: 'v. 举起', run: 'v. 跑', study: 'v. 学习', letter: 'n. 字母' } };

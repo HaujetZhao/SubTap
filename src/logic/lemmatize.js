@@ -2,7 +2,8 @@
 // 移植自 分级单词提取.py 的 lemmatize()：把屈折变形（raises/running/studies/went）
 // 还原成原形候选列表，供查词时"原词未命中再试候选"使用。
 // 设计为"试所有候选，命中即用"，宁可多生成几个候选；候选按长度降序，
-// 避免 coding→cod(鳇鱼) 抢先于 code(编码) 命中导致释义错误。
+// 避免 coding→cod(鳇鱼) 抢先于 code(编码) 命中导致释义错误；
+// 去双写候选例外地加权排最前（putting→put 先于 putt），见 dedupe。
 
 // 不规则动词变形 → 原形（过去式/过去分词 + be/have/do 系）；
 // 只收纯后缀规则还原不了的：三单、-ing 及规则过去式（showed/burned 等）均由
@@ -152,18 +153,18 @@ const PRO_BASES = new Set([
   'that', 'who', 'what', 'where', 'let',
 ]);
 
-// 候选去重保序 + 过滤过短（<2）+ 长度降序（更长的原形优先匹配，避免 coding→cod 抢先于 code）
+// 元音判断（双写/补 e 规则的形态约束用）
+const isVowel = c => 'aeiou'.includes(c);
+
+// 候选去重保序 + 过滤过短（<2）+ 排序：优先级降序、同优先级长度降序。
+// 更长的原形优先匹配，避免 coding→cod(鳇鱼) 抢先于 code(编码)；
+// 但去双写候选反向加权排最前：putting→put 优先于 putt(高尔夫轻击)、planning→plan。
 function dedupe(cands) {
-  const seen = new Set();
-  const out = [];
-  for (const c of cands) {
-    if (c && !seen.has(c) && c.length >= 2) {
-      seen.add(c);
-      out.push(c);
-    }
+  const seen = new Map(); // 词 → 优先级（0 常规 / 1 加权，取最大）
+  for (const [c, prio] of cands) {
+    if (c && c.length >= 2) seen.set(c, Math.max(seen.get(c) ?? 0, prio));
   }
-  out.sort((a, b) => b.length - a.length);
-  return out;
+  return [...seen.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length).map(e => e[0]);
 }
 
 // 生成 word 的若干"可能原形"候选（小写），不含 word 自身（调用方已先试过 word 本身）。
@@ -179,7 +180,7 @@ export function lemmatize(word) {
     if (PRO_BASES.has(base)) return [base];
     // 其余含撇号（多为所有格 letters'、shannon's）：取撇号前部分，
     // 并对 base 再走一遍还原（letters' → letters → letter）。
-    if (base.length >= 2) return dedupe([base, ...lemmatize(base)]);
+    if (base.length >= 2) return dedupe([[base, 1], ...lemmatize(base).map(c => [c, 0])]);
     return [];
   }
 
@@ -199,10 +200,20 @@ export function lemmatize(word) {
     if (!word.endsWith(suffix) || n <= suffix.length) continue;
     const stem = word.slice(0, n - suffix.length);
     if (repl === null) {
-      // 双写末辅音：running -> runn -> 再去一个末字母 -> run
-      cands.push(stem.slice(0, -1));
+      // 双写还原：仅当 stem 真以双写辅音结尾（running→runn→run）；
+      // 否则（coding→cod）是伪双写，不生成候选。ss/zz 是词基自带形态
+      // （pass/discuss/buzz + 后缀），不是双写变形，同样不生成。
+      // 去双写候选加权排最前（put 优先于 putt）。
+      const last = stem.at(-1);
+      if (stem.length >= 3 && !isVowel(last) && last === stem.at(-2) && last !== 's' && last !== 'z') {
+        cands.push([stem.slice(0, -1), 1]);
+      }
+    } else if (repl === 'e' && (suffix === 'ing' || suffix === 'ed') && isVowel(stem.at(-1))) {
+      // 补 e 候选基于"辅音结尾词基脱 e"（love→loving/loved）；stem 以元音结尾时
+      // 必是垃圾（doing→doe/being→bee/agreed→agreee），不生成
+      continue;
     } else {
-      cands.push(stem + repl);
+      cands.push([stem + repl, 0]);
     }
   }
   return dedupe(cands);
