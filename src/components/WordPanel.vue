@@ -61,6 +61,27 @@ function onClickWord(word) {
   if (sel && !sel.isCollapsed) return;
   openWord.value = openWord.value === word ? null : word;
 }
+
+// 词源跳转：非 null 时展开体显示该词词条（而非词卡词）。返回链只记一层（回到词卡词）
+const nav = ref(null);
+watch(openWord, () => { nav.value = null; });
+
+// 词源展开体内的链接点击：`/ciyuan/目标词` 交叉引用 → 原位加载目标词条；其余链接仅拦截导航
+async function onEtymClick(e) {
+  const a = e.target.closest('a');
+  if (a) e.preventDefault();
+  if (!a) return;
+  const href = a.getAttribute('href') || '';
+  if (!href.startsWith('/ciyuan/')) return;
+  e.stopPropagation(); // 不冒泡到词卡（否则切换展开把词源收起）
+  let target;
+  try { target = decodeURIComponent(href.slice('/ciyuan/'.length)).toLowerCase(); }
+  catch { return; }
+  const html = await lookupEtymology(target);
+  if (!html) return; // 查无：静默
+  etym[target] = html;
+  nav.value = target;
+}
 </script>
 
 <template>
@@ -86,9 +107,11 @@ function onClickWord(word) {
               :class="{ on: openWord === w.word }"></span>
             <div class="w">{{ w.word }}</div>
             <div v-if="w.def" class="def">{{ w.def }}</div>
-            <!-- capture+prevent：拦截词条 HTML 内的死链点击（/ciyuan/...），不导航 -->
-            <div v-if="openWord === w.word" class="etym-body" v-html="etym[w.word]"
-              @click.capture.prevent></div>
+            <!-- capture 拦截词条 HTML 内的死链：/ciyuan/ 交叉引用走跳转,其余不导航 -->
+            <div v-if="openWord === w.word" class="etym-body">
+              <button v-if="nav" class="etym-back" @click.stop="nav = null">← {{ openWord }}</button>
+              <div v-html="etym[nav || openWord]" @click.capture="onEtymClick"></div>
+            </div>
           </div>
         </div>
       </div>
