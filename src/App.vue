@@ -259,6 +259,7 @@ onUnmounted(() => {
         :enabled="enabled"
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
+        :theme="theme"
         :can-restore="canRestore"
         :media-loaded="mediaKind !== null"
         @click="playSentence"

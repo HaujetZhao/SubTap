@@ -9,6 +9,7 @@ const props = defineProps({
   enabled: { type: Object, required: true },
   highlightOn: { type: Boolean, default: true },
   colors: { type: Object, required: true },
+  theme: { type: String, default: 'light' },
   canRestore: { type: Boolean, default: false },
   mediaLoaded: { type: Boolean, default: false }   // 已载媒体但无字幕时,空载引导页让位给 VAD 按钮
 });
@@ -95,10 +96,12 @@ function fmt(sec) {
   return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
-// 片段背景:高亮开 + 片段有级别 + 该级勾选 → 该级色半透明；否则无
+// 亮色:级别色半透明背景;暗色背景变暗,改为前景色叠加(同视频字幕层,级别色向白混)
 function tokStyle(tok) {
   if (!props.highlightOn || !tok.level || !props.enabled[tok.level]) return {};
-  return { backgroundColor: props.colors[tok.level] + '26' };
+  return props.theme === 'dark'
+    ? { color: `color-mix(in srgb, ${props.colors[tok.level]} 55%, white)` }
+    : { backgroundColor: props.colors[tok.level] + '26' };
 }
 </script>
 
