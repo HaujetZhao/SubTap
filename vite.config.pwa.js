@@ -38,12 +38,15 @@ export default defineConfig({
         runtimeCaching: [
           { urlPattern: /\.aac$/, handler: 'CacheFirst', options: { cacheName: 'sample-audio' } },
           { urlPattern: /\/(ort|ort-asyncify|models)\//, handler: 'CacheFirst', options: { cacheName: 'vad-assets' } },
+          // 词源词典(~3.5MB)不预缓存:首次查词源时按需取,CacheFirst 缓存后离线可用(同 VAD 资产策略)。
+          { urlPattern: /ciyuan\.mdx$/, handler: 'CacheFirst', options: { cacheName: 'ciyuan-dict' } },
         ],
       },
     }),
   ],
   base: './',
   resolve: { conditions: ['onnxruntime-web-use-extern-wasm'] },
+  // 词源词典 public/ciyuan.mdx(~3.5MB)不进 bundler:运行时 fetch,首次取回 CacheFirst 缓存。
   build: {
     commonjsOptions: {
       dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js'],

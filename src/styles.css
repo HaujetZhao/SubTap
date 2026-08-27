@@ -356,9 +356,34 @@ body {
   font-size: 10px; font-weight: 600;
   padding: 1px 7px; border-radius: 8px;
 }
-.word { background: var(--bg-soft); border-radius: var(--r-md); padding: 8px 11px; margin-bottom: 6px; }
-.word .w { font-weight: 600; font-size: 16px; }
+.word { background: var(--bg-soft); border-radius: var(--r-md); padding: 8px 11px; margin-bottom: 6px; user-select: none; -webkit-user-select: none; }
+.word .w { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 6px; }
 .word .def { font-size: 14px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
+
+/* 词源标识：词右侧一个低调小圆点，词卡悬停/展开时点亮，提示可点开词源 */
+.word.has-etym { cursor: pointer; position: relative; }
+.etym-dot {
+  position: absolute; right: 8px; top: 11px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink-3); opacity: .55;
+  pointer-events: none;
+  transition: background .15s, opacity .15s;
+}
+.word.has-etym:hover .etym-dot,
+.etym-dot.on { background: var(--accent-2); opacity: 1; }
+.etym-body {
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 13px; color: var(--ink-2); line-height: 1.6;
+  user-select: text; -webkit-user-select: text; /* 词卡不可选,正文区仍可划词复制 */
+}
+.etym-body h2 { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+.etym-body p { margin: 4px 0; }
+/* 本词典词条实际用 <font size=+2> 做词头、<hr> 做分隔线,压一压默认样式 */
+.etym-body font { font-size: 14px; font-weight: 600; color: var(--ink); }
+.etym-body hr { border: none; border-top: 1px dashed var(--border-strong); margin: 6px 0; }
+/* 词条 HTML 里的 <a href="/ciyuan/..."> 是死链,去下划线并禁点(点击另有 capture 拦截) */
+.etym-body a { color: inherit; text-decoration: none; pointer-events: none; }
 
 .placeholder { color: var(--ink-3); font-size: 14px; }
 

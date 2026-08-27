@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, reactive, ref, watch, onMounted } from 'vue';
+import { lookupEtymology, prewarm, dictReady } from '../logic/etymology.js';
 
 const props = defineProps({
   store: { type: Object, required: true },
@@ -31,6 +32,38 @@ const visibleLevels = computed(() =>
 );
 
 function titleColor(lv) { return props.colors[lv]; }
+
+// 词源状态，按词记：word → { open, html }。词典后台预热完成后，
+// watch 批量查当前句的词，有词源的词才亮徽章、点击即展开（结果已缓存）。
+const etym = reactive({});
+const ready = ref(false);
+onMounted(async () => { await prewarm(); ready.value = dictReady(); });
+
+// 换句后词源一律回到收起态（词的查询结果跨句缓存复用，展开状态不跨句）
+watch(() => props.currentText, () => {
+  for (const k in etym) etym[k].open = false;
+});
+
+watch([groups, ready], () => {
+  if (!ready.value) return;
+  for (const lv of visibleLevels.value) {
+    for (const w of groups.value[lv]) {
+      if (etym[w.word]) continue;
+      etym[w.word] = { open: false, html: null };
+      lookupEtymology(w.word).then(html => { etym[w.word].html = html; });
+    }
+  }
+});
+
+function toggleEtym(word) { etym[word].open = !etym[word].open; }
+
+// 点击词卡切换词源展开；但若发生文本选择（划词），不响应
+function onClickWord(e, word) {
+  if (!etym[word]?.html) return;
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed) return;
+  toggleEtym(word);
+}
 </script>
 
 <template>
@@ -49,9 +82,16 @@ function titleColor(lv) { return props.colors[lv]; }
             {{ lv }}
             <span class="count-pill" :style="{ background: titleColor(lv) + '22', color: titleColor(lv) }">{{ groups[lv].length }}</span>
           </h4>
-          <div v-for="w in groups[lv]" :key="w.word" class="word">
+          <div v-for="w in groups[lv]" :key="w.word" class="word"
+            :class="{ 'has-etym': etym[w.word]?.html }"
+            @click="onClickWord($event, w.word)">
+            <span v-if="etym[w.word]?.html" class="etym-dot"
+              :class="{ on: etym[w.word]?.open }"></span>
             <div class="w">{{ w.word }}</div>
             <div v-if="w.def" class="def">{{ w.def }}</div>
+            <!-- capture+prevent：拦截词条 HTML 内的死链点击（/ciyuan/...），不导航 -->
+            <div v-if="etym[w.word]?.open" class="etym-body" v-html="etym[w.word].html"
+              @click.capture.prevent></div>
           </div>
         </div>
       </div>
