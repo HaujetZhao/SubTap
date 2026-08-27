@@ -38,15 +38,16 @@ export default defineConfig({
         runtimeCaching: [
           { urlPattern: /\.aac$/, handler: 'CacheFirst', options: { cacheName: 'sample-audio' } },
           { urlPattern: /\/(ort|ort-asyncify|models)\//, handler: 'CacheFirst', options: { cacheName: 'vad-assets' } },
-          // 词源词典(~3.5MB)不预缓存:首次查词源时按需取,CacheFirst 缓存后离线可用(同 VAD 资产策略)。
-          { urlPattern: /ciyuan\.mdx$/, handler: 'CacheFirst', options: { cacheName: 'ciyuan-dict' } },
+          // 词源词典(~3.5MB,bundled 后带 hash)不预缓存:首次查词源时按需取,CacheFirst 缓存后离线可用。
+          { urlPattern: /\.mdx$/, handler: 'CacheFirst', options: { cacheName: 'ciyuan-dict' } },
         ],
       },
     }),
   ],
   base: './',
+  assetsInclude: ['**/*.mdx'],
   resolve: { conditions: ['onnxruntime-web-use-extern-wasm'] },
-  // 词源词典 public/ciyuan.mdx(~3.5MB)不进 bundler:运行时 fetch,首次取回 CacheFirst 缓存。
+  // 词源词典 src/assets/ciyuan.mdx 走 `?url` 导入:dev 伺服原文件,PWA 构建成 assets/ciyuan-<hash>.mdx。
   build: {
     commonjsOptions: {
       dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js'],

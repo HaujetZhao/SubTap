@@ -1,6 +1,8 @@
 // 词源查询（纯逻辑层）
-// 词典是 public/ciyuan.mdx（~3.5MB），运行时 fetch 原文件——不进 bundler，
-// dev/PWA 直接可用；单文件版（file:// 或无该文件）fetch 失败，静默降级为全部无词源。
+// 词典是 src/assets/ciyuan.mdx（~3.5MB），`?url` 导入三轨全兼容：
+// dev 由 dev server 伺服；PWA 构建成 assets/ciyuan-<hash>.mdx（runtime CacheFirst）；
+// 单文件构建被 vite-plugin-singlefile 内联成 base64 data URL，fetch(data:) 在 file:// 下可用。
+import mdxUrl from '../assets/mdx/ciyuan.mdx?url';
 import { lemmatize } from './lemmatize.js';
 import { createMdx } from './mdx.js';
 
@@ -14,7 +16,7 @@ async function ensureDict() {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        dict = await createMdx(await (await fetch('ciyuan.mdx')).arrayBuffer());
+        dict = await createMdx(await (await fetch(mdxUrl)).arrayBuffer());
       } catch {
         dict = false;
       }
