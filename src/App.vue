@@ -114,15 +114,14 @@ const cbRef = ref(null);
 const cbPos = ref(loadPos(CB_POS_KEY, { x: 0.5, y: 0.82 }));
 // 活动范围限中栏可见区:中栏 rect(侧栏为绝对定位叠放,需把展开的侧栏扣掉),不会钻进侧栏/飞出屏幕
 let cbBounds = null;
+// 占位按布局状态而非实时 rect 判定:侧栏滑出是 CSS 过渡,收起瞬间 rect 仍盖着中栏,
+// 读 DOM 会把药丸夹错位且动画结束后无人再纠正。overlay 是浮层不推内容,药丸原位不动
 function measureCbBounds() {
   const r = cbRef.value.parentElement.getBoundingClientRect();
   let left = r.left, right = r.right;
-  for (const p of document.querySelectorAll('.panel-left, .panel-right')) {
-    const pr = p.getBoundingClientRect();
-    if (pr.right <= r.left || pr.left >= r.right || pr.height < 10) continue;   // 折叠/不占中栏
-    if (p.classList.contains('panel-left')) left = Math.max(left, pr.right);
-    else right = Math.min(right, pr.left);
-  }
+  const lc = layoutClass.value;
+  if (lc['left-pinned']) left += leftWidth.value;
+  if (lc['right-pinned']) right -= rightWidth.value;
   return { left, right, top: r.top, bottom: r.bottom };
 }
 const cbDrag = makePillDrag({
