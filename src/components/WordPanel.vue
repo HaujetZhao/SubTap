@@ -66,33 +66,24 @@ function onClickWord(word) {
 const nav = ref(null);
 watch(openWord, () => { nav.value = null; });
 
-// 词条 HTML 文本节点里的英文单词包成可点 span（词根词缀说明如"词源同 patient"里的 patient），点击即跳转查它
-function linkifyWords(html) {
-  const tpl = document.createElement('template');
-  tpl.innerHTML = html;
-  const walker = document.createTreeWalker(tpl.content, NodeFilter.SHOW_TEXT);
-  const texts = [];
-  while (walker.nextNode()) texts.push(walker.currentNode);
-  for (const t of texts) {
-    if (!/[A-Za-z]/.test(t.data)) continue;
-    const frag = document.createDocumentFragment();
-    for (const part of t.data.split(/([A-Za-z][A-Za-z'-]*)/)) {
-      if (!part) continue;
-      if (!/^[A-Za-z]/.test(part)) { frag.append(part); continue; }
-      const s = document.createElement('span');
-      s.className = 'etym-w';
-      s.dataset.word = part;
-      s.textContent = part;
-      frag.append(s);
-    }
-    t.replaceWith(frag);
+// 从点击坐标取落点处的英文单词（caretRangeFromPoint 直接命中文本节点+偏移,向两侧扩词边界）
+function wordAt(x, y) {
+  let node, offset;
+  if (document.caretRangeFromPoint) {
+    const r = document.caretRangeFromPoint(x, y);
+    node = r?.startContainer; offset = r?.startOffset;
+  } else {
+    const p = document.caretPositionFromPoint(x, y);
+    node = p?.offsetNode; offset = p?.offset;
   }
-  return tpl.innerHTML;
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+  const s = node.data;
+  const isWord = c => /[A-Za-z]/.test(c);
+  let a = offset, b = offset;
+  while (a > 0 && isWord(s[a - 1])) a--;
+  while (b < s.length && isWord(s[b])) b++;
+  return b > a ? s.slice(a, b) : null;
 }
-const displayHtml = computed(() => {
-  const html = etym[nav.value || openWord.value];
-  return html ? linkifyWords(html) : '';
-});
 
 // 跳转到目标词：查词条,查无静默
 async function jumpTo(word) {
@@ -102,7 +93,7 @@ async function jumpTo(word) {
   nav.value = word.toLowerCase();
 }
 
-// 词源展开体内点击：`/ciyuan/目标词` 交叉引用或英文单词 → 原位跳转；其余链接仅拦截导航。
+// 词源展开体内点击：`/ciyuan/目标词` 交叉引用或落点在英文单词上 → 原位跳转；其余链接仅拦截导航。
 // 跳转前查选区,划词复制不受影响
 async function onEtymClick(e) {
   const a = e.target.closest('a');
@@ -118,12 +109,12 @@ async function onEtymClick(e) {
     }
     return;
   }
-  const w = e.target.closest('.etym-w');
-  if (!w) return;
   const sel = window.getSelection();
   if (sel && !sel.isCollapsed) return;
+  const word = wordAt(e.clientX, e.clientY);
+  if (!word) return;
   e.stopPropagation();
-  jumpTo(w.dataset.word);
+  jumpTo(word);
 }
 </script>
 
@@ -153,7 +144,7 @@ async function onEtymClick(e) {
             <!-- capture 拦截词条 HTML 内的死链：/ciyuan/ 交叉引用走跳转,其余不导航 -->
             <div v-if="openWord === w.word" class="etym-body">
               <button v-if="nav" class="etym-back" @click.stop="nav = null">← {{ openWord }}</button>
-              <div v-html="displayHtml" @click.capture="onEtymClick"></div>
+              <div v-html="etym[nav || openWord]" @click.capture="onEtymClick"></div>
             </div>
           </div>
         </div>

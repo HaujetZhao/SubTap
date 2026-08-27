@@ -393,9 +393,6 @@ body {
   font-size: 12px; color: var(--ink-3); cursor: pointer;
 }
 .etym-back:hover { color: var(--accent-2); }
-/* 词条正文里的英文单词可点跳转,平时不作标记,hover 提示 */
-.etym-w { cursor: pointer; }
-.etym-w:hover { color: var(--accent-2); text-decoration: underline dotted; }
 
 .placeholder { color: var(--ink-3); font-size: 14px; }
 
