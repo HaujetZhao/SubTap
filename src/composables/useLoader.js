@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { parseSRT } from '../logic/srt-parser.js';
-import { saveFile, loadFiles, getCachedProbs } from '../logic/file-history.js';
+import { saveFile, loadFiles, getCachedProbs, isMediaHandle } from '../logic/file-history.js';
 import { toSentences } from './useVad.js';
 import sampleSrt from '../assets/sample/sample.srt?raw';
 import sampleAudio from '../assets/sample/sample.aac';
@@ -52,9 +52,10 @@ export function createLoader({
     reader.readAsText(file, 'utf-8');
   }
 
-  function onMediaFile(file, save = true) {
+  // handle:picker 路径传入,缓存它而非 File(恢复时按需重取,免整块媒体写库)
+  function onMediaFile(file, save = true, handle = null) {
     if (!file) return;
-    if (save) saveFile('media', file);
+    if (save) saveFile('media', handle ?? file);
     mediaBlob = file;
     setMediaBlob(file);
     vad.reset();   // 换媒体,旧概率作废
@@ -68,6 +69,11 @@ export function createLoader({
         if (save) notify('已复用该媒体的 VAD 结果(免推理)');
       }
     }).catch(() => {});
+  }
+
+  // picker 路径入口:handle 取 File 后走统一载入路径,缓存 handle 本体
+  function onMediaHandle(handle) {
+    handle.getFile().then(f => onMediaFile(f, true, handle)).catch(() => notify('读取所选文件失败', 'error'));
   }
 
   // 清除字幕/媒体(侧栏文件按钮旁的 ×):复用载入路径,再补各自的清理
@@ -98,6 +104,21 @@ export function createLoader({
   // 打开上次(空载引导页按钮触发):从 IndexedDB 取缓存的文件,直接走载入路径。
   const canRestore = ref(false);
   loadFiles().then(r => { canRestore.value = !!(r && (r.srt || r.media)); });
+
+  // handle 缓存路径:恢复时重新取文件。需授权则趁点击手势弹确认;文件已删/拒绝则提示并放弃媒体。
+  async function restoreMedia(media) {
+    if (!isMediaHandle(media)) { onMediaFile(media, false); return; }
+    try {
+      const perm = await media.queryPermission({ mode: 'read' });
+      if (perm !== 'granted' && await media.requestPermission({ mode: 'read' }) !== 'granted') {
+        notify('未授权读取上次的媒体', 'error'); return;
+      }
+      onMediaFile(await media.getFile(), false, media);
+    } catch {
+      notify('上次打开的媒体已不可用', 'error');
+    }
+  }
+
   async function restoreLast() {
     const rec = await loadFiles();
     if (!rec || (!rec.srt && !rec.vadSegs && !rec.media)) { canRestore.value = false; notify('没有可恢复的文件', 'error'); return; }
@@ -108,8 +129,8 @@ export function createLoader({
     } else if (rec.srt) {
       onSrtFile(rec.srt, false, rec.sentenceId ?? null);
     }
-    if (rec.media) onMediaFile(rec.media, false);
+    if (rec.media) restoreMedia(rec.media);
   }
 
-  return { canRestore, onSrtFile, onMediaFile, clearSrt, clearMedia, loadSample, restoreLast };
+  return { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia, loadSample, restoreLast };
 }

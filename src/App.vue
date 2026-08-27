@@ -97,7 +97,7 @@ const { playSentence, stopAll, replayCurrent, goPrev, goNext, attach: attachPlay
   toggleFullscreen: () => stageRef.value?.toggleFullscreen(),
 });
 
-const { canRestore, onSrtFile, onMediaFile, clearSrt, clearMedia, loadSample, restoreLast } = createLoader({
+const { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia, loadSample, restoreLast } = createLoader({
   sentences, currentId, currentText, isPlaying, mediaKind, srtFromFile,
   stopAll, getPlayer, vad: { reset: resetVad, setProbs },
   setMediaBlob: b => { mediaBlob = b; },
@@ -226,6 +226,7 @@ onUnmounted(() => {
       @toggle-level="onToggleLevel"
       @srt-file="onSrtFile"
       @media-file="onMediaFile"
+      @media-handle="onMediaHandle"
       @clear-srt="clearSrt"
       @clear-media="clearMedia"
       @vad-run="runVad"

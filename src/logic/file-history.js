@@ -66,11 +66,15 @@ export async function loadFiles() {
 /** 媒体指纹:同名同大小同修改时间 = 同文件,留存概率可复用。 */
 export const mediaKey = blob => blob.name + '|' + blob.size + '|' + (blob.lastModified ?? 0);
 
+/** rec.media 两种形态:input 路径存 File,picker 路径存 FileSystemFileHandle。 */
+export const isMediaHandle = x => !!x && x.kind === 'file' && typeof x.getFile === 'function';
+
 /** 载入媒体时查上次留存概率:上次媒体与本次同一文件则命中,免推理。 */
 export async function getCachedProbs(blob) {
   try {
     const rec = await idbOp('readonly', s => s.get(KEY));
-    if (rec?.probs && rec.media && mediaKey(rec.media) === mediaKey(blob)) return rec;
+    const prev = rec?.media && (isMediaHandle(rec.media) ? await rec.media.getFile() : rec.media);
+    if (rec?.probs && prev && mediaKey(prev) === mediaKey(blob)) return rec;
     return null;
   } catch { return null; }
 }

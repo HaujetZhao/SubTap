@@ -569,7 +569,7 @@ body {
 .files { display: flex; flex-direction: column; gap: 7px; }
 .file-btn {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px; border-radius: var(--r-md);
+  padding: 10px 12px; border: 0; font-family: inherit; border-radius: var(--r-md);
   font-size: 13px; font-weight: 500; cursor: pointer;
   color: var(--fg-inverse); background: var(--btn-primary);
   transition: background .15s; position: relative;

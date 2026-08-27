@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { LEVEL_COLORS } from '../logic/level-colors.js';
 
 // prop 全部由 App.vue 显式传入,不设 default
@@ -30,7 +30,7 @@ const props = defineProps({
   vadMinSpeech: { type: Number, required: true },
   vadMinSilence: { type: Number, required: true }
 });
-const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-tts', 'collapse', 'resizestart']);
+const emit = defineEmits(['toggle-level', 'srt-file', 'media-file', 'media-handle', 'clear-srt', 'clear-media', 'vad-run', 'tweak', 'toggle-tts', 'collapse', 'resizestart']);
 
 // 当前语言对应的可选声音(按语言前缀过滤)
 const ttsVoiceList = computed(() => {
@@ -66,6 +66,23 @@ function onMediaChange(e) {
   if (f) emit('media-file', f);
   e.target.value = '';
 }
+
+// 打开音/视频:优先 File System Access API(缓存 handle),不支持/异常降级 input(缓存 File)。
+// 必须在点击手势里同步发起,不能只靠 computed 判支持。
+const mediaInput = ref(null);
+function openMedia() {
+  if (!window.showOpenFilePicker) { mediaInput.value.click(); return; }
+  window.showOpenFilePicker({
+    types: [{ description: '音视频', accept: {
+      'video/*': ['.mp4', '.webm', '.mkv', '.mov'],
+      'audio/*': ['.mp3', '.m4a', '.aac', '.wav', '.flac']
+    } }],
+  }).then(([h]) => emit('media-handle', h))
+    .catch(err => {
+      if (err.name === 'AbortError') return;   // 用户取消,静默
+      mediaInput.value.click();   // 其它异常降级 input
+    });
+}
 function onTweak(key, val) {
   emit('tweak', key, val);
 }
@@ -88,11 +105,11 @@ const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
       <!-- 文件(置顶) -->
       <section class="files">
       <div class="file-row">
-        <label class="file-btn">
+        <button class="file-btn" @click="openMedia">
           <span class="file-ico"><i class="fas fa-music"></i></span>
           打开音/视频
-          <input type="file" accept="audio/*,video/*" @change="onMediaChange" />
-        </label>
+        </button>
+        <input ref="mediaInput" type="file" accept="audio/*,video/*" hidden @change="onMediaChange" />
         <button class="file-clear" :disabled="!hasMedia" @click="emit('clear-media')"><i class="fas fa-xmark"></i><span class="tip">清除音/视频</span></button>
       </div>
       <div class="file-row">
