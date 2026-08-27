@@ -6,7 +6,8 @@ const props = defineProps({
   store: { type: Object, required: true },
   enabled: { type: Object, required: true },
   currentText: { type: String, default: '' },
-  colors: { type: Object, required: true }
+  colors: { type: Object, required: true },
+  theme: { type: String, default: 'light' }
 });
 const emit = defineEmits(['collapse', 'resizestart']);
 
@@ -31,7 +32,13 @@ const visibleLevels = computed(() =>
   )
 );
 
-function titleColor(lv) { return props.colors[lv]; }
+// 暗色下纯级别色偏深,同视频字幕层:级别色向白混,亮且保色调。
+// count-pill 仍用原始级别色拼 16 进制透明度,不吃 color-mix
+function titleColor(lv) {
+  return props.theme === 'dark'
+    ? `color-mix(in srgb, ${props.colors[lv]} 55%, white)`
+    : props.colors[lv];
+}
 
 // 词源状态，按词记：word → { open, html }。词典后台预热完成后，
 // watch 批量查当前句的词，有词源的词才亮徽章、点击即展开（结果已缓存）。
@@ -80,7 +87,7 @@ function onClickWord(e, word) {
         <div v-for="lv in visibleLevels" :key="lv" class="word-group">
           <h4 :style="{ color: titleColor(lv) }">
             {{ lv }}
-            <span class="count-pill" :style="{ background: titleColor(lv) + '22', color: titleColor(lv) }">{{ groups[lv].length }}</span>
+            <span class="count-pill" :style="{ background: colors[lv] + '22', color: titleColor(lv) }">{{ groups[lv].length }}</span>
           </h4>
           <div v-for="w in groups[lv]" :key="w.word" class="word"
             :class="{ 'has-etym': etym[w.word]?.html }"

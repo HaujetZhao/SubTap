@@ -170,7 +170,7 @@ function onFullscreenChange(fs) {
   clampCbIntoView();
 }
 // 两个 WordPanel 实例(普通/全屏)共用 props;仅 collapse/resizestart 按挂载位置分派
-const wpProps = computed(() => ({ store, enabled, currentText: currentText.value, colors: LEVEL_COLORS }));
+const wpProps = computed(() => ({ store, enabled, currentText: currentText.value, colors: LEVEL_COLORS, theme: theme.value }));
 const onWordCollapse = () => isFsWord.value ? (fsWordOpen.value = false) : collapseRight();
 const onWordResizeStart = e => startSideResize(isFsWord.value ? 'fs' : 'right', e);
 

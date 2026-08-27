@@ -361,7 +361,7 @@ body {
 .word .w { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 6px; }
 .word .def { font-size: 14px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
 
-/* 词源标识：词右侧一个低调小圆点，词卡悬停/展开时点亮，提示可点开词源 */
+/* 词源标识：词右侧一个低调小圆点，展开时点亮，提示可点开词源 */
 .word.has-etym { cursor: pointer; position: relative; }
 .etym-dot {
   position: absolute; right: 8px; top: 11px;
@@ -370,7 +370,6 @@ body {
   pointer-events: none;
   transition: background .15s, opacity .15s;
 }
-.word.has-etym:hover .etym-dot,
 .etym-dot.on { background: var(--accent-2); opacity: 1; }
 .etym-body {
   margin-top: 6px; padding-top: 6px;
