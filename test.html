@@ -144,6 +144,7 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('lem: studies→含 study', lemmatize('studies').includes('study'));
   check('lem: went→含 go', lemmatize('went').includes('go'));
   check('lem: happily→含 happy', lemmatize('happily').includes('happy'));
+  check('lem: logarithmic→含 logarithm', lemmatize('logarithmic').includes('logarithm'));
   // 精简 IRREGULAR_VERBS 后靠后缀规则还原的三单/ing/规则过去式
   check('lem: goes→go（规则 es）', lemmatize('goes').includes('go'));
   check('lem: flies→fly（规则 ies）', lemmatize('flies').includes('fly'));

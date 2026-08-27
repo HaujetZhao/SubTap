@@ -109,6 +109,7 @@ const LEMMATIZE_RULES = [
   ['ely', 'e'],
   ['ily', 'y'],   // happily -> happy
   ['ly', ''],     // quickly -> quick
+  ['ic', ''],     // logarithmic -> logarithm（形容词 -ic 回名词）
 ];
 
 // 否定缩约（完整 token → 助动词原形）：don't→do, can't→can, won't→will ...
