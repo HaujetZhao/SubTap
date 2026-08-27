@@ -85,12 +85,14 @@ function wordAt(x, y) {
   return b > a ? s.slice(a, b) : null;
 }
 
-// 跳转到目标词：查词条,查无静默
+// 跳转到目标词：查词条,查无静默；目标就是当前展示词时不跳
 async function jumpTo(word) {
+  const target = word.toLowerCase();
+  if (target === (nav.value || openWord.value)) return;
   const html = await lookupEtymology(word);
   if (!html) return;
-  etym[word.toLowerCase()] = html;
-  nav.value = word.toLowerCase();
+  etym[target] = html;
+  nav.value = target;
 }
 
 // 词源展开体内点击：`/ciyuan/目标词` 交叉引用或落点在英文单词上 → 原位跳转；其余链接仅拦截导航。
