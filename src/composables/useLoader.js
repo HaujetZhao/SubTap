@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { parseSRT } from '../logic/srt-parser.js';
 import { saveFile, loadFiles, getCachedProbs, isMediaHandle } from '../logic/file-history.js';
+import { isMkv, extractMkvSubtitles } from '../logic/mkv-subtitles.js';
 import { toSentences } from './useVad.js';
 import sampleSrt from '../assets/sample/sample.srt?raw';
 import sampleAudio from '../assets/sample/sample.aac';
@@ -8,10 +9,10 @@ import sampleAudio from '../assets/sample/sample.aac';
 // 文件载入层:外部字幕/音视频载入、清除、内置示例、恢复上次。
 // 依赖注入:核心状态 refs、stopAll(playback)、getPlayer、vad(reset/setProbs)、
 // setMediaBlob(App 侧持有原始 Blob 供 VAD 解码)、expandVideo(载入视频时展开)、
-// selectSentenceById(恢复上次进度时选中并滚动)、notify。
+// selectSentenceById(恢复上次进度时选中并滚动)、notify、pickMkvTrack(MKV 多字幕轨时弹选择,取消返回 null)。
 export function createLoader({
   sentences, currentId, currentText, isPlaying, mediaKind, srtFromFile,
-  stopAll, getPlayer, vad, setMediaBlob, expandVideo, notify, selectSentenceById,
+  stopAll, getPlayer, vad, setMediaBlob, expandVideo, notify, selectSentenceById, pickMkvTrack,
 }) {
   let mediaBlob = null;   // 本模块写入,经 setMediaBlob 同步给 App(VAD 解码用);本地留一份供缓存命中比对
   const getMediaBlob = () => mediaBlob;
@@ -69,6 +70,27 @@ export function createLoader({
         if (save) notify('已复用该媒体的 VAD 结果(免推理)');
       }
     }).catch(() => {});
+    extractMkv(file);
+  }
+
+  // MKV:提取内封文本字幕轨,强制替换中栏当前字幕(外挂 srt 也替换)。异步进行,不阻塞媒体载入播放。
+  function extractMkv(file) {
+    // 先只读头部判 EBML 魔数,非 MKV 不付全量读的 IO
+    file.slice(0, 4096).arrayBuffer().then(async head => {
+      if (mediaBlob !== file || !isMkv(new Uint8Array(head))) return;
+      const { tracks, cuesByTrack } = await extractMkvSubtitles(new Uint8Array(await file.arrayBuffer()));
+      if (mediaBlob !== file) return;
+      if (!tracks.length) { notify('MKV 无内封文本字幕（位图轨不可提取）', 'error'); return; }
+      const track = tracks.length === 1 ? tracks[0] : await pickMkvTrack(tracks);
+      if (!track) return;   // 用户取消
+      const cues = cuesByTrack.get(track.no);
+      if (!cues.length) { notify('该字幕轨没有内容', 'error'); return; }
+      stopAll();
+      sentences.value = cues.map((c, i) => ({ id: i + 1, ...c }));
+      srtFromFile.value = true;
+      currentId.value = null; currentText.value = '';
+      notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${cues.length} 句）`);
+    }).catch(() => notify('MKV 字幕提取失败', 'error'));
   }
 
   // picker 路径入口:handle 取 File 后走统一载入路径,缓存 handle 本体

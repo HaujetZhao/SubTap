@@ -695,3 +695,21 @@ body {
 .scrim.show { opacity: 1; pointer-events: auto; }
 
 /* ===== 底部控制条(手机盲操:上一句/暂停(重播)/下一句) — 样式见上方 .vc-pill 共用块,此处只声明定位差异 ===== */
+
+/* ===== MKV 字幕轨选择弹窗(原生 dialog) ===== */
+.mkv-track-dialog {
+  margin: auto;                     /* dialog 默认居中 */
+  border: none; border-radius: var(--r-lg);
+  background: var(--panel); color: var(--ink);
+  box-shadow: var(--shadow-overlay);
+  padding: 18px; min-width: 260px;
+}
+.mkv-track-dialog::backdrop { background: var(--scrim); }
+.mkv-track-dialog button {
+  display: block; width: 100%;
+  margin-top: 8px; padding: 8px 12px;
+  border: none; border-radius: var(--r-sm);
+  background: var(--bg-soft); color: var(--ink);
+  text-align: left; cursor: pointer; font-size: 14px;
+}
+.mkv-track-dialog button:hover { background: var(--bg-soft-hover); }

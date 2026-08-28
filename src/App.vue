@@ -103,8 +103,29 @@ const { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia,
   stopAll, getPlayer, vad: { reset: resetVad, setProbs },
   setMediaBlob: b => { mediaBlob = b; },
   expandVideo: () => stageRef.value?.expand(),
-  notify, selectSentenceById,
+  notify, selectSentenceById, pickMkvTrack,
 });
+
+// ===== MKV 多字幕轨选择(原生 dialog) =====
+// loader 提取到多轨时经 pickMkvTrack 弹窗;点按钮 → resolve(轨道),Esc 关闭 → resolve(null)
+const mkvTrackDialog = ref(null);
+const mkvTracks = ref([]);
+let resolveMkvTrack = null;
+function pickMkvTrack(tracks) {
+  mkvTracks.value = tracks;
+  mkvTrackDialog.value.showModal();
+  return new Promise(r => { resolveMkvTrack = r; });
+}
+// 点按钮:先取走 resolver 再 close(close 事件里只兜底 resolve null,不会重复 resolve)
+function chooseMkvTrack(t) {
+  const r = resolveMkvTrack; resolveMkvTrack = null;
+  mkvTrackDialog.value.close();
+  r?.(t);
+}
+function onMkvDialogClose() {
+  const r = resolveMkvTrack; resolveMkvTrack = null;
+  r?.(null);
+}
 
 // ===== 底部控制条药丸(依赖中栏 DOM 与侧栏布局互作用,留在编排层) =====
 // 悬浮竖版药丸(同 vc-pill 样式),可拖动,中心点按视口比例存 localStorage,
@@ -290,4 +311,10 @@ onUnmounted(() => {
     <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
   <Toasts :toasts="toasts" @dismiss="dismiss" @pause="pauseToast" @resume="resumeToast" />
+  <dialog ref="mkvTrackDialog" class="mkv-track-dialog" @close="onMkvDialogClose">
+    <h3 class="panel-title">选择字幕轨道</h3>
+    <button v-for="t in mkvTracks" :key="t.no" @click="chooseMkvTrack(t)">
+      {{ [t.name, t.lang, t.codec].filter(Boolean).join(' · ') }}
+    </button>
+  </dialog>
 </template>
