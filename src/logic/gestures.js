@@ -36,15 +36,24 @@ export function createTwoFingerRecognizer({ onSwipe, onTap }) {
   return { onTouch, onTouchEnd };
 }
 
-// 单指滑动识别(视频区):上/下滑切句,左滑开右栏,右滑开左栏。
-// 位移 ≥60px 且主轴位移 > 副轴 *1.5 才算,否则不算(保留单击切控件层等行为)。
+// 单指手势识别(视频区):上/下滑切句,左滑开右栏,右滑开左栏,双击(空格功能)。
+// 滑动:位移 ≥60px 且主轴位移 > 副轴 *1.5,否则不算(保留单击切控件层等行为)。
+// 双击走 pointer 自测而非 dblclick:触屏在 touch-action:none 下浏览器不派发合成 dblclick,
+// 鼠标/触屏统一在 down 时比对上一次轻点(300ms 内且 <30px)。
 // onSwipe(dir) dir∈'up'|'down'|'left'|'right';up 返回是否识别为滑动(调用方据此吞掉紧随的 click)。
-// ignore: 选择器,命中的元素(药丸/生词栏等自带拖拽语义)不作为滑动起点,由调用方告知。
-export function createSwipeRecognizer(onSwipe, ignore) {
-  let start = null;
+// ignore: 选择器,命中的元素(药丸/生词栏等自带拖拽语义)不作为手势起点,由调用方告知。
+export function createSwipeRecognizer({ onSwipe, onDoubleTap, ignore }) {
+  let start = null, lastTap = null;
   return {
     down(e) {
-      start = ignore && e.target.closest(ignore) ? null : { x: e.clientX, y: e.clientY };
+      if (ignore && e.target.closest(ignore)) { start = null; lastTap = null; return; }
+      start = { x: e.clientX, y: e.clientY };
+      if (lastTap && performance.now() - lastTap.t < 300 &&
+          Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        lastTap = null;
+        start = null;          // 双击已识别,本次按压不再进滑动判定
+        onDoubleTap();
+      }
     },
     // 返回是否识别为滑动(调用方据此吞掉紧随的 click)
     up(e) {
@@ -52,13 +61,17 @@ export function createSwipeRecognizer(onSwipe, ignore) {
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start = null;
       if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        lastTap = null;
         onSwipe(dx < 0 ? 'left' : 'right');
         return true;
       }
       if (Math.abs(dy) >= 60 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+        lastTap = null;
         onSwipe(dy < 0 ? 'up' : 'down');
         return true;
       }
+      // 未构成滑动的收尾:位移小的记为轻点,供双击判定
+      if (Math.hypot(dx, dy) < 30) lastTap = { t: performance.now(), x: e.clientX, y: e.clientY };
       return false;
     },
   };

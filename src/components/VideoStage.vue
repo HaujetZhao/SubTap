@@ -74,20 +74,24 @@ const showSub = ref(true);            // 画面内字幕层开关
 const wordOpen = defineModel('wordOpen', { type: Boolean, default: false });
 const leftOpen = defineModel('leftOpen', { type: Boolean, default: false });
 
-// 视频区单指手势(全屏/非全屏均启用):上滑下一句,下滑上一句,左滑开右栏,右滑开左栏。
+// 视频区单指手势(全屏/非全屏均启用):上滑下一句,下滑上一句,左滑开右栏,右滑开左栏,双击切播放。
 // 识别为滑动后吞掉紧跟的 click(不然会切控件层)
-const swipe = createSwipeRecognizer(dir => {
-  if (dir === 'up') emit('next');
-  else if (dir === 'down') emit('prev');
-  else if (dir === 'left') {
-    // 左滑开右栏:全屏开全屏生词栏,非全屏交 App 展开普通右栏
-    if (isFullscreen.value) wordOpen.value = true;
-    else emit('open-right');
-  } else {
-    if (isFullscreen.value) leftOpen.value = true;
-    else emit('open-left');
-  }
-}, '.vc-pill, .panel-right, .panel-left');
+const swipe = createSwipeRecognizer({
+  onSwipe: dir => {
+    if (dir === 'up') emit('next');
+    else if (dir === 'down') emit('prev');
+    else if (dir === 'left') {
+      // 左滑开右栏:全屏开全屏生词栏,非全屏交 App 展开普通右栏
+      if (isFullscreen.value) wordOpen.value = true;
+      else emit('open-right');
+    } else {
+      if (isFullscreen.value) leftOpen.value = true;
+      else emit('open-left');
+    }
+  },
+  onDoubleTap: () => emit('toggle'),
+  ignore: '.vc-pill, .panel-right, .panel-left',
+});
 let suppressClick = false;
 function onStageClick() {
   if (suppressClick) { suppressClick = false; return; }
@@ -158,8 +162,7 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
       <video ref="mediaEl" class="media-video"
              playsinline webkit-playsinline
              preload="metadata"
-             @loadedmetadata="onVideoMeta"
-             @dblclick.prevent="$emit('toggle')"></video>
+             @loadedmetadata="onVideoMeta"></video>
       <!-- 全屏栏遮罩:点栏外收起(面板本体由 App Teleport 到 stage 末尾,z 更高) -->
       <div v-if="isFullscreen && (wordOpen || leftOpen)" class="fs-scrim" @click.stop="wordOpen = leftOpen = false"></div>
       <!-- 画面内字幕层(右下按钮开关) -->
