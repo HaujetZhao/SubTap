@@ -17,10 +17,11 @@ export function createLoader({
   let mediaBlob = null;   // 本模块写入,经 setMediaBlob 同步给 App(VAD 解码用);本地留一份供缓存命中比对
   const getMediaBlob = () => mediaBlob;
 
-  // 应用字幕文本(不含提示,由调用方决定文案)。文件按钮与示例按钮共用。
-  function applySubtitle(text) {
+  // 应用字幕(不含提示,由调用方决定文案)。文件按钮与示例按钮共用;
+  // cues:已解析的 Sentence 数组(无 id,此处补),给定时跳过 parseSRT(MKV 直通)
+  function applySubtitle(text, cues) {
     srtFromFile.value = true;
-    sentences.value = parseSRT(text);
+    sentences.value = cues ? cues.map((c, i) => ({ id: i + 1, ...c })) : parseSRT(text);
     stopAll();
     currentId.value = null;
     currentText.value = '';
@@ -87,19 +88,16 @@ export function createLoader({
       if (!cues.length) { notify('该字幕轨没有内容', 'error'); return; }
       if (track.codec.startsWith('D_WEBVTT')) {
         // WebVTT 轨重建 VTT 文本走 parseSRT:字级时间戳(YouTube)自动重分句,普通 cue 走 subsrt
+        // 时间戳始终带小时:node-webvtt 的正则对 3 位分钟会错配成时/分,>60min 媒体必须 HH:MM:SS
         const fmt = sec => {
-          const m = Math.floor(sec / 60), s = sec % 60;
-          return `${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
+          const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60;
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
         };
         applySubtitle('WEBVTT\n\n' + cues.map(c => `${fmt(c.start)} --> ${fmt(c.end)}\n${c.text}`).join('\n\n'));
-        notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${sentences.value.length} 句）`);
-        return;
+      } else {
+        applySubtitle(null, cues);
       }
-      stopAll();
-      sentences.value = cues.map((c, i) => ({ id: i + 1, ...c }));
-      srtFromFile.value = true;
-      currentId.value = null; currentText.value = '';
-      notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${cues.length} 句）`);
+      notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${sentences.value.length} 句）`);
     }).catch(() => notify('MKV 字幕提取失败', 'error'));
   }
 
