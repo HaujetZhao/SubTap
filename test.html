@@ -357,6 +357,17 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
       blocks: [{ relMs: 0, durMs: 1000, text: 'Hello, world again' }],
     }));
     check('mkv: WEBVTT 载荷按原文', r3.cuesByTrack.get(1)[0].text === 'Hello, world again');
+    // D_WEBVTT（ffmpeg 对 webvtt 流写的 CodecID，WebM 形制）：载荷 = settings 行 + identifier 行 + cue 文本（内部换行保留供 VTT 重建）
+    const r4 = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'D_WEBVTT/SUBTITLES' }],
+      blocks: [{ relMs: 0, durMs: 1000, text: 'align:start position:0%\nid\nSecond track line one, with comma' }],
+    }));
+    check('mkv: D_WEBVTT 剥前两行取 cue 文本', r4.cuesByTrack.get(1)[0].text === 'Second track line one, with comma');
+    const r5 = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'D_WEBVTT/SUBTITLES' }],
+      blocks: [{ relMs: 0, durMs: 1000, text: '\n \nline one\nline two' }],
+    }));
+    check('mkv: D_WEBVTT 多行正文保留换行', r5.cuesByTrack.get(1)[0].text === 'line one\nline two');
   }
   // 位图轨（S_HDMV/PGS）与无字幕轨：返回空
   {

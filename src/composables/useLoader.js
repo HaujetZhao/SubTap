@@ -85,6 +85,16 @@ export function createLoader({
       if (!track) return;   // 用户取消
       const cues = cuesByTrack.get(track.no);
       if (!cues.length) { notify('该字幕轨没有内容', 'error'); return; }
+      if (track.codec.startsWith('D_WEBVTT')) {
+        // WebVTT 轨重建 VTT 文本走 parseSRT:字级时间戳(YouTube)自动重分句,普通 cue 走 subsrt
+        const fmt = sec => {
+          const m = Math.floor(sec / 60), s = sec % 60;
+          return `${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
+        };
+        applySubtitle('WEBVTT\n\n' + cues.map(c => `${fmt(c.start)} --> ${fmt(c.end)}\n${c.text}`).join('\n\n'));
+        notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${sentences.value.length} 句）`);
+        return;
+      }
       stopAll();
       sentences.value = cues.map((c, i) => ({ id: i + 1, ...c }));
       srtFromFile.value = true;

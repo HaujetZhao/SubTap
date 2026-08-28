@@ -1,6 +1,6 @@
 // MKV 内封文本字幕提取：两遍 EBML 扫描。
 // 参照 matroska-subtitles 的 corner case 清单（spec 2026-08-28）：
-// 只处理 S_TEXT/* 文本轨；位图轨（PGS/VobSub）忽略；不做 lacing（字幕轨规范单帧）；
+// 只处理文本字幕轨（S_TEXT/* 与 ffmpeg 的 D_WEBVTT/*）；位图轨（PGS/VobSub）忽略；不做 lacing（字幕轨规范单帧）；
 // ContentCompression 走原生 DecompressionStream('deflate')（zlib，与 mdx.js 同款）。
 
 export function isMkv(buf) {
@@ -76,7 +76,7 @@ export async function extractMkvSubtitles(buf) {
         if (sid === 0x6D80) t.compressed = true;                                  // ContentEncodings → 载荷按 zlib 压缩处理
         j = se;
       }
-      if (t.type === 0x11 && t.codec && t.codec.startsWith('S_TEXT')) tracks.push(t);
+      if (t.type === 0x11 && t.codec && (t.codec.startsWith('S_TEXT') || t.codec.startsWith('D_WEBVTT'))) tracks.push(t);
     }
     if (id === 0x1F43B675) break;  // 到第一个 Cluster，元数据阶段结束
     i = end;
@@ -137,6 +137,10 @@ export async function extractMkvSubtitles(buf) {
       return s.split(',').slice(8).join(',')
         .replace(/\\N/g, ' ').replace(/\\n/g, ' ').trim();
     }
+    // D_WEBVTT（ffmpeg 对 webvtt 流写的 CodecID，WebM 形制）：
+    // 载荷前两行是 cue settings + identifier，其后才是正文。保留内部换行（YouTube
+    // 字级时间戳 VTT 的滚动行结构依赖多行），由上层重建 VTT 文本走 parseSRT 重分句
+    if (codec.startsWith('D_WEBVTT')) return s.split('\n').slice(2).join('\n');
     // 其余 S_TEXT（UTF8/WEBVTT）：载荷即 cue 原文
     return s.replace(/\n/g, ' ').trim();
   };
