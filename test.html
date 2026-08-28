@@ -18,6 +18,7 @@ import { buildVocab, tokenizeForRender, classifyWords } from './src/logic/word-l
 import { createVocabStore } from './src/logic/vocab-store.js';
 import { computeEffectiveRanges } from './src/logic/subtitle-tweak.js';
 import { lemmatize, lemmatizeChain } from './src/logic/lemmatize.js';
+import { extractMkvSubtitles, isMkv } from './src/logic/mkv-subtitles.js';
 
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
@@ -241,6 +242,165 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('tokenize: 单字母不着色（level=null）', tokenizeForRender('a x', lv)[0].level === null);
   // 双层还原：encodings → encoding → encode
   check('classify: encodings→encode（双层）', classifyWords('encodings', buildVocab({ '初中': { encode: 'v. 编码' } }))['初中'][0].word === 'encode');
+
+  // --- MKV 内封字幕提取 ---
+  // 夹具：现场合成最小 EBML 字节流（vint 编码 + element 拼接），不依赖外部文件
+  const vintEnc = (v) => {  // size/数值用 vint：首字节置标记位
+    let n = 1; while (v >= (1 << (7 * n))) n++;
+    const a = new Uint8Array(n); let x = v;
+    for (let i = n - 1; i >= 0; i--) { a[i] = x & 0x7f; x >>>= 7; }
+    a[0] |= 1 << (8 - n);
+    return a;
+  };
+  const uintBytes = (v) => { const a = []; do { a.unshift(v & 0xff); v = Math.floor(v / 256); } while (v); return Uint8Array.from(a); };
+  const str = (s) => new TextEncoder().encode(s);
+  const cat = (parts) => {  // 拼接多段 Uint8Array
+    let n = 0; for (const p of parts) n += p.length;
+    const o = new Uint8Array(n); let k = 0;
+    for (const p of parts) { o.set(p, k); k += p.length; }
+    return o;
+  };
+  const el = (idBytes, payload) => cat([idBytes, vintEnc(payload.length), payload]);  // element = id + size vint + 载荷
+  const ID = {
+    EBML: Uint8Array.of(0x1A, 0x45, 0xDF, 0xA3), SEG: Uint8Array.of(0x18, 0x53, 0x80, 0x67),
+    INFO: Uint8Array.of(0x15, 0x49, 0xA9, 0x66), TCS: Uint8Array.of(0x2A, 0xD7, 0xB1),
+    TRACKS: Uint8Array.of(0x16, 0x54, 0xAE, 0x6B), TRACKENTRY: Uint8Array.of(0xAE),
+    TN: Uint8Array.of(0xD7), TT: Uint8Array.of(0x83), CID: Uint8Array.of(0x86), LANG: Uint8Array.of(0x22, 0xB5, 0x9C),
+    CLUSTER: Uint8Array.of(0x1F, 0x43, 0xB6, 0x75), TC: Uint8Array.of(0xE7), CENC: Uint8Array.of(0x6D, 0x80),
+    SIMPLE: Uint8Array.of(0xA3), BG: Uint8Array.of(0xA0), BLOCK: Uint8Array.of(0xA1), DUR: Uint8Array.of(0x9B),
+    DOCTYPE: Uint8Array.of(0x42, 0x82),
+  };
+  // 拼一个最小 MKV：EBML头 + Segment(Info? + Tracks + Clusters(Timecode + blocks))
+  // tracks: [{no, codec, type=0x11, lang, compressed}]；blocks: [{relMs, durMs?, text|payload}]
+  // （durMs 有值走 BlockGroup，否则 SimpleBlock；payload 直接给字节，text 用 str 编码）
+  // clusters: [{clusterMs, blocks}] 多 Cluster；单 Cluster 用顶层 clusterMs/blocks 简写
+  // unknownClusterSize: Cluster size 写保留值（vint 全 1），解析器应下钻扫子元素
+  const mkMkv = ({ docType = null, timecodeScale = null, tracks, clusters = null, clusterMs = 0, blocks = [], unknownClusterSize = false }) => {
+    const header = el(ID.EBML, docType != null ? el(ID.DOCTYPE, str(docType)) : new Uint8Array());
+    const info = el(ID.INFO, timecodeScale != null ? el(ID.TCS, uintBytes(timecodeScale)) : new Uint8Array());
+    const trackEntries = tracks.map(t => el(ID.TRACKENTRY, cat([
+      el(ID.TN, uintBytes(t.no)), el(ID.TT, uintBytes(t.type ?? 0x11)), el(ID.CID, str(t.codec)),
+      ...(t.lang ? [el(ID.LANG, str(t.lang))] : []),
+      ...(t.compressed ? [el(ID.CENC, new Uint8Array())] : []),  // 空 ContentEncodings master 即标记压缩
+    ])));
+    const mkBlock = (b) => cat([  // vint(trackNo) + int16 相对毫秒 + flags(0) + 载荷
+      vintEnc(b.tno ?? tracks[0].no),
+      Uint8Array.of((b.relMs >> 8) & 0xff, b.relMs & 0xff, 0),
+      b.payload ?? str(b.text),
+    ]);
+    const mkCluster = ({ clusterMs, blocks }) => {
+      const body = cat([el(ID.TC, uintBytes(clusterMs)), ...blocks.map(b => b.durMs != null
+        ? el(ID.BG, cat([el(ID.BLOCK, mkBlock(b)), el(ID.DUR, uintBytes(b.durMs))]))
+        : el(ID.SIMPLE, mkBlock(b)))]);
+      return unknownClusterSize
+        ? cat([ID.CLUSTER, Uint8Array.of(0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF), body])  // size vint 全 1
+        : el(ID.CLUSTER, body);
+    };
+    const clusterEls = (clusters ?? [{ clusterMs, blocks }]).map(mkCluster);
+    return cat([header, el(ID.SEG, cat([info, el(ID.TRACKS, cat(trackEntries)), ...clusterEls]))]);
+  };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+
+  // isMkv：头 4 字节 magic number
+  check('mkv: isMkv 头 1A 45 DF A3 → true', isMkv(mkMkv({ tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }], blocks: [{ relMs: 0, text: 'x' }] })));
+  check('mkv: isMkv 其它头 → false', !isMkv(Uint8Array.of(0x1A, 0x45, 0xDF, 0xA4)) && !isMkv(new Uint8Array(8)));
+  // WebM：魔数相同但 DocType=webm，isMkv 排除（避免载入 .webm 弹"无字幕"误报）
+  check('mkv: isMkv 排除 WebM（DocType）', !isMkv(mkMkv({ docType: 'webm', tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }], blocks: [{ relMs: 0, text: 'x' }] })));
+  check('mkv: isMkv 显式 DocType=matroska 通过', isMkv(mkMkv({ docType: 'matroska', tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }], blocks: [{ relMs: 0, text: 'x' }] })));
+
+  // S_TEXT/UTF8 + BlockGroup(Block+BlockDuration)：start/end/text 正确
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8', lang: 'eng' }],
+      blocks: [{ relMs: 80, durMs: 2320, text: 'hello world' }, { relMs: 3000, durMs: 1000, text: 'second' }],
+    }));
+    const cues = r.cuesByTrack.get(1);
+    check('mkv: BlockGroup 轨道元数据', r.tracks.length === 1 && r.tracks[0].codec === 'S_TEXT/UTF8' && r.tracks[0].lang === 'eng');
+    check('mkv: BlockGroup 首条 start/end/text', cues.length === 2 && near(cues[0].start, 0.08) && near(cues[0].end, 2.4) && cues[0].text === 'hello world');
+    check('mkv: BlockGroup 次条', near(cues[1].start, 3) && near(cues[1].end, 4));
+  }
+  // SimpleBlock（无时长）：end = min(下一条 start, start+5)
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }],
+      blocks: [{ relMs: 80, text: 'first' }, { relMs: 1500, text: 'last' }],
+    }));
+    const cues = r.cuesByTrack.get(1);
+    check('mkv: SimpleBlock 首条 end=下一条 start', near(cues[0].start, 0.08) && near(cues[0].end, 1.5));
+    check('mkv: SimpleBlock 末条 end=start+5', near(cues[1].end, cues[1].start + 5));
+  }
+  // TimecodeScale=500000：时间减半
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      timecodeScale: 500000,
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }],
+      blocks: [{ relMs: 160, durMs: 2000, text: 'x' }],
+    }));
+    const c = r.cuesByTrack.get(1)[0];
+    check('mkv: TimecodeScale=500000 时间减半', near(c.start, 0.08) && near(c.end, 1.08));
+  }
+  // ASS 轨：逗号保留（slice(8).join(',')），\N 换行替换为空格
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/ASS' }],
+      blocks: [{ relMs: 0, durMs: 1000, text: '5,0,Default,,0,0,0,,hello, world' }],
+    }));
+    check('mkv: ASS 逗号保留', r.cuesByTrack.get(1)[0].text === 'hello, world');
+    const r2 = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/ASS' }],
+      blocks: [{ relMs: 0, durMs: 1000, text: '5,0,Default,,0,0,0,,line1\\Nline2' }],
+    }));
+    check('mkv: ASS \\N 换行替换为空格', r2.cuesByTrack.get(1)[0].text === 'line1 line2');
+    // WEBVTT 轨（S_TEXT/WEBVTT）：载荷即 cue 原文，不走 ASS 逗号切分
+    const r3 = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/WEBVTT' }],
+      blocks: [{ relMs: 0, durMs: 1000, text: 'Hello, world again' }],
+    }));
+    check('mkv: WEBVTT 载荷按原文', r3.cuesByTrack.get(1)[0].text === 'Hello, world again');
+  }
+  // 位图轨（S_HDMV/PGS）与无字幕轨：返回空
+  {
+    const r = await extractMkvSubtitles(mkMkv({ tracks: [{ no: 1, codec: 'S_HDMV/PGS' }], blocks: [{ relMs: 0, text: 'x' }] }));
+    check('mkv: 位图轨不进 tracks', r.tracks.length === 0 && r.cuesByTrack.size === 0);
+    const r2 = await extractMkvSubtitles(mkMkv({ tracks: [{ no: 1, codec: 'A_VORBIS', type: 0x02 }] }));
+    check('mkv: 无字幕轨返回空', r2.tracks.length === 0 && r2.cuesByTrack.size === 0);
+  }
+  // ContentCompression：ContentEncodings 空 master 标记 + 载荷 zlib 压缩（CompressionStream('deflate')）
+  {
+    const zlib = await new Response(
+      new Blob([str('compressed hello')]).stream().pipeThrough(new CompressionStream('deflate'))
+    ).arrayBuffer();
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8', compressed: true }],
+      blocks: [{ relMs: 100, durMs: 900, payload: new Uint8Array(zlib) }],
+    }));
+    const c = r.cuesByTrack.get(1)[0];
+    check('mkv: ContentCompression tracks 标记 compressed', r.tracks[0].compressed === true);
+    check('mkv: ContentCompression 解压取回文本', c.text === 'compressed hello' && near(c.start, 0.1));
+  }
+  // 未知 size Cluster（size vint 全 1 保留值）：解析器下钻扫子元素，字幕仍提出
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }],
+      clusterMs: 1200,
+      unknownClusterSize: true,
+      blocks: [{ relMs: 80, durMs: 500, text: 'unk' }],
+    }));
+    const c = r.cuesByTrack.get(1)[0];
+    check('mkv: 未知 size Cluster 仍提出字幕', c.text === 'unk' && near(c.start, 1.28));
+  }
+  // 非零 Cluster Timecode + 多 Cluster：cue 时间 = cluster 时间 + 块相对时间
+  {
+    const r = await extractMkvSubtitles(mkMkv({
+      tracks: [{ no: 1, codec: 'S_TEXT/UTF8' }],
+      clusters: [
+        { clusterMs: 10000, blocks: [{ relMs: 200, durMs: 800, text: 'a' }] },
+        { clusterMs: 60000, blocks: [{ relMs: 500, durMs: 800, text: 'b' }] },
+      ],
+    }));
+    const cues = r.cuesByTrack.get(1);
+    check('mkv: 非零 Cluster Timecode 两 Cluster 时间正确', cues.length === 2 && near(cues[0].start, 10.2) && near(cues[1].start, 60.5));
+  }
 
 out.innerHTML += '\n----\n通过 ' + pass + '，失败 ' + fail + '\n';
 </script>

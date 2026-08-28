@@ -18,7 +18,7 @@ npm 无合适轮子：`matroska-subtitles` 功能对口但 node streams 架构�
 
 ```js
 extractMkvSubtitles(Uint8Array) -> Promise<{
-  tracks: Array<{ no, lang, name, codec }>,   // 仅 S_TEXT/* 文本轨
+  tracks: Array<{ no, lang, name, codec, compressed }>,   // 仅 S_TEXT/* 文本轨；compressed=有 ContentEncodings，载荷需 zlib 解压
   cuesByTrack: Map<no, Array<{ start, end, text }>>  // start/end 秒
 }>
 ```
@@ -31,7 +31,7 @@ extractMkvSubtitles(Uint8Array) -> Promise<{
 4. **字幕块位置**：优先 BlockGroup(0xA0) 内 Block(0xA1)+BlockDuration(0x9B)（ffmpeg/mkvmerge 均此写法）；SimpleBlock(0xA3) 兜底（无时长，end 用下一条 start 补）。
 5. **未知 size master**（Segment/Cluster 无限长写法）：遇保留值直接下钻继续扫。
 6. **ContentCompression**（EBML 头压缩）：轨道声明压缩时用原生 `DecompressionStream('deflate')` 解压块载荷（异步，故整体返回 Promise；mdx.js 已用同款 API，单文件/PWA/file:// 三轨兼容）。
-7. **载荷解析**：`S_TEXT/UTF8` 载荷即文本；`S_TEXT/ASS`/`S_TEXT/SSA` 载荷按逗号切字段，ASS 取 `slice(8).join(',')` 当文本（文本可含逗号），SSA 跳过 layer 一位；文本内 `\N` 换行替换为空格。
+7. **载荷解析**：`S_TEXT/UTF8` 载荷即文本；`S_TEXT/ASS`/`S_TEXT/SSA` 载荷按逗号切字段取 `slice(8).join(',')` 当文本（文本可含逗号）。字段序 ReadOrder, Layer, Style, Name, MarginL/R/V, Effect, Text——matroska 官方规范明确 Layer 位对 SSA 保留（为空），故 ASS/SSA 同一处理（matroska-subtitles 里"SSA 跳一位"只是其字段标注差异，文本位置相同）；文本内 `\N` 换行替换为空格。
 8. **无时长兜底**：cue 排序后 `end = min(下一轨 start, start + 5s)`，末条封顶媒体时长不强求。
 
 自审约束：不做 lacing（字幕轨规范单帧）、不解析 AttachedFile 字体、不写通用 EBML schema 表——按 matroska-subtitles 同样裁剪。
