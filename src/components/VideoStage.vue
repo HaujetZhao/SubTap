@@ -14,11 +14,12 @@ const props = defineProps({
   highlightOn: { type: Boolean, default: true },    // 高亮开关(与中栏一致)
   colors: { type: Object, default: () => ({}) },    // LEVEL_COLORS
   fsRightWidth: { type: Number, default: 320 },    // 全屏生词栏宽度(独立于普通右栏)
+  fsLeftWidth: { type: Number, default: 280 },     // 全屏设置栏宽度(独立于普通左栏)
 });
 
 // 黑底上纯色文字仍偏暗:级别色叠加到白字上(color-mix 向白混),亮且保色调
 function tokStyle(tok) { return tokStyleBase(tok, { ...props, dark: true }); }
-const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next']);
+const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next', 'open-left', 'open-right']);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -38,7 +39,12 @@ function onResize(e) {
   const delta = e.clientY - dragStartY; // 向下拖→把手向下→视频变高
   const maxH = window.innerHeight * 0.5; // 上限:视窗一半
   let h = dragStartH + delta;
-  if (h < 100) h = 100;
+  if (h < 100) {            // 拖到足够矮 → 自动收起;高度回滚到拖动前的值(拖动中的中间高度不落地)
+    videoCollapsed.value = true;
+    dragging = false;
+    videoHeight.value = dragStartH;
+    return;
+  }
   if (h > maxH) h = maxH;
   videoHeight.value = h;
 }
@@ -64,23 +70,31 @@ const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏�
 const isFullscreen = ref(false);
 const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(仅非全屏的按钮层;全屏控件常驻)
 const showSub = ref(true);            // 画面内字幕层开关
-// 全屏生词栏开关(App 持有状态经 v-model,WordPanel 由 App Teleport 进本容器)
+// 全屏生词栏/设置栏开关(App 持有状态经 v-model,面板本体由 App Teleport 进本容器)
 const wordOpen = defineModel('wordOpen', { type: Boolean, default: false });
+const leftOpen = defineModel('leftOpen', { type: Boolean, default: false });
 
-// 全屏视频区单指左滑开右栏/右滑关;识别为滑动后吞掉紧跟的 click(不然会切控件层)
-const swipe = createSwipeRecognizer(
-  d => { wordOpen.value = d === 1; },
-  '.vc-pill, .panel-right',   // 药丸/生词栏(含调宽手柄)自带拖拽语义,不作滑动起点
-);
+// 视频区单指手势(全屏/非全屏均启用):上滑下一句,下滑上一句,左滑开右栏,右滑开左栏。
+// 识别为滑动后吞掉紧跟的 click(不然会切控件层)
+const swipe = createSwipeRecognizer(dir => {
+  if (dir === 'up') emit('next');
+  else if (dir === 'down') emit('prev');
+  else if (dir === 'left') {
+    // 左滑开右栏:全屏开全屏生词栏,非全屏交 App 展开普通右栏
+    if (isFullscreen.value) wordOpen.value = true;
+    else emit('open-right');
+  } else {
+    if (isFullscreen.value) leftOpen.value = true;
+    else emit('open-left');
+  }
+}, '.vc-pill, .panel-right, .panel-left');
 let suppressClick = false;
 function onStageClick() {
   if (suppressClick) { suppressClick = false; return; }
   videoOverlay.value = !videoOverlay.value;
 }
-// 滑动只在全屏有意义,非全屏零开销直落单击路径
-function onSwipeDown(e) { if (isFullscreen.value) swipe.down(e); }
+function onSwipeDown(e) { swipe.down(e); }
 function onSwipeUp(e) {
-  if (!isFullscreen.value) return;
   if (swipe.up(e)) {
     suppressClick = true;
     // 若滑动后浏览器没派发 click,标志会残留误吞下一次点击;本轮 click 派发结束后自清
@@ -101,7 +115,8 @@ async function toggleFullscreen() {
 }
 function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
-  wordOpen.value = false;     // 退全屏收起生词栏(v-model 同步给 App)
+  wordOpen.value = false;     // 退全屏收起生词栏/设置栏(v-model 同步给 App)
+  leftOpen.value = false;
   emit('fullscreenchange', isFullscreen.value);   // App 侧切 Teleport 并把控制条药丸夹回可见区
 }
 
@@ -136,17 +151,17 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
 <template>
   <div class="video-slot" :class="{ 'no-video': mediaKind !== 'video', collapsed: videoCollapsed }">
     <div v-show="!videoCollapsed" ref="stageRef" class="video-stage"
-         :class="{ 'fs-word-open': wordOpen }"
-         :style="isFullscreen ? { '--panel-right-w': fsRightWidth + 'px' } : { height: videoHeight + 'px' }"
+         :class="{ 'fs-word-open': wordOpen, 'fs-left-open': leftOpen }"
+         :style="isFullscreen ? { '--panel-right-w': fsRightWidth + 'px', '--panel-left-w': fsLeftWidth + 'px' } : { height: videoHeight + 'px' }"
          @click="onStageClick"
          @pointerdown="onSwipeDown" @pointerup="onSwipeUp">
       <video ref="mediaEl" class="media-video"
              playsinline webkit-playsinline
              preload="metadata"
              @loadedmetadata="onVideoMeta"
-             @dblclick.prevent="toggleCollapse"></video>
-      <!-- 全屏生词栏遮罩:点栏外收起(WordPanel 本体由 App Teleport 到 stage 末尾,z 更高) -->
-      <div v-if="isFullscreen && wordOpen" class="fs-word-scrim" @click.stop="wordOpen = false"></div>
+             @dblclick.prevent="$emit('toggle')"></video>
+      <!-- 全屏栏遮罩:点栏外收起(面板本体由 App Teleport 到 stage 末尾,z 更高) -->
+      <div v-if="isFullscreen && (wordOpen || leftOpen)" class="fs-scrim" @click.stop="wordOpen = leftOpen = false"></div>
       <!-- 画面内字幕层(右下按钮开关) -->
       <div v-if="showSub && currentTokens.length" class="video-sub">
         <span v-for="(tok, i) in currentTokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>

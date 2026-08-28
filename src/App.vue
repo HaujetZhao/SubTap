@@ -75,7 +75,7 @@ let player = null;
 const getPlayer = () => player;
 
 // 侧栏布局(三态状态机/拖宽/收展)在 useLayout.js;resize 后需把控制条药丸夹回可见区
-const { leftWidth, rightWidth, fsRightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
+const { leftWidth, rightWidth, fsRightWidth, fsLeftWidth, hasOverlay, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
 
 // ===== 功能模块接线(依赖注入) =====
 const { vadGen, vadProbs, runVad, reset: resetVad, setProbs } = createVad({
@@ -85,13 +85,14 @@ const { vadGen, vadProbs, runVad, reset: resetVad, setProbs } = createVad({
   notify,
 });
 
-const { playSentence, stopAll, replayCurrent, goPrev, goNext, attach: attachPlayback, detach: detachPlayback } = createPlayback({
+const { playSentence, stopAll, replayCurrent, togglePlay, goPrev, goNext, attach: attachPlayback, detach: detachPlayback } = createPlayback({
   sentences, currentId, currentText, isPlaying, mediaKind,
   voices, ttsOn, ttsLang, ttsRate, ttsVoiceURI,
   effectiveRanges, getPlayer, notify,
   scrollActiveIntoView: () => nextTick(() => sentenceListRef.value?.ensureVisible()),
   toggleFab,
-  // 全屏时 ] 切全屏生词栏,平时切普通右栏(isFsWord/fsWordOpen 在下方声明,keydown 时已就绪)
+  // 全屏时 [ / ] 切全屏设置栏/生词栏,平时切普通左/右栏(isFsWord/fsWordOpen/fsLeftOpen 在下方声明,keydown 时已就绪)
+  toggleFabLeft: () => isFsWord.value ? (fsLeftOpen.value = !fsLeftOpen.value) : toggleFab('left'),
   toggleFabRight: () => isFsWord.value ? (fsWordOpen.value = !fsWordOpen.value) : toggleFab('right'),
   toggleVideoCollapse: () => stageRef.value?.toggleCollapse(),
   toggleFullscreen: () => stageRef.value?.toggleFullscreen(),
@@ -160,11 +161,12 @@ function selectSentenceById(id) {
   if (s) { currentId.value = s.id; currentText.value = s.text; nextTick(() => sentenceListRef.value?.ensureVisible(true)); }
 }
 
-// ===== 全屏生词栏 =====
-// 全屏时 WordPanel Teleport 进 .video-stage(全屏元素内才可见);wordOpen 状态由 VideoStage 持有经 v-model
+// ===== 全屏生词栏/设置栏 =====
+// 全屏时 WordPanel/SettingsPanel Teleport 进 .video-stage(全屏元素内才可见);开关状态由 VideoStage 持有经 v-model
 const isFsWord = ref(false);
 const fsWordOpen = ref(false);
-// 全屏态以 VideoStage 的 fullscreenchange 载荷为准(单一事实源);收起由 VideoStage 侧置 wordOpen 完成
+const fsLeftOpen = ref(false);
+// 全屏态以 VideoStage 的 fullscreenchange 载荷为准(单一事实源);收起由 VideoStage 侧置开关完成
 function onFullscreenChange(fs) {
   isFsWord.value = fs;
   clampCbIntoView();
@@ -173,6 +175,29 @@ function onFullscreenChange(fs) {
 const wpProps = computed(() => ({ store, enabled, currentText: currentText.value, colors: LEVEL_COLORS }));
 const onWordCollapse = () => isFsWord.value ? (fsWordOpen.value = false) : collapseRight();
 const onWordResizeStart = e => startSideResize(isFsWord.value ? 'fs' : 'right', e);
+// SettingsPanel 同理:全屏 collapse 收全屏栏,resizestart 拖全屏宽度;两处挂载共用 props(computed 随依赖更新)。
+// levels/vadHasProbs 提独立 computed:spProps 依赖过宽(滑杆拖动频率更新),重跑时若内联取
+// getLevels()(每次 slice 新数组)会让 levels prop 引用每 tick 变化,触发面板无谓重渲染
+const spLevels = computed(() => store.getLevels());
+const spVadHasProbs = computed(() => !!vadProbs.value);
+const spProps = computed(() => ({
+  store, levels: spLevels.value, enabled: enabled, offset: offset.value, endMode: endMode.value, endOffset: endOffset.value,
+  highlightOn: highlightOn.value, controlBarOn: controlBarOn.value,
+  ttsOn: ttsOn.value, ttsLang: ttsLang.value, ttsRate: ttsRate.value, ttsVoiceUri: ttsVoiceURI.value,
+  voices: voices.value, theme: theme.value,
+  hasSrt: sentences.value.length > 0, srtFromFile: srtFromFile.value, hasMedia: mediaKind.value !== null,
+  vadHasProbs: spVadHasProbs.value, vadGen: vadGen.value, vadThreshold: vadThreshold.value,
+  vadMinSpeech: vadMinSpeech.value, vadMinSilence: vadMinSilence.value,
+}));
+// 注意 key 用裸事件名(v-on 对象的 key 即事件名,不加 on 前缀——加前缀会被再包一层 onOn*)
+const spEmits = {
+  'toggle-level': onToggleLevel, 'srt-file': onSrtFile, 'media-file': onMediaFile, 'media-handle': onMediaHandle,
+  'clear-srt': clearSrt, 'clear-media': clearMedia, 'vad-run': runVad, tweak: onTweak, 'toggle-tts': onToggleTts,
+  collapse: () => isFsWord.value ? (fsLeftOpen.value = false) : collapseLeft(),
+  resizestart: e => startSideResize(isFsWord.value ? 'fsLeft' : 'left', e),
+};
+// 视频区单指左右滑(非全屏):唤出对应侧栏,已展开则不动(手势语义是"唤出"不是"切换")
+function onSwipeOpen(side) { if (!isSideOpen(side)) toggleFab(side); }
 
 // ===== 挂载 =====
 onMounted(() => {
@@ -201,44 +226,16 @@ onUnmounted(() => {
 
 <template>
   <div class="layout" :class="[layoutClass, { 'has-content': hasContent }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
-    <SettingsPanel
-      :levels="store.getLevels()"
-      :enabled="enabled"
-      :offset="offset"
-      :end-mode="endMode"
-      :end-offset="endOffset"
-      :highlight-on="highlightOn"
-      :control-bar-on="controlBarOn"
-      :tts-on="ttsOn"
-      :tts-lang="ttsLang"
-      :tts-rate="ttsRate"
-      :tts-voice-uri="ttsVoiceURI"
-      :voices="voices"
-      :theme="theme"
-      :has-srt="sentences.length > 0"
-      :srt-from-file="srtFromFile"
-      :has-media="mediaKind !== null"
-      :vad-has-probs="!!vadProbs"
-      :vad-gen="vadGen"
-      :vad-threshold="vadThreshold"
-      :vad-min-speech="vadMinSpeech"
-      :vad-min-silence="vadMinSilence"
-      @toggle-level="onToggleLevel"
-      @srt-file="onSrtFile"
-      @media-file="onMediaFile"
-      @media-handle="onMediaHandle"
-      @clear-srt="clearSrt"
-      @clear-media="clearMedia"
-      @vad-run="runVad"
-      @tweak="onTweak"
-      @toggle-tts="onToggleTts"
-      @collapse="collapseLeft"
-      @resizestart="startSideResize('left', $event)"
-    />
+    <!-- SettingsPanel 两个实例(普通/全屏)共用 props/emits,同 WordPanel 的 v-if 双分支 Teleport -->
+    <SettingsPanel v-if="!isFsWord" v-bind="spProps" v-on="spEmits" />
+    <Teleport v-else to=".video-stage">
+      <SettingsPanel v-bind="spProps" v-on="spEmits" />
+    </Teleport>
     <main class="panel-center">
       <VideoStage
         ref="stageRef"
         v-model:word-open="fsWordOpen"
+        v-model:left-open="fsLeftOpen"
         :media-kind="mediaKind"
         :playing="isPlaying"
         :has-sentences="sentences.length > 0"
@@ -247,10 +244,13 @@ onUnmounted(() => {
         :highlight-on="highlightOn"
         :colors="LEVEL_COLORS"
         :fs-right-width="fsRightWidth"
+        :fs-left-width="fsLeftWidth"
         @fullscreenchange="onFullscreenChange"
         @prev="goPrev"
-        @toggle="isPlaying ? stopAll() : replayCurrent()"
+        @toggle="togglePlay"
         @next="goNext"
+        @open-left="onSwipeOpen('left')"
+        @open-right="onSwipeOpen('right')"
       />
       <SentenceList
         ref="sentenceListRef"
@@ -273,7 +273,7 @@ onUnmounted(() => {
            @pointerdown="cbDrag.down" @click.stop>
         <!-- 外层 v-if 已保证有字幕,disabled 免传 -->
         <PillControls :guard="guardPillClick" :playing="isPlaying"
-                      @prev="goPrev" @toggle="isPlaying ? stopAll() : replayCurrent()" @next="goNext" />
+                      @prev="goPrev" @toggle="togglePlay" @next="goNext" />
       </nav>
     </main>
     <!-- 全屏时 Teleport 进 .video-stage;用 v-if 双分支而非 :disabled 切换——

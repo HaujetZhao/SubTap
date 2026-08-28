@@ -9,7 +9,7 @@ export function createPlayback({
   sentences, currentId, currentText, isPlaying, mediaKind,
   voices, ttsOn, ttsLang, ttsRate, ttsVoiceURI,
   effectiveRanges, getPlayer, notify,
-  scrollActiveIntoView, toggleFab, toggleFabRight, toggleVideoCollapse, toggleFullscreen,
+  scrollActiveIntoView, toggleFab, toggleFabLeft, toggleFabRight, toggleVideoCollapse, toggleFullscreen,
 }) {
   // 当前选中句在列表中的索引（未选为 -1）
   const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
@@ -62,7 +62,7 @@ export function createPlayback({
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
     // 面板收展快捷键:不依赖字幕,空载引导页也可用。
-    if (e.key === '[') { e.preventDefault(); toggleFab('left'); return; }
+    if (e.key === '[') { e.preventDefault(); toggleFabLeft(); return; }
     if (e.key === ']') { e.preventDefault(); toggleFabRight(); return; }
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleVideoCollapse(); return; }
     // 回车:视频全屏切换(需媒体手势授权,键盘事件算 user activation)。全屏后快捷键仍走此全局监听。
@@ -86,18 +86,21 @@ export function createPlayback({
         if (currentIdx.value >= 0) replayCurrent();   // 重读当前句（不滚动）
         break;
       case 'ArrowRight':
-      case ' ':              // 空格 = 播放中暂停、未播放重播（同药丸中间按钮）
+      case ' ':              // 空格 = 播放中暂停、未播放重播（同药丸中间按钮/双击视频）
       case 'Spacebar':
         e.preventDefault();
-        isPlaying.value ? stopAll() : replayCurrent();
+        togglePlay();
         break;
     }
   }
 
+  // 空格/双指轻点/双击视频/药丸中间按钮共用的播放切换
+  function togglePlay() { isPlaying.value ? stopAll() : replayCurrent(); }
+
   // 双指手势:上/下滑切句,轻点播放中停止/未播重播(同空格)
   const gesture = createTwoFingerRecognizer({
     onSwipe: dir => (dir > 0 ? goNext() : goPrev()),
-    onTap: () => { isPlaying.value ? stopAll() : replayCurrent(); },
+    onTap: togglePlay,
   });
 
   // 键盘/手势/蓝牙线控监听挂载(App 的 onMounted/onUnmounted 调用)。
@@ -121,5 +124,5 @@ export function createPlayback({
     window.removeEventListener('touchend', gesture.onTouchEnd);
   }
 
-  return { playSentence, stopAll, replayCurrent, goPrev, goNext, attach, detach };
+  return { playSentence, stopAll, replayCurrent, togglePlay, goPrev, goNext, attach, detach };
 }

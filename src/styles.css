@@ -237,8 +237,9 @@ body {
 }
 
 .video-slot { flex-shrink: 0; background: #000; width: 100%; max-width: var(--content-max); margin-inline: auto; }
-/* video-stage:全屏容器(含控件层),点击切换控件层显隐 */
-.video-stage { position: relative; background: #000; }
+/* video-stage:全屏容器(含控件层),点击切换控件层显隐。
+   touch-action:none:触屏四向滑动不触发浏览器滚动(否则 pointerup 变 pointercancel,手势失效) */
+.video-stage { position: relative; background: #000; touch-action: none; }
 .media-video { display: block; width: 100%; height: 100%; background: #000; object-fit: contain; }
 /* 全屏时隐藏 Chrome 给 video 弹出的原生控制条（本项目用键盘/底部控制条操作） */
 .media-video::-webkit-media-controls-enclosure { display: none !important; }
@@ -260,7 +261,18 @@ body {
 }
 /* 窄屏布局非 pinned/overlay,上面按布局隐藏手柄的规则会误伤 Teleport 进来的全屏生词栏,这里放行 */
 .video-stage:fullscreen.fs-word-open .panel-right > .side-resize-handle { display: block; }
-.fs-word-scrim {
+
+/* 全屏设置栏:同上,镜像到左侧(--panel-left-w 由 VideoStage 全屏 :style 提供) */
+.video-stage:fullscreen .panel-left {
+  transform: translateX(-100%); opacity: 0;
+}
+.video-stage:fullscreen.fs-left-open .panel-left {
+  transform: translateX(0); opacity: 1;
+  box-shadow: var(--shadow-overlay);
+  max-width: 60vw;
+}
+.video-stage:fullscreen.fs-left-open .panel-left > .side-resize-handle { display: block; }
+.fs-scrim {
   position: absolute; inset: 0; z-index: 90;
   background: var(--scrim);
 }

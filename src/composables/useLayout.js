@@ -58,14 +58,16 @@ export function createLayout(onAfterResize) {
   const saved = reactive({
     landscape: { ...DEF, ..._w.landscape },
     portrait:  { ...DEF, ..._w.portrait },
-    // 全屏生词栏是独立实例,宽度单独存(不分横竖屏:全屏基本恒为锁定的横屏)
+    // 全屏生词栏/设置栏是独立实例,宽度单独存(不分横竖屏:全屏基本恒为锁定的横屏)
     fsRight: clamp(_w.fsRight ?? 320),
+    fsLeft: clamp(_w.fsLeft ?? 280),
   });
   const om = matchMedia('(orientation: portrait)');
   const cur = () => saved[om.matches ? 'portrait' : 'landscape'];
   const leftWidth  = computed({ get: () => cur().left,  set: v => { cur().left = v; } });
   const rightWidth = computed({ get: () => cur().right, set: v => { cur().right = v; } });
   const fsRightWidth = toRef(saved, 'fsRight');
+  const fsLeftWidth = toRef(saved, 'fsLeft');
   // 转屏:切到另一套值并把新视口放不下的宽度夹回来
   function onOrientationChange() {
     const c = cur();
@@ -74,7 +76,7 @@ export function createLayout(onAfterResize) {
   }
   // 宽度持久化在 stopSideResize 写一次,不随拖动热路径每个 pointermove 写盘
   let sideDrag = null;
-  const WIDTH_REFS = { left: leftWidth, right: rightWidth, fs: fsRightWidth };
+  const WIDTH_REFS = { left: leftWidth, right: rightWidth, fs: fsRightWidth, fsLeft: fsLeftWidth };
   function startSideResize(panel, e) {
     sideDragging.value = true;
     sideDrag = { panel, x: e.clientX, w: WIDTH_REFS[panel].value };
@@ -84,7 +86,8 @@ export function createLayout(onAfterResize) {
   }
   function onSideResize(e) {
     if (!sideDrag) return;
-    const delta = sideDrag.panel === 'left' ? e.clientX - sideDrag.x : sideDrag.x - e.clientX;
+    // 左侧栏(含全屏设置栏)向右拖变宽,右侧栏向左拖变宽
+    const delta = sideDrag.panel === 'left' || sideDrag.panel === 'fsLeft' ? e.clientX - sideDrag.x : sideDrag.x - e.clientX;
     WIDTH_REFS[sideDrag.panel].value = clamp(sideDrag.w + delta);
   }
   function stopSideResize() {
@@ -98,6 +101,8 @@ export function createLayout(onAfterResize) {
   // 栏顶收起按钮:overlay 开则关 overlay,否则手动折叠
   const collapseLeft  = () => leftOv.value  ? (leftOv.value = false)  : (leftHide.value = true);
   const collapseRight = () => rightOv.value ? (rightOv.value = false) : (rightHide.value = true);
+  // 栏是否处于展开态(pinned 或 overlay)。手势"唤出"语义用:已展开则不动
+  const isSideOpen = side => (side === 'left' ? leftPinned.value || leftOv.value : rightPinned.value || rightOv.value);
   // FAB/快捷键:宽屏 toggle hide(折叠↔展开,与栏顶收起按钮一致),窄屏 toggle overlay(两栏互斥)
   function toggleFab(side) {
     if (side === 'left') {
@@ -126,5 +131,5 @@ export function createLayout(onAfterResize) {
     document.removeEventListener('pointerup', stopSideResize);
   });
 
-  return { leftWidth, rightWidth, fsRightWidth, hasOverlay, layoutClass, startSideResize, collapseLeft, collapseRight, toggleFab, closeBoth };
+  return { leftWidth, rightWidth, fsRightWidth, fsLeftWidth, hasOverlay, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab, closeBoth };
 }
