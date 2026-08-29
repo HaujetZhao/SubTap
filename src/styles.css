@@ -358,7 +358,8 @@ body {
 @media (max-width: 480px) { .sentence .play-icon { display: none; } }
 .sentence.playing .play-icon { color: var(--danger); }
 .sentence .time { flex-shrink: 0; color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 1px; }
-.sentence .text { flex: 1; white-space: pre-line; }
+.sentence .text { flex: 1; white-space: pre-line; user-select: text; -webkit-user-select: text; }
+.sentence.no-select .text { user-select: none; -webkit-user-select: none; }
 .sentence .text span { border-radius: var(--r-sm); }
 
 .word-groups { display: flex; flex-direction: column; gap: 18px; }

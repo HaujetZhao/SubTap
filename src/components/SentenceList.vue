@@ -39,19 +39,26 @@ function copySentence(sentence) {
 
 function onSentenceTouchStart(e, sentence) {
   longPressFired = false;
+  // 触摸期间禁选择:长按的原生选区还没产生就被 user-select:none 挡住,不会闪一下再消失
+  e.currentTarget.classList.add('no-select');
   clearTimeout(longPressTimer);
   longPressTimer = setTimeout(() => {
     longPressFired = true;
     copySentence(sentence);
   }, LONG_MS);
 }
-function onSentenceTouchEnd() { clearTimeout(longPressTimer); }
+function onSentenceTouchEnd(e) {
+  clearTimeout(longPressTimer);
+  e.currentTarget.classList.remove('no-select');
+}
 function onSentenceContextMenu(e, sentence) {
   e.preventDefault();
+  if (longPressFired) return; // 长按定时器已复制,移动端长按还会跟一次 contextmenu,别复制两遍
   copySentence(sentence);
 }
 function onSentenceClick(sentence) {
   if (longPressFired) { longPressFired = false; return; }
+  if (getSelection().toString()) return; // 刚拖选完文字,松手的 click 不算点读
   emit('click', sentence);
 }
 
