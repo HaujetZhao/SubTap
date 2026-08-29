@@ -39,6 +39,38 @@ check('第1句文本正确', s[0].text === 'When you encode text into binary');
 check('第2句多行文本合并', s[1].text === "it's often nice\nto use as little data as possible");
 check('容错：坏块跳过', parseSRT('1\n00:00:00,080 --> 00:00:01,480\nhello\n\n坏块\n\n2\n00:00:02,000 --> 00:00:03,000\nworld\n').length === 2);
 
+// --- ASS 双语(同时间戳双 Dialogue 靠 Style 区分,CRLF 归一会让 subsrt 误判成 sbv) ---
+const assBi = '[Script Info]\nScriptType: v4.00+\n\n[V4+ Styles]\n'
+  + 'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n'
+  + 'Style: TEXT-JP,Font,54,&H00ffffff,&H000000ff,&H00151724,&Ha0000000,0,0,0,0,100.00,100.00,1.50,0.00,1,3.00,0.00,2,15,15,20,128\n'
+  + 'Style: TEXT-CN,Font,54,&H00ffffff,&H000000ff,&H00151724,&Ha0000000,0,0,0,0,100.00,100.00,1.50,0.00,1,3.00,0.00,2,15,15,20,1\n'
+  + 'Style: NOTES,Font,36,&H00ffffff,&H000000ff,&H00151724,&Ha0000000,0,0,0,0,100.00,100.00,1.50,0.00,1,3.00,0.00,7,15,15,20,1\n'
+  + 'Style: OP-JP,Font,54,&H00ffffff,&H000000ff,&H00151724,&Ha0000000,0,0,0,0,100.00,100.00,1.50,0.00,1,3.00,0.00,3,15,15,20,1\n'
+  + 'Style: OP-CN,Font,54,&H00ffffff,&H000000ff,&H00151724,&Ha0000000,0,0,0,0,100.00,100.00,1.50,0.00,1,3.00,0.00,7,15,15,20,1\n\n'
+  + '[Events]\nFormat: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text\n'
+  + 'Dialogue: 0,0:00:01.00,0:00:02.00,TEXT-JP,,0000,0000,0000,,{\\fad(300,300)}うち　赤いのがええわぁ\n'
+  + 'Dialogue: 0,0:00:01.00,0:00:02.00,TEXT-CN,,0000,0000,0000,,咱想要红色的\n'
+  + 'Dialogue: 0,0:00:01.50,0:00:01.90,NOTES,,0000,0000,0000,,【注释】广岛方言\n'
+  + 'Dialogue: 0,0:00:03.00,0:00:04.00,OP-JP,,0000,0000,0000,,胸にしみる空のかがやき\n'
+  + 'Dialogue: 1,0:00:04.00,0:00:05.00,OP-JP,,0000,0000,0000,,白い雲は流れ流れて\n'
+  + 'Dialogue: 1,0:00:04.00,0:00:05.00,OP-CN,,0000,0000,0000,,白云飘啊飘\n'
+  + 'Dialogue: 0,0:00:06.00,0:00:06.04,OTHERS,,0000,0000,0000,,{\\pos(1,1)}森永牛奶巧克力\n'
+  + 'Dialogue: 0,0:00:06.04,0:00:06.08,OTHERS,,0000,0000,0000,,{\\pos(2,2)}森永牛奶巧克力\n'
+  + 'Dialogue: 0,0:00:06.08,0:00:06.50,OTHERS,,0000,0000,0000,,{\\pos(3,3)}森永牛奶巧克力\n';
+const ab = parseSRT(assBi);
+check('ass双语: 解析出 4 句(同时间戳合并 + 顶部注释过滤 + 逐帧动画折叠)', ab.length === 4);
+check('ass双语: 双语两行 + 剥掉 override 标签', ab[0].text === 'うち　赤いのがええわぁ\n咱想要红色的');
+check('ass双语: 顶部画面字整组过滤', !ab.some(x => x.text.includes('【注释】')));
+check('ass双语: 日底中顶的组保留不滤', ab[2].text === '白い雲は流れ流れて\n白云飘啊飘');
+check('ass双语: 逐帧 \\pos 动画折叠为一句', ab[3].text === '森永牛奶巧克力' && ab[3].start === 6 && ab[3].end === 6.5);
+check('ass双语: 时间正确且有序', ab[0].start === 1 && ab[0].end === 2 && ab[1].start < ab[2].start);
+const ab = parseSRT(assBi);
+check('ass双语: 解析出 3 句(同时间戳合并 + 顶部注释过滤)', ab.length === 3);
+check('ass双语: 双语两行 + 剥掉 override 标签', ab[0].text === 'うち　赤いのがええわぁ\n咱想要红色的');
+check('ass双语: 顶部画面字整组过滤', !ab.some(x => x.text.includes('【注释】')));
+check('ass双语: 日底中顶的组保留不滤', ab[2].text === '白い雲は流れ流れて\n白云飘啊飘');
+check('ass双语: 时间正确且有序', ab[0].start === 1 && ab[0].end === 2 && ab[1].start < ab[2].start);
+
 // --- YouTube 字级时间戳 VTT 重分句 ---
 const ytVtt = 'WEBVTT\nKind: captions\nLanguage: en\n\n'
   + '00:00:00.080 --> 00:00:02.310 align:start position:0%\n \n'
