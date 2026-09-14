@@ -64,12 +64,6 @@ check('ass双语: 顶部画面字整组过滤', !ab.some(x => x.text.includes('�
 check('ass双语: 日底中顶的组保留不滤', ab[2].text === '白い雲は流れ流れて\n白云飘啊飘');
 check('ass双语: 逐帧 \\pos 动画折叠为一句', ab[3].text === '森永牛奶巧克力' && ab[3].start === 6 && ab[3].end === 6.5);
 check('ass双语: 时间正确且有序', ab[0].start === 1 && ab[0].end === 2 && ab[1].start < ab[2].start);
-const ab = parseSRT(assBi);
-check('ass双语: 解析出 3 句(同时间戳合并 + 顶部注释过滤)', ab.length === 3);
-check('ass双语: 双语两行 + 剥掉 override 标签', ab[0].text === 'うち　赤いのがええわぁ\n咱想要红色的');
-check('ass双语: 顶部画面字整组过滤', !ab.some(x => x.text.includes('【注释】')));
-check('ass双语: 日底中顶的组保留不滤', ab[2].text === '白い雲は流れ流れて\n白云飘啊飘');
-check('ass双语: 时间正确且有序', ab[0].start === 1 && ab[0].end === 2 && ab[1].start < ab[2].start);
 
 // --- YouTube 字级时间戳 VTT 重分句 ---
 const ytVtt = 'WEBVTT\nKind: captions\nLanguage: en\n\n'
@@ -267,6 +261,14 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   check('classify: raises→raise 显示原形', classifyWords('raises', lv)['初中'][0].word === 'raise');
   check('classify: raises+raising 合并一条', classifyWords('raises raising raised', lv)['初中'].length === 1);
   check('classify: 超纲词还原失败仍超纲', !!classifyWords('zzzz', lv)['超纲']);
+  // 第二层短后缀门槛：真词基不在库时不得跨词界误判（cleansing 的真词基是 cleanse 不是 clean）
+  const clv = buildVocab({ '初中': { clean: 'a. 干净的' } });
+  check('classify: cleansing 不跨词界误判为 clean', !classifyWords('cleansing', clv)['初中']);
+  check('classify: cleansing 仍标记超纲', !!classifyWords('cleansing', clv)['超纲']);
+  // 双重派生（≥3 特征后缀）在第二层仍正常
+  const elv = buildVocab({ '初中': { encode: 'v. 编码', surprise: 'v. 惊讶' } });
+  check('classify: encodings 双层命中 encode', classifyWords('encodings', elv)['初中'][0].word === 'encode');
+  check('classify: surprisingly 双层命中 surprise', classifyWords('surprisingly', elv)['初中'][0].word === 'surprise');
   // 缩约/所有格/单字母在查词链路的行为
   check("classify: don't→do 命中（库含 do）", classifyWords("don't", buildVocab({ '初中': { do: 'v. 做' } }))['初中'][0].word === 'do');
   check("classify: letters'→letter 命中", classifyWords("letters'", lv)['初中'][0].word === 'letter');

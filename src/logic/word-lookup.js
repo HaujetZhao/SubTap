@@ -1,9 +1,11 @@
 // 单词查询（纯函数）
-import { lemmatize } from './lemmatize.js';
+import { lemmatize, applyRules } from './lemmatize.js';
 
 // 解析 token → { level, def, lemma } 或 null。
 // 原词先查词库；未命中再试 lemmatize 生成的原形候选；仍无命中则对第一层候选再还原
 // 一层（双层：encodings → encoding → encode；surprisingly → surprising → surprise）。
+// 第二层只允许 ≥3 的特征派生后缀（与 lemmatizeChain 第 2 层同一门槛）：
+// 裸去 -s/-er/-ly 会跨词界（cleansing→cleans→clean，真词基是 cleanse）。
 function resolve(tok, vocab) {
   const direct = vocab[tok];
   if (direct) return { level: direct.level, def: direct.def, lemma: tok };
@@ -12,9 +14,8 @@ function resolve(tok, vocab) {
     const e = vocab[cand];
     if (e) return { level: e.level, def: e.def, lemma: cand };
   }
-  // 第二层：对第一层候选再走一遍 lemmatize（处理 -ings/-ingly 等双重后缀）
   for (const cand of cands) {
-    for (const cand2 of lemmatize(cand)) {
+    for (const cand2 of applyRules(cand, 3)) {
       const e = vocab[cand2];
       if (e) return { level: e.level, def: e.def, lemma: cand2 };
     }

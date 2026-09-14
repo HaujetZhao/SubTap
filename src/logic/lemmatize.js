@@ -230,8 +230,9 @@ export function lemmatize(word) {
 
 // 后缀规则循环。minSuffixLen：参与规则的最低后缀长度——链式还原第 2 层起
 // 只允许特征派生后缀（≥3），裸去 -er/-y/-s 这类短后缀在多层迭代里几乎全是
-// 词基本身的一部分（danger 的 er、duty 的 y），会产生 adult←adultery 式同形异源误配。
-function applyRules(word, minSuffixLen) {
+// 词基本身的一部分（danger 的 er、duty 的 y），会产生 adult←adultery 式同形异源误配
+// （resolve 第二层同用此门槛：cleansing→cleans→clean 是跨词误判，cleanse 才是真词基）。
+export function applyRules(word, minSuffixLen) {
   const cands = [];
   const n = word.length;
   for (const [suffix, repl] of LEMMATIZE_RULES) {
