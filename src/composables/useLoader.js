@@ -81,7 +81,7 @@ export function createLoader({
       if (mediaBlob !== file || !isMkv(new Uint8Array(head))) return;
       const { tracks, cuesByTrack } = await extractMkvSubtitles(new Uint8Array(await file.arrayBuffer()));
       if (mediaBlob !== file) return;
-      if (!tracks.length) { notify('MKV 无内封文本字幕（位图轨不可提取）', 'error'); return; }
+      if (!tracks.length) return;   // 无内封文本字幕属正常情况（位图轨不可提取），不打扰
       const track = tracks.length === 1 ? tracks[0] : await pickMkvTrack(tracks);
       if (!track) return;   // 用户取消
       const cues = cuesByTrack.get(track.no);

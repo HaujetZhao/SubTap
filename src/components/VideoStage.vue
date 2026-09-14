@@ -12,6 +12,7 @@ const props = defineProps({
   currentTokens: { type: Array, default: () => [] }, // 当前句 tokens(画面内字幕层,分级着色)
   enabled: { type: Object, default: () => ({}) },   // 分级勾选(与中栏一致)
   highlightOn: { type: Boolean, default: true },    // 高亮开关(与中栏一致)
+  videoSubOn: { type: Boolean, default: true },     // 画面内字幕层开关(持久化,App 侧 useSettings)
   colors: { type: Object, default: () => ({}) },    // LEVEL_COLORS
   fsRightWidth: { type: Number, default: 320 },    // 全屏生词栏宽度(独立于普通右栏)
   fsLeftWidth: { type: Number, default: 280 },     // 全屏设置栏宽度(独立于普通左栏)
@@ -19,7 +20,7 @@ const props = defineProps({
 
 // 黑底上纯色文字仍偏暗:级别色叠加到白字上(color-mix 向白混),亮且保色调
 function tokStyle(tok) { return tokStyleBase(tok, { ...props, dark: true }); }
-const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next', 'open-left', 'open-right']);
+const emit = defineEmits(['fullscreenchange', 'prev', 'toggle', 'next', 'open-left', 'open-right', 'toggle-sub']);
 
 const mediaEl = ref(null);
 const videoHeight = ref(240);
@@ -69,7 +70,7 @@ function expand() { videoCollapsed.value = false; }   // 载入视频时恢复�
 const stageRef = ref(null);           // 全屏容器(video + 控件层),全屏它而非 video 本身,控件层才能在全屏内显示
 const isFullscreen = ref(false);
 const videoOverlay = ref(false);      // 点击视频显示/隐藏悬浮控件(仅非全屏的按钮层;全屏控件常驻)
-const showSub = ref(true);            // 画面内字幕层开关
+function toggleSub() { emit('toggle-sub', !props.videoSubOn); }   // 画面内字幕层开关(状态在 App 侧持久化)
 // 全屏生词栏/设置栏开关(App 持有状态经 v-model,面板本体由 App Teleport 进本容器)
 const wordOpen = defineModel('wordOpen', { type: Boolean, default: false });
 const leftOpen = defineModel('leftOpen', { type: Boolean, default: false });
@@ -166,12 +167,12 @@ defineExpose({ mediaEl, toggleCollapse, toggleFullscreen, expand });
       <!-- 全屏栏遮罩:点栏外收起(面板本体由 App Teleport 到 stage 末尾,z 更高) -->
       <div v-if="isFullscreen && (wordOpen || leftOpen)" class="fs-scrim" @click.stop="wordOpen = leftOpen = false"></div>
       <!-- 画面内字幕层(右下按钮开关) -->
-      <div v-if="showSub && currentTokens.length" class="video-sub">
+      <div v-if="videoSubOn && currentTokens.length" class="video-sub">
         <span v-for="(tok, i) in currentTokens" :key="i" :style="tokStyle(tok)">{{ tok.text }}</span>
       </div>
       <!-- 字幕开关:全屏按钮左边,点击视频显隐(全屏同) -->
-      <button v-if="videoOverlay" class="vc-sub" :class="{ off: !showSub }"
-              :title="showSub ? '隐藏字幕' : '显示字幕'" @click.stop="showSub = !showSub">
+      <button v-if="videoOverlay" class="vc-sub" :class="{ off: !videoSubOn }"
+              :title="videoSubOn ? '隐藏字幕' : '显示字幕'" @click.stop="toggleSub">
         <i class="fas fa-closed-captioning"></i>
       </button>
       <!-- 右下角"进全屏/退出全屏"按钮(点击视频显隐) -->

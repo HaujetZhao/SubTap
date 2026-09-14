@@ -29,7 +29,7 @@ const vocabTable = store.getVocab();
 
 // ===== 设置(持久化字段 + 勾选镜像) =====
 const {
-  enabled, highlightOn, controlBarOn, theme,
+  enabled, highlightOn, videoSubOn, controlBarOn, theme,
   ttsOn, ttsLang, ttsRate, ttsVoiceURI,
   offset, endMode, endOffset,
   vadThreshold, vadMinSpeech, vadMinSilence,
@@ -263,6 +263,8 @@ onUnmounted(() => {
         :current-tokens="currentTokens"
         :enabled="enabled"
         :highlight-on="highlightOn"
+        :video-sub-on="videoSubOn"
+        @toggle-sub="v => onTweak('videoSubOn', v)"
         :colors="LEVEL_COLORS"
         :fs-right-width="fsRightWidth"
         :fs-left-width="fsLeftWidth"

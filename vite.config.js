@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [
@@ -38,9 +39,9 @@ export default defineConfig({
     // 生产构建时 @rollup/plugin-commonjs 无法静态解析,需显式声明这些目标,
     // 否则打包后运行时会抛 "Could not dynamically require" 导致整页空白。
     commonjsOptions: {
-      // 大小写敏感:Windows 下 cwd 是 d:/ 但依赖解析成 D:/,必须用绝对路径匹配盘符
-      // (本机开发路径;CI 在 Linux 上 cwd 小写匹配默认 root,不走这项)
-      dynamicRequireRoot: 'D:/repos/SubTap/node_modules/subsrt/lib',
+      // 大小写敏感:Windows 下盘符大小写必须与依赖解析结果一致,须用绝对路径;
+      // 从本配置文件位置推导,仓库挪盘/换机不用改
+      dynamicRequireRoot: fileURLToPath(new URL('./node_modules/subsrt/lib', import.meta.url)),
       dynamicRequireTargets: ['node_modules/subsrt/lib/format/*.js'],
     },
   },

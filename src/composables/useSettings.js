@@ -20,6 +20,8 @@ export function createSettings(store) {
 
   // 高亮总开关（默认开，只控中栏）
   const highlightOn = ref(_s.highlightOn ?? true);
+  // 画面内字幕层开关（视频区右下 CC 按钮，VideoStage 持有显示、经事件写回）
+  const videoSubOn = ref(_s.videoSubOn ?? true);
   // 底部药丸控制条开关(非全屏;全屏播控药丸不受此控)
   const controlBarOn = ref(_s.controlBarOn ?? true);
   // 主题:'light' | 'dark'(以后可加第三种),写 html[data-theme],CSS 按 data-theme 覆盖 token
@@ -44,7 +46,7 @@ export function createSettings(store) {
 
   // 持久化字段清单(单一来源):onTweak 分发与存档写回都从这里取
   const cfgRefs = {
-    highlightOn, controlBarOn, theme,
+    highlightOn, videoSubOn, controlBarOn, theme,
     ttsOn, ttsLang, ttsRate, ttsVoiceURI,
     offset, endMode, endOffset,
     vadThreshold, vadMinSpeech, vadMinSilence,
