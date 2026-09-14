@@ -265,6 +265,17 @@ check('VocabStore: 超纲默认勾选', s2.isEnabled('超纲') === true);
   const clv = buildVocab({ '初中': { clean: 'a. 干净的' } });
   check('classify: cleansing 不跨词界误判为 clean', !classifyWords('cleansing', clv)['初中']);
   check('classify: cleansing 仍标记超纲', !!classifyWords('cleansing', clv)['超纲']);
+  // 去双写二义对仲裁：pul/putt/ad 都在库时， pulled→pull、putting→put、adding→add（取分级最早）
+  const dlv = buildVocab({ '初中': { pull: 'v. 拉', put: 'v. 放', add: 'v. 加' }, '托福': { pul: 'n. 皮阿斯特', putt: 'n. 轻击', ad: 'n. 广告' } });
+  check('classify: pulled→pull（pul 在库不干扰）', classifyWords('pulled pulled pulling', dlv)['初中'][0].word === 'pull');
+  check('classify: putting→put（putt 在库不干扰）', classifyWords('putting', dlv)['初中'][0].word === 'put');
+  check('classify: adding→add（ad 在库不干扰）', classifyWords('adding added', dlv)['初中'][0].word === 'add');
+  // -ie 动词过去式：ied→ie（补 e 的元音词干守卫不能拦掉 tie/die/lie）
+  const ilv = buildVocab({ '初中': { tie: 'v. 系', die: 'v. 死', lie: 'v. 躺' } });
+  check('classify: tied→tie', classifyWords('tied', ilv)['初中'][0].word === 'tie');
+  check('classify: died→die', classifyWords('died', ilv)['初中'][0].word === 'die');
+  check('classify: lied→lie', classifyWords('lied', ilv)['初中'][0].word === 'lie');
+  check('lem: tied 候选含 tie 且排最前', lemmatize('tied').indexOf('tie') === 0);
   // 双重派生（≥3 特征后缀）在第二层仍正常
   const elv = buildVocab({ '初中': { encode: 'v. 编码', surprise: 'v. 惊讶' } });
   check('classify: encodings 双层命中 encode', classifyWords('encodings', elv)['初中'][0].word === 'encode');

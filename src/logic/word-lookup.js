@@ -6,11 +6,22 @@ import { lemmatize, applyRules } from './lemmatize.js';
 // 一层（双层：encodings → encoding → encode；surprisingly → surprising → surprise）。
 // 第二层只允许 ≥3 的特征派生后缀（与 lemmatizeChain 第 2 层同一门槛）：
 // 裸去 -s/-er/-ly 会跨词界（cleansing→cleans→clean，真词基是 cleanse）。
+// 去双写二义对仲裁：候选里同时出现 a 与 a+重复尾辅音（pul/pull、put/putt、ad/add）且
+// 都命中词库时，取分级最早者。此对纯长度序无法裁决（put 必须赢 putt，又必须输给 pull），
+// 通用"取最早级"又会重演 cod/code 误配（bites→bit、canes→can），故只对这一对形态施裁。
 function resolve(tok, vocab) {
   const direct = vocab[tok];
   if (direct) return { level: direct.level, def: direct.def, lemma: tok };
   const cands = lemmatize(tok);
+  const loser = new Set();
+  for (const a of cands) {
+    const last = a.at(-1);
+    if ('aeiou'.includes(last)) continue;
+    const b = a + last;
+    if (cands.includes(b) && vocab[a] && vocab[b]) loser.add(vocab[b].ord < vocab[a].ord ? a : b);
+  }
   for (const cand of cands) {
+    if (loser.has(cand)) continue;
     const e = vocab[cand];
     if (e) return { level: e.level, def: e.def, lemma: cand };
   }
@@ -23,14 +34,15 @@ function resolve(tok, vocab) {
   return null;
 }
 
-// 词库（两级 {level: {word: def}}）→ 合并大表 {word: {level, def}}；重复词保留首个分级
+// 词库（两级 {level: {word: def}}）→ 合并大表 {word: {level, def, ord}}；重复词保留首个分级。
+// ord = 级别序号（键序即从易到难），供 resolve 多候选命中时取最常用级。
 export function buildVocab(vocabObj) {
   const table = {};
   const levels = Object.keys(vocabObj || {});
-  for (const level of levels) {
+  for (const [ord, level] of levels.entries()) {
     const dict = vocabObj[level] || {};
     for (const w of Object.keys(dict)) {
-      if (!table[w]) table[w] = { level, def: dict[w] };
+      if (!table[w]) table[w] = { level, def: dict[w], ord };
     }
   }
   return table;

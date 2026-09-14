@@ -86,6 +86,7 @@ const IRREGULAR_VERBS = {
 // repl 取值：'' 直接去后缀 / 'e' 'y' 'ie' 补字母 / null 双写末辅音再去一字母（running→run）
 const LEMMATIZE_RULES = [
   ['ies', 'y'],   // studies -> study
+  ['ied', 'ie'],  // tied -> tie / died -> die（-ie 结尾动词；tried 冗余产 trie 无害，try 由下行接住）
   ['ied', 'y'],   // applied -> apply
   ['iest', 'y'],  // easiest -> easy（最高级 -iest）
   ['ier', 'y'],   // easier -> easy / happier -> happy（比较级 -ier）
