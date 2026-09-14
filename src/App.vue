@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
-import vocab from './logic/vocabulary.json';
+import vocab from './assets/vocabulary.json';
 import { tokenizeForRender } from './logic/word-lookup.js';
 import { createVocabStore } from './logic/vocab-store.js';
 import { Player } from './logic/player.js';
