@@ -55,7 +55,7 @@ export function createLoader({
   }
 
   // handle:picker 路径传入,缓存它而非 File(恢复时按需重取,免整块媒体写库)
-  function onMediaFile(file, save = true, handle = null) {
+  function onMediaFile(file, save = true, handle = null, selectId = null) {
     if (!file) return;
     if (save) saveFile('media', handle ?? file);
     mediaBlob = file;
@@ -71,11 +71,12 @@ export function createLoader({
         if (save) notify('已复用该媒体的 VAD 结果(免推理)');
       }
     }).catch(() => {});
-    extractMkv(file);
+    extractMkv(file, selectId);
   }
 
   // MKV:提取内封文本字幕轨,强制替换中栏当前字幕(外挂 srt 也替换)。异步进行,不阻塞媒体载入播放。
-  function extractMkv(file) {
+  // selectId:恢复上次时传入,提取应用字幕后重新选中,避免替换字幕冲掉已恢复的进度
+  function extractMkv(file, selectId = null) {
     // 先只读头部判 EBML 魔数,非 MKV 不付全量读的 IO
     file.slice(0, 4096).arrayBuffer().then(async head => {
       if (mediaBlob !== file || !isMkv(new Uint8Array(head))) return;
@@ -97,6 +98,7 @@ export function createLoader({
       } else {
         applySubtitle(null, cues);
       }
+      if (selectId !== null) selectSentenceById(selectId);
       notify(`已提取内封字幕（${track.name || track.lang || track.codec}，${sentences.value.length} 句）`);
     }).catch(() => notify('MKV 字幕提取失败', 'error'));
   }
@@ -136,14 +138,14 @@ export function createLoader({
   loadFiles().then(r => { canRestore.value = !!(r && (r.srt || r.media)); });
 
   // handle 缓存路径:恢复时重新取文件。需授权则趁点击手势弹确认;文件已删/拒绝则提示并放弃媒体。
-  async function restoreMedia(media) {
-    if (!isMediaHandle(media)) { onMediaFile(media, false); return; }
+  async function restoreMedia(media, selectId = null) {
+    if (!isMediaHandle(media)) { onMediaFile(media, false, null, selectId); return; }
     try {
       const perm = await media.queryPermission({ mode: 'read' });
       if (perm !== 'granted' && await media.requestPermission({ mode: 'read' }) !== 'granted') {
         notify('未授权读取上次的媒体', 'error'); return;
       }
-      onMediaFile(await media.getFile(), false, media);
+      onMediaFile(await media.getFile(), false, media, selectId);
     } catch {
       notify('上次打开的媒体已不可用', 'error');
     }
@@ -159,7 +161,7 @@ export function createLoader({
     } else if (rec.srt) {
       onSrtFile(rec.srt, false, rec.sentenceId ?? null);
     }
-    if (rec.media) restoreMedia(rec.media);
+    if (rec.media) restoreMedia(rec.media, rec.sentenceId ?? null);
   }
 
   return { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia, loadSample, restoreLast };
