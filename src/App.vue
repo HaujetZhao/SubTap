@@ -10,7 +10,6 @@ import { saveProgress } from './logic/file-history.js';
 import { createToasts } from './logic/toast.js';
 import { ttsSupported, loadVoices } from './logic/tts.js';
 import { createLayout } from './composables/useLayout.js';
-import { createDrawer } from './composables/drawer.js';
 import { createSettings } from './composables/useSettings.js';
 import { createVad } from './composables/useVad.js';
 import { createLoader } from './composables/useLoader.js';
@@ -76,7 +75,7 @@ let player = null;
 const getPlayer = () => player;
 
 // 侧栏布局(三态状态机/拖宽/收展)在 useLayout.js;resize 后需把控制条药丸夹回可见区
-const { leftPin, rightPin, leftOv, rightOv, leftWidth, rightWidth, fsRightWidth, fsLeftWidth, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab } = createLayout(clampCbIntoView);
+const { leftWidth, rightWidth, fsRightWidth, fsLeftWidth, hasOverlay, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
 
 // ===== 功能模块接线(依赖注入) =====
 const { vadGen, vadProbs, runVad, reset: resetVad, setProbs } = createVad({
@@ -97,14 +96,6 @@ const { playSentence, stopAll, replayCurrent, togglePlay, goPrev, goNext, attach
   toggleFabRight: () => isFsWord.value ? (fsWordOpen.value = !fsWordOpen.value) : toggleFab('right'),
   toggleVideoCollapse: () => stageRef.value?.toggleCollapse(),
   toggleFullscreen: () => stageRef.value?.toggleFullscreen(),
-  // Esc:先关打开的抽屉(返回 true 消费掉);原生 dialog 打开时让给 dialog
-  closeDrawers: () => {
-    if (document.querySelector('dialog[open]')) return false;
-    const d = leftDrawer.isOpen() ? leftDrawer : rightDrawer.isOpen() ? rightDrawer : null;
-    if (!d) return false;
-    d.close();
-    return true;
-  },
 });
 
 const { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia, loadSample, restoreLast } = createLoader({
@@ -229,27 +220,6 @@ const spEmits = {
 // 视频区单指左右滑(非全屏):唤出对应侧栏,已展开则不动(手势语义是"唤出"不是"切换")
 function onSwipeOpen(side) { if (!isSideOpen(side)) toggleFab(side); }
 
-// ===== 侧栏抽屉（popover 滑动抽屉） =====
-// 窄屏抽屉的开合执行在 drawer.js（showPopover + scroll-snap 滚动）。开合状态在 Vue ref 与
-// DOM 之间双向同步：watch 翻 ref 下发命令，IO 确认开合时经 onOpen/onClose 回写 ref（值相同
-// 时 watch 不触发）；FAB、快捷键、栏顶收起、手势全走这条命令通道。
-const leftPanelRef = ref(null);    // 面板根 aside(组件实例 $el)
-const rightPanelRef = ref(null);
-const fabLeftRef = ref(null);
-const fabRightRef = ref(null);
-const leftDrawer = createDrawer({ side: 'left', getFab: () => fabLeftRef.value, onOpen: () => { leftOv.value = true; }, onClose: () => { leftOv.value = false; }, getOtherOpen: () => rightDrawer.isOpen() });
-const rightDrawer = createDrawer({ side: 'right', getFab: () => fabRightRef.value, onOpen: () => { rightOv.value = true; }, onClose: () => { rightOv.value = false; }, getOtherOpen: () => leftDrawer.isOpen() });
-// 跨断点由 useLayout 把 ov 置 false,同一回调里 pin 已是新值:宽屏侧瞬时转 pinned,不做滑出
-watch([leftOv, rightOv], ([l, r]) => {
-  l ? leftDrawer.open() : leftDrawer.close(leftPin.value);
-  r ? rightDrawer.open() : rightDrawer.close(rightPin.value);
-});
-// 面板元素生命周期即接线生命周期:进全屏时非全屏实例卸载(ref 置 null)则 detach,退全屏重挂后 attach
-watch([leftPanelRef, rightPanelRef], ([lp, rp]) => {
-  lp ? leftDrawer.attach(lp.$el) : leftDrawer.detach();
-  rp ? rightDrawer.attach(rp.$el) : rightDrawer.detach();
-}, { flush: 'post' });
-
 // ===== 挂载 =====
 onMounted(() => {
   const el = stageRef.value.mediaEl;
@@ -270,8 +240,6 @@ onMounted(() => {
 });
 onUnmounted(() => {
   detachPlayback();
-  leftDrawer.detach();
-  rightDrawer.detach();
   cbDrag.cancel();
   disposeToasts();
 });
@@ -279,10 +247,8 @@ onUnmounted(() => {
 
 <template>
   <div class="layout" :class="[layoutClass, { 'has-content': hasContent }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
-    <!-- SettingsPanel 两个实例(普通/全屏)共用 props/emits,同 WordPanel 的 v-if 双分支 Teleport。
-         role/aria-label:窄屏=抽屉态(dialog),宽屏 pinned=常驻 sidebar 去掉 role(经 attrs 透传到面板根) -->
-    <SettingsPanel v-if="!isFsWord" ref="leftPanelRef" v-bind="spProps" v-on="spEmits"
-                   :role="leftPin ? null : 'dialog'" />
+    <!-- SettingsPanel 两个实例(普通/全屏)共用 props/emits,同 WordPanel 的 v-if 双分支 Teleport -->
+    <SettingsPanel v-if="!isFsWord" v-bind="spProps" v-on="spEmits" />
     <Teleport v-else to=".video-stage">
       <SettingsPanel v-bind="spProps" v-on="spEmits" />
     </Teleport>
@@ -336,20 +302,15 @@ onUnmounted(() => {
     <!-- 全屏时 Teleport 进 .video-stage;用 v-if 双分支而非 :disabled 切换——
          disabled 搬移节点在 VideoStage 同批更新下会触发 Vue moveTeleport 的 null 容器崩溃,
          重新挂载走全新 mount 路径则无此问题 -->
-    <WordPanel v-if="!isFsWord" ref="rightPanelRef" v-bind="wpProps"
-               :role="rightPin ? null : 'dialog'"
+    <WordPanel v-if="!isFsWord" v-bind="wpProps"
                @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
     <Teleport v-else to=".video-stage">
       <WordPanel v-bind="wpProps"
                  @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
     </Teleport>
-    <!-- FAB=抽屉触发按钮:aria-expanded 跟 leftOv/rightOv(IO 确认开合时回写) -->
-    <button ref="fabLeftRef" class="float-btn float-btn-left" title="展开设置栏（[）"
-            aria-label="设置栏" aria-controls="drawer-left" :aria-expanded="leftOv"
-            @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
-    <button ref="fabRightRef" class="float-btn float-btn-right" title="展开词卡栏（]）"
-            aria-label="生词栏" aria-controls="drawer-right" :aria-expanded="rightOv"
-            @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
+    <button class="float-btn float-btn-left"  title="展开设置栏（[）" @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
+    <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
+    <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
   </div>
   <Toasts :toasts="toasts" @dismiss="dismiss" @pause="pauseToast" @resume="resumeToast" />
   <dialog ref="mkvTrackDialog" class="mkv-track-dialog" @close="onMkvDialogClose">

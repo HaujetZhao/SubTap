@@ -94,32 +94,27 @@ body {
 
 .layout { position: relative; height: 100dvh; width: 100%; overflow: hidden; }
 
-/* 栏:pinned 宽屏常驻(fixed + translateX 过渡);窄屏抽屉(overlay)态走下方 popover 区块。
-   面板根在所有状态都带 popover 属性,须重置 UA 的 [popover] 默认样式:
-   inset:auto + height:auto 清掉 UA 的 inset:0/height:fit-content(否则右栏 right:0 时
-   left:0 仍生效被拉到左边,且高度缩成内容高、不再随视口拉伸),
-   margin:0 清掉 UA 的 margin:auto(否则 fixed+inset:0 会把它算到视口正中) */
+/* 栏:fixed 浮层 + translateX 滑入滑出 + opacity 淡入淡出 */
 .panel-left, .panel-right {
-  position: fixed; inset: auto; top: 0; bottom: 0; height: auto; z-index: 100; margin: 0;
-  overflow: visible;   /* 清掉 UA [popover] 的 overflow:auto(否则内部溢出会产生横向滚动条) */
-  border: 0; padding: 0;   /* 清掉 UA [popover] 的 border:solid/padding(黑框) */
-  color: inherit;          /* 清掉 UA [popover] 的 color:CanvasText(不跟主题) */
+  position: fixed; top: 0; bottom: 0; z-index: 100;
+  transition: transform var(--dur-panel) var(--ease-panel),
+              opacity var(--dur-panel) var(--ease-panel),
+              box-shadow var(--dur-panel) var(--ease-panel);
   background: var(--panel);
   display: flex; flex-direction: column;
 }
 .panel-left  { left: 0;  width: var(--panel-left-w);  transform: translateX(-100%); opacity: 0; }
 .panel-right { right: 0; width: var(--panel-right-w); transform: translateX(100%); opacity: 0; }
-.layout.left-pinned  .panel-left  { transform: translateX(0); opacity: 1; box-shadow: inset -1px 0 0 var(--border); }
-.layout.right-pinned .panel-right { transform: translateX(0); opacity: 1; box-shadow: inset  1px 0 0 var(--border); }
-/* 仅宽屏形态启用收展过渡(全屏 Teleport 的面板不依赖 layout 类,故四个选择器都在)。
-   :not(.side-dragging) 让「拖宽关过渡」由选择器保证,不依赖与下方规则的先后 */
-.layout:not(.side-dragging).left-wide  .panel-left,
-.layout:not(.side-dragging).right-wide .panel-right,
-.layout:not(.side-dragging) .video-stage:fullscreen .panel-left,
-.layout:not(.side-dragging) .video-stage:fullscreen .panel-right {
-  transition: transform var(--dur-panel) var(--ease-panel),
-              opacity var(--dur-panel) var(--ease-panel),
-              box-shadow var(--dur-panel) var(--ease-panel);
+.layout.left-pinned  .panel-left,
+.layout.left-overlay .panel-left,
+.layout.right-pinned .panel-right,
+.layout.right-overlay .panel-right { transform: translateX(0); opacity: 1; }
+.layout.left-pinned  .panel-left  { box-shadow: inset -1px 0 0 var(--border); }
+.layout.right-pinned .panel-right { box-shadow: inset  1px 0 0 var(--border); }
+.layout.left-overlay  .panel-left,
+.layout.right-overlay .panel-right {
+  box-shadow: var(--shadow-overlay);
+  max-width: 86vw;     /* 防拖到宽值超过窄屏视口 */
 }
 
 /* 中栏:absolute + padding 让位给 pinned 栏;overflow:hidden 让内部 .sentences 独占滚动 */
@@ -133,26 +128,26 @@ body {
 .layout.left-pinned  .panel-center { padding-left:  var(--panel-left-w); }
 .layout.right-pinned .panel-center { padding-right: var(--panel-right-w); }
 
-/* 拖拽调宽手柄:透明但可拖拽(pinned 常驻或抽屉弹出时均可见;手柄在 sheet 内,
-   非抽屉态 sheet 压平,包含块是面板根,抽屉态包含块是 sheet,两种宿主都贴边) */
+/* 拖拽调宽手柄:透明但可拖拽(push pinned 或 overlay 弹出时均可见) */
 .side-resize-handle {
   position: absolute; top: 0; bottom: 0; width: 20px;
   cursor: col-resize; z-index: 5; touch-action: none;
   background: transparent;
 }
-.panel-left  .side-resize-handle { right: -10px; }
-.panel-right .side-resize-handle { left:  -10px; }
-.layout:not(.left-pinned):not(.left-overlay)  .panel-left  .side-resize-handle,
-.layout:not(.right-pinned):not(.right-overlay) .panel-right .side-resize-handle { display: none; }
+.panel-left  > .side-resize-handle { right: -10px; }
+.panel-right > .side-resize-handle { left:  -10px; }
+.layout:not(.left-pinned):not(.left-overlay)  .panel-left  > .side-resize-handle,
+.layout:not(.right-pinned):not(.right-overlay) .panel-right > .side-resize-handle { display: none; }
 
-/* 栏内容固定宽容器:pinned 态内部不重排。原 panel-left/right 的 padding/滚动/gap 都在这里。 */
-.panel-left  .panel-inner {
+/* 栏内容固定宽容器:收起时外层 max-width→0 + overflow:hidden 把它裁掉,
+   内部不重排。原 panel-left/right 的 padding/滚动/gap 都搬到这里。 */
+.panel-left  > .panel-inner {
   width: var(--panel-left-w);
   padding: 16px 14px;
   gap: 20px;
   user-select: none;
 }
-.panel-right .panel-inner {
+.panel-right > .panel-inner {
   width: var(--panel-right-w);
   padding: 16px;
 }
@@ -165,83 +160,6 @@ body {
   flex-direction: column;
 }
 .panel-inner::-webkit-scrollbar { display: none; }  /* WebKit 隐藏滚动条 */
-
-/* ===== 抽屉(popover overlay)模式:navigation-drawer「drawer 兼 sidebar」变体 =====
-   目标浏览器为最新 Chrome:popover / scroll-driven animation / scroll-initial-target
-   均原生支持,不做降级。面板根带 popover="manual":打开时经 UA 提升为顶层,铺满视口
-   成为透明滑动面,内部结构 根 > .drawer-scroller > .drawer-sheet > .panel-inner。
-   横向 scroll-snap 双停靠点(开=0/关=滚动端口宽),拖拽动量/速度/中断全由浏览器原生
-   处理;backdrop 透明度由滚动位置驱动;开合状态由 drawer.js 的 IntersectionObserver 判定。 */
-/* 非 popover-open 态压平包装层:pinned 与全屏 Teleport 两套旧 CSS 无视 scroller/sheet 直接生效 */
-.drawer-scroller, .drawer-sheet { display: contents; }
-/* 打开时根重置为铺满视口的滑动面(基类已清过 UA [popover] 样式,这里只覆盖 pinned 基类的定位/显隐)。
-   --drawer-backdrop:backdrop 透明度 0=关 1=开,由下方 keyframes 滚动驱动(@property 提供初值) */
-:is(.panel-left, .panel-right):popover-open {
-  inset: 0; width: auto;
-  display: block; background: transparent;
-  transform: none; opacity: 1; box-shadow: none;
-}
-.panel-left:popover-open  { --drawer-w: min(var(--panel-left-w), 86vw); }    /* 86vw:防拖宽值超过窄屏视口 */
-.panel-right:popover-open { --drawer-w: min(var(--panel-right-w), 86vw); }
-:is(.panel-left, .panel-right):popover-open::backdrop {
-  background: var(--scrim);          /* --scrim 自带透明度,opacity 0→1 即与旧 scrim 观感一致 */
-  opacity: var(--drawer-backdrop);
-}
-/* 滑动面:双列网格(sheet 列 + 关闭空占位列),列序按侧镜像:
-   左栏 sheet 在第 1 列(scrollLeft 0=开、max=关,从左缘滑出);
-   右栏 sheet 在第 2 列(scrollLeft 0=关、max=开,右滑关、从右缘滑出)。
-   两侧列宽对称(w+100% 与 100%+w),最大滚动量都=sheet 宽 */
-:is(.panel-left, .panel-right):popover-open .drawer-scroller {
-  position: relative;
-  display: grid; height: 100%;
-  overflow-x: scroll; overflow-y: hidden;
-  overscroll-behavior: none; scrollbar-width: none;
-  scroll-snap-type: x mandatory;
-}
-.panel-left:popover-open  .drawer-scroller { grid-template-columns: var(--drawer-w) 100%; }
-.panel-right:popover-open .drawer-scroller { grid-template-columns: 100% var(--drawer-w); }
-:is(.panel-left, .panel-right):popover-open .drawer-scroller::-webkit-scrollbar { display: none; }
-@media (prefers-reduced-motion: no-preference) {
-  :is(.panel-left, .panel-right):popover-open .drawer-scroller { scroll-behavior: smooth; }
-}
-/* 「关闭」停靠点:空占位列;scroll-initial-target 让初始滚动位=关闭位,开抽屉只需滚向开启位。
-   content 收在 :popover-open 作用域下:压平态(pinned/全屏宿主)不生成多余空盒 */
-:is(.panel-left, .panel-right):popover-open .drawer-scroller::after {
-  content: '';
-  scroll-initial-target: nearest;
-}
-.panel-left:popover-open  .drawer-scroller::after { grid-column: 2; scroll-snap-align: end; }
-.panel-right:popover-open .drawer-scroller::after { grid-column: 1; scroll-snap-align: start; }
-/* sheet:抽屉态的面板本体。固定高用 svh,防 iOS 地址栏伸缩跳高;内部滚动仍由 panel-inner 负责 */
-:is(.panel-left, .panel-right):popover-open .drawer-sheet {
-  position: relative;
-  display: flex; flex-direction: column;
-  width: var(--drawer-w); height: 100svh;
-  background: var(--panel);
-  box-shadow: var(--shadow-overlay);
-}
-.panel-left:popover-open  .drawer-sheet { justify-self: start; scroll-snap-align: start; }
-.panel-right:popover-open .drawer-sheet { grid-column: 2; justify-self: end; scroll-snap-align: end; }
-:is(.panel-left, .panel-right):popover-open .panel-inner { width: 100%; }
-/* 滚动驱动 backdrop 渐变:backdrop 透明度绑定滚动位置,拖到一半透明度跟着走 */
-:is(.panel-left, .panel-right):popover-open {
-  timeline-scope: --drawer-fade;   /* 让根元素能看到 scroller 声明的滚动时间线 */
-  animation: fade-drawer-backdrop linear both;
-  animation-timeline: --drawer-fade;
-}
-/* 右栏时间线反向:时间线 0%(scrollLeft 0)处右栏是关闭态,backdrop 取 keyframes 的 100% 值(0) */
-.panel-right:popover-open { animation-direction: reverse; }
-:is(.panel-left, .panel-right):popover-open .drawer-scroller { scroll-timeline: --drawer-fade x; }
-/* 不注册 @property 则按字符串处理无法插值,backdrop 会 0/1 跳变 */
-@property --drawer-backdrop {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
-}
-@keyframes fade-drawer-backdrop {
-  0%   { --drawer-backdrop: 1 }
-  100% { --drawer-backdrop: 0 }
-}
 
 /* 栏顶部标题行:标题 + 折叠按钮,两端对齐 */
 .panel-head {
@@ -261,8 +179,7 @@ body {
 }
 .collapse-btn-panel:hover { background: var(--btn-hover); color: var(--ink); }
 
-/* 悬浮唤出按钮(FAB):钉视窗。默认隐藏;收起态(非 pinned)淡入。
-   抽屉展开时不参与显隐联动:面板本身会把它盖住,收起时随面板退场自然露出 */
+/* 悬浮唤出按钮(FAB):钉视窗。默认隐藏;收起态(非 pinned)淡入,overlay 展开时淡出让位 */
 .float-btn {
   position: fixed; top: 16px; z-index: 50;
   width: 40px; height: 40px;
@@ -288,12 +205,16 @@ body {
 .layout:not(.right-pinned) .float-btn-right {
   opacity: 1; transform: scale(1); pointer-events: auto;
 }
-/* 有内容时 FAB 自动半透明(不遮挡视频):写在可见规则之后 */
+/* 有内容时 FAB 自动半透明(不遮挡视频):在可见规则之后、overlay 隐藏规则之前 */
 .layout.has-content .float-btn-left,
 .layout.has-content .float-btn-right {
   opacity: 0.25;
   transform: scale(0.85);
   transition: opacity .5s ease, transform .5s ease;
+}
+.layout.left-overlay  .float-btn-left,
+.layout.right-overlay .float-btn-right {
+  opacity: 0; pointer-events: none;
 }
 .float-btn-left  { left: 16px; }
 .float-btn-right { right: 16px; }
@@ -329,7 +250,7 @@ body {
 /* 全屏生词栏:WordPanel Teleport 进 stage,复用 .panel-right 的 fixed/滑入动画,
    --panel-right-w 沿 DOM 继承自 .layout 的 :style,与普通布局同一套宽度。
    注意 stage 本身在 .layout 里,宽屏 .layout.right-pinned .panel-right 的显示规则
-   会命中 Teleport 进来的 panel,这里同特异度、位置靠后,先强制隐藏再按 fs-word-open 放行。 */
+   会命中 Teleport 进来的 panel,这里同特异度、位置靠后,先强制隐藏再按 fs-word-open 放行 */
 .video-stage:fullscreen .panel-right {
   transform: translateX(100%); opacity: 0;
 }
@@ -339,7 +260,7 @@ body {
   max-width: 60vw;
 }
 /* 窄屏布局非 pinned/overlay,上面按布局隐藏手柄的规则会误伤 Teleport 进来的全屏生词栏,这里放行 */
-.video-stage:fullscreen.fs-word-open .panel-right .side-resize-handle { display: block; }
+.video-stage:fullscreen.fs-word-open .panel-right > .side-resize-handle { display: block; }
 
 /* 全屏设置栏:同上,镜像到左侧(--panel-left-w 由 VideoStage 全屏 :style 提供) */
 .video-stage:fullscreen .panel-left {
@@ -350,7 +271,7 @@ body {
   box-shadow: var(--shadow-overlay);
   max-width: 60vw;
 }
-.video-stage:fullscreen.fs-left-open .panel-left .side-resize-handle { display: block; }
+.video-stage:fullscreen.fs-left-open .panel-left > .side-resize-handle { display: block; }
 .fs-scrim {
   position: absolute; inset: 0; z-index: 90;
   background: var(--scrim);
@@ -764,7 +685,15 @@ body {
 @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-/* 遮罩已由各抽屉自己的 ::backdrop 承担(popover 顶层),不再有全局 .scrim 元素 */
+/* 遮罩:仅 overlay 模式(has-overlay)显示,点它关两栏。push 模式不触发,避免蒙灰 */
+.scrim {
+  position: fixed; inset: 0;
+  background: var(--scrim);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-panel) var(--ease-panel);
+  z-index: 80;
+}
+.scrim.show { opacity: 1; pointer-events: auto; }
 
 /* ===== 底部控制条(手机盲操:上一句/暂停(重播)/下一句) — 样式见上方 .vc-pill 共用块,此处只声明定位差异 ===== */
 

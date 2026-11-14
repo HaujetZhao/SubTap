@@ -117,12 +117,9 @@ async function onEtymClick(e) {
 }
 </script>
 
-<!-- 根 aside 即抽屉(popover):窄屏打开时成顶层滑动面,宽屏 pinned 态由 CSS 压平包装层 -->
 <template>
-  <aside class="panel-right" id="drawer-right" popover="manual" aria-label="生词">
-    <div class="drawer-scroller">
-      <div class="drawer-sheet">
-        <div class="panel-inner">
+  <aside class="panel-right">
+    <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">生词</h3>
         <button class="collapse-btn-panel" title="收起词卡栏" @click="emit('collapse')"><i class="fas fa-chevron-right"></i></button>
@@ -153,8 +150,6 @@ async function onEtymClick(e) {
         </div>
       </div>
     </div>
-        <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
-      </div>
-    </div>
+    <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
   </aside>
 </template>

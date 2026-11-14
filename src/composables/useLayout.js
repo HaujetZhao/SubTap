@@ -10,10 +10,7 @@ export function createLayout(onAfterResize) {
   const rightPin = ref(window.innerWidth > BP.rightPin);
   const leftHide  = ref(false);   // 手动折叠覆盖 pin
   const rightHide = ref(false);
-  // 窄屏抽屉(overlay)开合的 UI 面向状态:FAB 显隐类/互斥判断用。真正的开合执行在
-  // drawer.js(命令式 open/close);App watch 这两个 ref 下命令,IO 确认开合后经
-  // onOpen/onClose 回写(值相同 watch 不触发,不会回环)
-  const leftOv  = ref(false);
+  const leftOv  = ref(false);      // 窄屏手动 overlay
   const rightOv = ref(false);
   const sideDragging = ref(false);
 
@@ -36,16 +33,13 @@ export function createLayout(onAfterResize) {
 
   const leftPinned  = computed(() => leftPin.value  && !leftHide.value  && !leftOv.value);
   const rightPinned = computed(() => rightPin.value && !rightHide.value && !rightOv.value);
-  // left-wide/right-wide:宽屏形态才启用面板 transform/opacity 过渡(pinned 收展动画);
-  // 窄屏抽屉形态由滚动驱动,不能有任何 CSS 过渡,否则 hidePopover 落回基类时再播一遍。
-  // 左右互换沿用 layoutClass 的已有类,不新增 ref。
+  const hasOverlay  = computed(() => leftOv.value || rightOv.value);
   const layoutClass = computed(() => ({
     'left-pinned':   leftPinned.value,
     'right-pinned':  rightPinned.value,
     'left-overlay':  leftOv.value,
     'right-overlay': rightOv.value,
-    'left-wide':     leftPin.value,
-    'right-wide':    rightPin.value,
+    'has-overlay':   hasOverlay.value,
     'side-dragging': sideDragging.value,
   }));
 
@@ -120,6 +114,7 @@ export function createLayout(onAfterResize) {
     }
     if (leftOv.value && rightOv.value) rightOv.value = false;   // 互斥
   }
+  const closeBoth = () => { leftOv.value = false; rightOv.value = false; };
 
   onMounted(() => {
     window.addEventListener('resize', onWindowResize);
@@ -136,6 +131,5 @@ export function createLayout(onAfterResize) {
     document.removeEventListener('pointerup', stopSideResize);
   });
 
-  // leftPin/rightPin 供 App 判抽屉模式(窄屏=抽屉态,面板根绑 role="dialog")与跨断点强收
-  return { leftPin, rightPin, leftOv, rightOv, leftWidth, rightWidth, fsRightWidth, fsLeftWidth, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab };
+  return { leftWidth, rightWidth, fsRightWidth, fsLeftWidth, hasOverlay, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab, closeBoth };
 }

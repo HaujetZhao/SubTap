@@ -4,14 +4,12 @@ import { createTwoFingerRecognizer } from '../logic/gestures.js';
 
 // 播放意图层:点句播放/键盘/双指手势/蓝牙线控共用同一套命令。
 // 依赖注入:核心状态 refs、effectiveRanges computed、getPlayer(挂载前为 null)、
-// scrollActiveIntoView(切句后滚动)、toggleFab/toggleVideoCollapse/toggleFullscreen(快捷键动作)、
-// closeDrawers(Esc 优先关抽屉,返回是否消费)。
+// scrollActiveIntoView(切句后滚动)、toggleFab/toggleVideoCollapse/toggleFullscreen(快捷键动作)。
 export function createPlayback({
   sentences, currentId, currentText, isPlaying, mediaKind,
   voices, ttsOn, ttsLang, ttsRate, ttsVoiceURI,
   effectiveRanges, getPlayer, notify,
   scrollActiveIntoView, toggleFab, toggleFabLeft, toggleFabRight, toggleVideoCollapse, toggleFullscreen,
-  closeDrawers,
 }) {
   // 当前选中句在列表中的索引（未选为 -1）
   const currentIdx = computed(() => sentences.value.findIndex(s => s.id === currentId.value));
@@ -61,8 +59,6 @@ export function createPlayback({
 
   // 方向键播放控制。焦点在输入框时不拦截，避免影响微调数字输入。
   function onKeydown(e) {
-    // 抽屉模态:焦点在面板内输入框时 Esc 也要关,故先于 input 守卫
-    if (e.key === 'Escape' && closeDrawers()) return;
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
     // 面板收展快捷键:不依赖字幕,空载引导页也可用。

@@ -18,7 +18,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 - **VAD 仅 PWA 版可用**：onnx 模型 + ort wasm 体积过大不内联；运行时按需取（SW `CacheFirst` 到 `vad-assets`，取过即离线可用）。模型 `public/models/vad_full.onnx` 入库；wasm `public/ort/` 由 `sync-ort.mjs` 生成、不入库。
 - ES module 需 http 加载，`index.html`/`test.html` 不能 `file://` 双击；`dist/index.html` 单文件可双击。
 - `dist/`、测试素材不入库。
-- **目标浏览器：最新 Chrome**。popover / scroll-driven animation / scroll-initial-target 等均原生支持，直接使用，不写特性检测与降级；浮层相关代码不要为 Firefox/Safari 加兜底。
+- **目标浏览器：最新 Chrome**。新特性直接使用，不写特性检测与降级；浮层相关代码不要为 Firefox/Safari 加兜底。
 
 ## 架构
 
@@ -42,7 +42,7 @@ npm run build:pwa    # PWA → dist/ 多文件（GitHub Pages 用）
 | `mdx.js` | 精简版 MDX 词典解析（浏览器端，按 ciyuan.mdx 实际格式裁剪：v2.0 大端、UTF-8、Encrypted=2 key-info 段 ripemd128 XOR 流加密、全段 zlib 用原生 `DecompressionStream('deflate')` 异步解压） |
 | `file-history.js` | IndexedDB「最近打开」缓存（单记录 `last`：字幕/媒体/句子/VAD 概率），VAD 概率复用免重推理 |
 
-**组合层（Vue composable，`src/composables/`，依赖注入接线）**：`useLayout.js`（侧栏布局）、`drawer.js`（侧栏抽屉机制：popover=manual 顶层滑动面 + 横向 scroll-snap 开合，IntersectionObserver 判定；宽屏 pinned 由 CSS 压平包装层，机制只在窄屏生效）、`useSettings.js`（设置持久化+勾选镜像）、`useVad.js`（VAD 工作流）、`usePlayback.js`（播放命令/键盘/手势/线控）、`useLoader.js`（文件载入/示例/恢复上次；媒体优先 File System Access API 缓存 handle、不支持降级 input 缓存 File）、`pill-drag.js`（药丸拖拽纯机制+loadJson/loadPos，无 Vue 依赖）。共享核心状态（`sentences/currentId/isPlaying/player/mediaBlob`）留在 App.vue，工厂函数接收依赖返回 API，不用 provide/inject。
+**组合层（Vue composable，`src/composables/`，依赖注入接线）**：`useLayout.js`（侧栏布局）、`useSettings.js`（设置持久化+勾选镜像）、`useVad.js`（VAD 工作流）、`usePlayback.js`（播放命令/键盘/手势/线控）、`useLoader.js`（文件载入/示例/恢复上次；媒体优先 File System Access API 缓存 handle、不支持降级 input 缓存 File）、`pill-drag.js`（药丸拖拽纯机制+loadJson/loadPos，无 Vue 依赖）。共享核心状态（`sentences/currentId/isPlaying/player/mediaBlob`）留在 App.vue，工厂函数接收依赖返回 API，不用 provide/inject。
 
 **UI 层（Vue 3 `<script setup>`）**：`App.vue`（编排层：核心状态 + 模块接线 + 三栏模板 + 底部控制条药丸，<300 行）、`SettingsPanel.vue`（左栏设置）、`SentenceList.vue`（中栏句子渲染 + 空载引导页）、`VideoStage.vue`（视频区 + 拖高/折叠/全屏/播控药丸 + 画面内字幕层[复用中栏 tokens，级别色 color-mix 叠加，全屏左滑 Teleport 打开 WordPanel]）、`WordPanel.vue`（右栏分组词卡 + 词源展开/交叉引用跳转）、`Toasts.vue`。样式集中在 `styles.css` 的 `:root` 设计 token。改 UI 时尽量不动纯逻辑层。
 
