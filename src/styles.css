@@ -104,9 +104,6 @@ body {
   overflow: visible;   /* 清掉 UA [popover] 的 overflow:auto(否则内部溢出会产生横向滚动条) */
   border: 0; padding: 0;   /* 清掉 UA [popover] 的 border:solid/padding(黑框) */
   color: inherit;          /* 清掉 UA [popover] 的 color:CanvasText(不跟主题) */
-  transition: transform var(--dur-panel) var(--ease-panel),
-              opacity var(--dur-panel) var(--ease-panel),
-              box-shadow var(--dur-panel) var(--ease-panel);
   background: var(--panel);
   display: flex; flex-direction: column;
 }
@@ -114,6 +111,16 @@ body {
 .panel-right { right: 0; width: var(--panel-right-w); transform: translateX(100%); opacity: 0; }
 .layout.left-pinned  .panel-left  { transform: translateX(0); opacity: 1; box-shadow: inset -1px 0 0 var(--border); }
 .layout.right-pinned .panel-right { transform: translateX(0); opacity: 1; box-shadow: inset  1px 0 0 var(--border); }
+/* 仅宽屏形态启用收展过渡(全屏 Teleport 的面板不依赖 layout 类,故四个选择器都在)。
+   必须写在 .layout.side-dragging 之前:同等特异度后写覆盖,拖宽时过渡照样关闭 */
+.layout.left-wide  .panel-left,
+.layout.right-wide .panel-right,
+.video-stage:fullscreen .panel-left,
+.video-stage:fullscreen .panel-right {
+  transition: transform var(--dur-panel) var(--ease-panel),
+              opacity var(--dur-panel) var(--ease-panel),
+              box-shadow var(--dur-panel) var(--ease-panel);
+}
 
 /* 中栏:absolute + padding 让位给 pinned 栏;overflow:hidden 让内部 .sentences 独占滚动 */
 .panel-center {
@@ -160,26 +167,24 @@ body {
 .panel-inner::-webkit-scrollbar { display: none; }  /* WebKit 隐藏滚动条 */
 
 /* ===== 抽屉(popover overlay)模式:navigation-drawer「drawer 兼 sidebar」变体 =====
-   面板根带 popover="manual":打开时经 UA 提升为顶层,铺满视口成为透明滑动面,内部结构
-   根 > .drawer-scroller > .drawer-sheet > .panel-inner。横向 scroll-snap 双停靠点
-   (开=0/关=滚动端口宽),拖拽动量/速度/中断全由浏览器原生处理;backdrop 透明度由
-   滚动位置驱动(见末尾 @supports 块);IntersectionObserver 判开合(drawer.js)。 */
+   目标浏览器为最新 Chrome:popover / scroll-driven animation / scroll-initial-target
+   均原生支持,不做降级。面板根带 popover="manual":打开时经 UA 提升为顶层,铺满视口
+   成为透明滑动面,内部结构 根 > .drawer-scroller > .drawer-sheet > .panel-inner。
+   横向 scroll-snap 双停靠点(开=0/关=滚动端口宽),拖拽动量/速度/中断全由浏览器原生
+   处理;backdrop 透明度由滚动位置驱动;开合状态由 drawer.js 的 IntersectionObserver 判定。 */
 /* 非 popover-open 态压平包装层:pinned 与全屏 Teleport 两套旧 CSS 无视 scroller/sheet 直接生效 */
 .drawer-scroller, .drawer-sheet { display: contents; }
 /* 打开时根重置为铺满视口的滑动面(覆盖 pinned 基类的定位/显隐)。
-   --drawer-backdrop:backdrop 透明度 0=关 1=开,有动画时被 keyframes 驱动、无动画时 JS 写 */
-.panel-left:popover-open, .panel-right:popover-open {
+   --drawer-backdrop:backdrop 透明度 0=关 1=开,由下方 keyframes 滚动驱动(@property 提供初值) */
+:is(.panel-left, .panel-right):popover-open {
   inset: 0; width: auto; height: auto; max-width: none;
   margin: 0; padding: 0;
   display: block; background: transparent; border: 0; overflow: visible;
   transform: none; opacity: 1; box-shadow: none;
-  /* 抽屉开合由滚动驱动;基类的 transform/opacity 过渡会让开/关瞬间多播一遍位移淡入淡出 */
-  transition: none;
-  --drawer-backdrop: 0;
 }
 .panel-left:popover-open  { --drawer-w: min(var(--panel-left-w), 86vw); }    /* 86vw:防拖宽值超过窄屏视口 */
 .panel-right:popover-open { --drawer-w: min(var(--panel-right-w), 86vw); }
-.panel-left:popover-open::backdrop, .panel-right:popover-open::backdrop {
+:is(.panel-left, .panel-right):popover-open::backdrop {
   background: var(--scrim);          /* --scrim 自带透明度,opacity 0→1 即与旧 scrim 观感一致 */
   opacity: var(--drawer-backdrop);
 }
@@ -187,8 +192,7 @@ body {
    左栏 sheet 在第 1 列(scrollLeft 0=开、max=关,从左缘滑出);
    右栏 sheet 在第 2 列(scrollLeft 0=关、max=开,右滑关、从右缘滑出)。
    两侧列宽对称(w+100% 与 100%+w),最大滚动量都=sheet 宽 */
-.panel-left:popover-open  .drawer-scroller,
-.panel-right:popover-open .drawer-scroller {
+:is(.panel-left, .panel-right):popover-open .drawer-scroller {
   position: relative;
   display: grid; height: 100%;
   overflow-x: scroll; overflow-y: hidden;
@@ -197,24 +201,20 @@ body {
 }
 .panel-left:popover-open  .drawer-scroller { grid-template-columns: var(--drawer-w) 100%; }
 .panel-right:popover-open .drawer-scroller { grid-template-columns: 100% var(--drawer-w); }
-.panel-left:popover-open  .drawer-scroller::-webkit-scrollbar,
-.panel-right:popover-open .drawer-scroller::-webkit-scrollbar { display: none; }
+:is(.panel-left, .panel-right):popover-open .drawer-scroller::-webkit-scrollbar { display: none; }
 @media (prefers-reduced-motion: no-preference) {
-  .panel-left:popover-open  .drawer-scroller,
-  .panel-right:popover-open .drawer-scroller { scroll-behavior: smooth; }
+  :is(.panel-left, .panel-right):popover-open .drawer-scroller { scroll-behavior: smooth; }
 }
 /* 「关闭」停靠点:空占位列;scroll-initial-target 让初始滚动位=关闭位,开抽屉只需滚向开启位。
    content 收在 :popover-open 作用域下:压平态(pinned/全屏宿主)不生成多余空盒 */
-.panel-left:popover-open  .drawer-scroller::after,
-.panel-right:popover-open .drawer-scroller::after {
+:is(.panel-left, .panel-right):popover-open .drawer-scroller::after {
   content: '';
   scroll-initial-target: nearest;
 }
 .panel-left:popover-open  .drawer-scroller::after { grid-column: 2; scroll-snap-align: end; }
 .panel-right:popover-open .drawer-scroller::after { grid-column: 1; scroll-snap-align: start; }
 /* sheet:抽屉态的面板本体。固定高用 svh,防 iOS 地址栏伸缩跳高;内部滚动仍由 panel-inner 负责 */
-.panel-left:popover-open  .drawer-sheet,
-.panel-right:popover-open .drawer-sheet {
+:is(.panel-left, .panel-right):popover-open .drawer-sheet {
   position: relative;
   display: flex; flex-direction: column;
   width: var(--drawer-w); height: 100svh;
@@ -223,30 +223,25 @@ body {
 }
 .panel-left:popover-open  .drawer-sheet { justify-self: start; scroll-snap-align: start; }
 .panel-right:popover-open .drawer-sheet { grid-column: 2; justify-self: end; scroll-snap-align: end; }
-.panel-left:popover-open  .panel-inner,
-.panel-right:popover-open .panel-inner { width: 100%; }
-/* 滚动驱动 backdrop 渐变:backdrop 透明度绑定滚动位置,拖到一半透明度跟着走。
-   MANDATORY 整块包 @supports:不支持的浏览器若应用 keyframes 会把 0% 值常驻,backdrop 永远不透明 */
-@supports (animation-timeline: scroll()) {
-  .panel-left:popover-open, .panel-right:popover-open {
-    timeline-scope: --drawer-fade;   /* 让根元素能看到 scroller 声明的滚动时间线 */
-    animation: fade-drawer-backdrop linear both;
-    animation-timeline: --drawer-fade;
-  }
-  /* 右栏时间线反向:时间线 0%(scrollLeft 0)处右栏是关闭态,backdrop 取 keyframes 的 100% 值(0) */
-  .panel-right:popover-open { animation-direction: reverse; }
-  .panel-left:popover-open  .drawer-scroller,
-  .panel-right:popover-open .drawer-scroller { scroll-timeline: --drawer-fade x; }
-  /* 不注册 @property 则按字符串处理无法插值,backdrop 会 0/1 跳变 */
-  @property --drawer-backdrop {
-    syntax: '<number>';
-    inherits: true;
-    initial-value: 0;
-  }
-  @keyframes fade-drawer-backdrop {
-    0%   { --drawer-backdrop: 1 }
-    100% { --drawer-backdrop: 0 }
-  }
+:is(.panel-left, .panel-right):popover-open .panel-inner { width: 100%; }
+/* 滚动驱动 backdrop 渐变:backdrop 透明度绑定滚动位置,拖到一半透明度跟着走 */
+:is(.panel-left, .panel-right):popover-open {
+  timeline-scope: --drawer-fade;   /* 让根元素能看到 scroller 声明的滚动时间线 */
+  animation: fade-drawer-backdrop linear both;
+  animation-timeline: --drawer-fade;
+}
+/* 右栏时间线反向:时间线 0%(scrollLeft 0)处右栏是关闭态,backdrop 取 keyframes 的 100% 值(0) */
+.panel-right:popover-open { animation-direction: reverse; }
+:is(.panel-left, .panel-right):popover-open .drawer-scroller { scroll-timeline: --drawer-fade x; }
+/* 不注册 @property 则按字符串处理无法插值,backdrop 会 0/1 跳变 */
+@property --drawer-backdrop {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes fade-drawer-backdrop {
+  0%   { --drawer-backdrop: 1 }
+  100% { --drawer-backdrop: 0 }
 }
 
 /* 栏顶部标题行:标题 + 折叠按钮,两端对齐 */
@@ -267,7 +262,8 @@ body {
 }
 .collapse-btn-panel:hover { background: var(--btn-hover); color: var(--ink); }
 
-/* 悬浮唤出按钮(FAB):钉视窗。默认隐藏;收起态(非 pinned)淡入,overlay 展开时淡出让位 */
+/* 悬浮唤出按钮(FAB):钉视窗。默认隐藏;收起态(非 pinned)淡入。
+   抽屉展开时不参与显隐联动:面板本身会把它盖住,收起时随面板退场自然露出 */
 .float-btn {
   position: fixed; top: 16px; z-index: 50;
   width: 40px; height: 40px;
@@ -293,16 +289,12 @@ body {
 .layout:not(.right-pinned) .float-btn-right {
   opacity: 1; transform: scale(1); pointer-events: auto;
 }
-/* 有内容时 FAB 自动半透明(不遮挡视频):在可见规则之后、overlay 隐藏规则之前 */
+/* 有内容时 FAB 自动半透明(不遮挡视频):写在可见规则之后 */
 .layout.has-content .float-btn-left,
 .layout.has-content .float-btn-right {
   opacity: 0.25;
   transform: scale(0.85);
   transition: opacity .5s ease, transform .5s ease;
-}
-.layout.left-overlay  .float-btn-left,
-.layout.right-overlay .float-btn-right {
-  opacity: 0; pointer-events: none;
 }
 .float-btn-left  { left: 16px; }
 .float-btn-right { right: 16px; }

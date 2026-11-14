@@ -221,17 +221,16 @@ const spEmits = {
 // 视频区单指左右滑(非全屏):唤出对应侧栏,已展开则不动(手势语义是"唤出"不是"切换")
 function onSwipeOpen(side) { if (!isSideOpen(side)) toggleFab(side); }
 
-// ===== 侧栏抽屉(popover 滑动抽屉) =====
-// 窄屏抽屉的开合执行在 drawer.js(showPopover + scroll-snap 滚动);这里把 useLayout 的
-// leftOv/rightOv(UI 面向状态)与命令接起来:watch 翻 ref 下命令,IO 关闭回调回写 ref
-// (值相同不再触发 watch,无回环);FAB/快捷键/栏顶收起/手势全走这条命令通道。
+// ===== 侧栏抽屉（popover 滑动抽屉） =====
+// 窄屏抽屉的开合执行在 drawer.js（showPopover + scroll-snap 滚动）。开合状态在 Vue ref 与
+// DOM 之间双向同步：watch 翻 ref 下发命令，IO 确认开合时经 onOpen/onClose 回写 ref（值相同
+// 时 watch 不触发）；FAB、快捷键、栏顶收起、手势全走这条命令通道。
 const leftPanelRef = ref(null);    // 面板根 aside(组件实例 $el)
 const rightPanelRef = ref(null);
-const centerRef = ref(null);       // 抽屉打开时置 inert 的中栏
 const fabLeftRef = ref(null);
 const fabRightRef = ref(null);
-const leftDrawer = createDrawer({ side: 'left', getMain: () => centerRef.value, getFab: () => fabLeftRef.value, onClose: () => { leftOv.value = false; } });
-const rightDrawer = createDrawer({ side: 'right', getMain: () => centerRef.value, getFab: () => fabRightRef.value, onClose: () => { rightOv.value = false; } });
+const leftDrawer = createDrawer({ side: 'left', getFab: () => fabLeftRef.value, onOpen: () => { leftOv.value = true; }, onClose: () => { leftOv.value = false; }, getOtherOpen: () => rightDrawer.isOpen() });
+const rightDrawer = createDrawer({ side: 'right', getFab: () => fabRightRef.value, onOpen: () => { rightOv.value = true; }, onClose: () => { rightOv.value = false; }, getOtherOpen: () => leftDrawer.isOpen() });
 watch([leftOv, rightOv], ([l, r]) => {
   l ? leftDrawer.open() : leftDrawer.close();
   r ? rightDrawer.open() : rightDrawer.close();
@@ -291,7 +290,7 @@ onUnmounted(() => {
     <Teleport v-else to=".video-stage">
       <SettingsPanel v-bind="spProps" v-on="spEmits" />
     </Teleport>
-    <main ref="centerRef" class="panel-center">
+    <main class="panel-center">
       <VideoStage
         ref="stageRef"
         v-model:word-open="fsWordOpen"
