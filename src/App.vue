@@ -10,6 +10,7 @@ import { saveProgress } from './logic/file-history.js';
 import { createToasts } from './logic/toast.js';
 import { ttsSupported, loadVoices } from './logic/tts.js';
 import { createLayout } from './composables/useLayout.js';
+import { createDrawer } from './composables/drawer.js';
 import { createSettings } from './composables/useSettings.js';
 import { createVad } from './composables/useVad.js';
 import { createLoader } from './composables/useLoader.js';
@@ -75,7 +76,7 @@ let player = null;
 const getPlayer = () => player;
 
 // 侧栏布局(三态状态机/拖宽/收展)在 useLayout.js;resize 后需把控制条药丸夹回可见区
-const { leftWidth, rightWidth, fsRightWidth, fsLeftWidth, hasOverlay, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab, closeBoth } = createLayout(clampCbIntoView);
+const { leftPin, rightPin, leftOv, rightOv, leftWidth, rightWidth, fsRightWidth, fsLeftWidth, layoutClass, startSideResize, isSideOpen, collapseLeft, collapseRight, toggleFab } = createLayout(clampCbIntoView);
 
 // ===== 功能模块接线(依赖注入) =====
 const { vadGen, vadProbs, runVad, reset: resetVad, setProbs } = createVad({
@@ -220,6 +221,39 @@ const spEmits = {
 // 视频区单指左右滑(非全屏):唤出对应侧栏,已展开则不动(手势语义是"唤出"不是"切换")
 function onSwipeOpen(side) { if (!isSideOpen(side)) toggleFab(side); }
 
+// ===== 侧栏抽屉(popover 滑动抽屉) =====
+// 窄屏抽屉的开合执行在 drawer.js(showPopover + scroll-snap 滚动);这里把 useLayout 的
+// leftOv/rightOv(UI 面向状态)与命令接起来:watch 翻 ref 下命令,IO 关闭回调回写 ref
+// (值相同不再触发 watch,无回环);FAB/快捷键/栏顶收起/手势全走这条命令通道。
+const leftPanelRef = ref(null);    // 面板根 aside(组件实例 $el)
+const rightPanelRef = ref(null);
+const centerRef = ref(null);       // 抽屉打开时置 inert 的中栏
+const fabLeftRef = ref(null);
+const fabRightRef = ref(null);
+const leftDrawer = createDrawer({ side: 'left', getMain: () => centerRef.value, getFab: () => fabLeftRef.value, onClose: () => { leftOv.value = false; } });
+const rightDrawer = createDrawer({ side: 'right', getMain: () => centerRef.value, getFab: () => fabRightRef.value, onClose: () => { rightOv.value = false; } });
+watch([leftOv, rightOv], ([l, r]) => {
+  l ? leftDrawer.open() : leftDrawer.close();
+  r ? rightDrawer.open() : rightDrawer.close();
+});
+// 跨断点:窄→宽时抽屉若还开着,瞬时收掉转 pinned(视觉直接切换,不滑出)
+watch([leftPin, rightPin], ([lp, rp], [lp0, rp0]) => {
+  if (lp && !lp0) leftDrawer.close(true);
+  if (rp && !rp0) rightDrawer.close(true);
+});
+// 进全屏时非全屏面板实例卸载(抽屉元素随之消失,detach 重置状态);退全屏重挂载后再接回
+function attachDrawers() {
+  nextTick(() => {
+    if (isFsWord.value) return;
+    if (leftPanelRef.value) leftDrawer.attach(leftPanelRef.value.$el);
+    if (rightPanelRef.value) rightDrawer.attach(rightPanelRef.value.$el);
+  });
+}
+watch(isFsWord, fs => {
+  if (fs) { leftDrawer.detach(); rightDrawer.detach(); }
+  else attachDrawers();
+});
+
 // ===== 挂载 =====
 onMounted(() => {
   const el = stageRef.value.mediaEl;
@@ -232,6 +266,7 @@ onMounted(() => {
     }
   });
   attachPlayback();
+  attachDrawers();
   // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
   // getVoices() 中途可能返回空数组 → loadVoices 空结果返回 null,不覆盖已加载声音。
   const syncVoices = () => { const l = loadVoices(); if (l) voices.value = l; };
@@ -240,6 +275,8 @@ onMounted(() => {
 });
 onUnmounted(() => {
   detachPlayback();
+  leftDrawer.detach();
+  rightDrawer.detach();
   cbDrag.cancel();
   disposeToasts();
 });
@@ -247,12 +284,14 @@ onUnmounted(() => {
 
 <template>
   <div class="layout" :class="[layoutClass, { 'has-content': hasContent }]" :style="{ '--panel-left-w': leftWidth + 'px', '--panel-right-w': rightWidth + 'px' }">
-    <!-- SettingsPanel 两个实例(普通/全屏)共用 props/emits,同 WordPanel 的 v-if 双分支 Teleport -->
-    <SettingsPanel v-if="!isFsWord" v-bind="spProps" v-on="spEmits" />
+    <!-- SettingsPanel 两个实例(普通/全屏)共用 props/emits,同 WordPanel 的 v-if 双分支 Teleport。
+         role/aria-label:窄屏=抽屉态(dialog),宽屏 pinned=常驻 sidebar 去掉 role(经 attrs 透传到面板根) -->
+    <SettingsPanel v-if="!isFsWord" ref="leftPanelRef" v-bind="spProps" v-on="spEmits"
+                   :role="leftPin ? null : 'dialog'" />
     <Teleport v-else to=".video-stage">
       <SettingsPanel v-bind="spProps" v-on="spEmits" />
     </Teleport>
-    <main class="panel-center">
+    <main ref="centerRef" class="panel-center">
       <VideoStage
         ref="stageRef"
         v-model:word-open="fsWordOpen"
@@ -302,15 +341,20 @@ onUnmounted(() => {
     <!-- 全屏时 Teleport 进 .video-stage;用 v-if 双分支而非 :disabled 切换——
          disabled 搬移节点在 VideoStage 同批更新下会触发 Vue moveTeleport 的 null 容器崩溃,
          重新挂载走全新 mount 路径则无此问题 -->
-    <WordPanel v-if="!isFsWord" v-bind="wpProps"
+    <WordPanel v-if="!isFsWord" ref="rightPanelRef" v-bind="wpProps"
+               :role="rightPin ? null : 'dialog'"
                @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
     <Teleport v-else to=".video-stage">
       <WordPanel v-bind="wpProps"
                  @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
     </Teleport>
-    <button class="float-btn float-btn-left"  title="展开设置栏（[）" @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
-    <button class="float-btn float-btn-right" title="展开词卡栏（]）" @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
-    <div class="scrim" :class="{ show: hasOverlay }" @click="closeBoth"></div>
+    <!-- FAB=抽屉触发按钮:aria-expanded 由 drawer.js 命令/IO 同步 -->
+    <button ref="fabLeftRef" class="float-btn float-btn-left" title="展开设置栏（[）"
+            aria-label="设置栏" aria-controls="drawer-left" aria-expanded="false"
+            @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
+    <button ref="fabRightRef" class="float-btn float-btn-right" title="展开词卡栏（]）"
+            aria-label="生词栏" aria-controls="drawer-right" aria-expanded="false"
+            @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
   </div>
   <Toasts :toasts="toasts" @dismiss="dismiss" @pause="pauseToast" @resume="resumeToast" />
   <dialog ref="mkvTrackDialog" class="mkv-track-dialog" @close="onMkvDialogClose">

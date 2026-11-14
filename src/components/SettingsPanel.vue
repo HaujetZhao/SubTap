@@ -95,9 +95,13 @@ function cycleEndMode() {
 const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
 </script>
 
+<!-- 根 aside 即抽屉(popover):窄屏打开时成顶层滑动面,宽屏 pinned 态由 CSS 压平包装层。
+     注意:模板根级注释会让组件变成 fragment,$el 不是 aside(组件 ref 取 $el 会拿到文本节点) -->
 <template>
-  <aside class="panel-left">
-    <div class="panel-inner">
+  <aside class="panel-left" id="drawer-left" popover="manual" aria-label="设置">
+    <div class="drawer-scroller">
+      <div class="drawer-sheet">
+        <div class="panel-inner">
       <div class="panel-head">
         <h3 class="panel-title">文件</h3>
         <button class="collapse-btn-panel" title="收起设置栏" @click="emit('collapse')"><i class="fas fa-chevron-left"></i></button>
@@ -221,6 +225,8 @@ const vadOff = computed(() => !props.hasMedia || props.srtFromFile);
     </section>
 
         </div>
-    <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
+        <div class="side-resize-handle" title="拖拽调整宽度" @pointerdown="emit('resizestart', $event)"></div>
+      </div>
+    </div>
   </aside>
 </template>
