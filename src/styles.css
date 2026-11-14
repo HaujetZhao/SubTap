@@ -112,11 +112,11 @@ body {
 .layout.left-pinned  .panel-left  { transform: translateX(0); opacity: 1; box-shadow: inset -1px 0 0 var(--border); }
 .layout.right-pinned .panel-right { transform: translateX(0); opacity: 1; box-shadow: inset  1px 0 0 var(--border); }
 /* 仅宽屏形态启用收展过渡(全屏 Teleport 的面板不依赖 layout 类,故四个选择器都在)。
-   必须写在 .layout.side-dragging 之前:同等特异度后写覆盖,拖宽时过渡照样关闭 */
-.layout.left-wide  .panel-left,
-.layout.right-wide .panel-right,
-.video-stage:fullscreen .panel-left,
-.video-stage:fullscreen .panel-right {
+   :not(.side-dragging) 让「拖宽关过渡」由选择器保证,不依赖与下方规则的先后 */
+.layout:not(.side-dragging).left-wide  .panel-left,
+.layout:not(.side-dragging).right-wide .panel-right,
+.layout:not(.side-dragging) .video-stage:fullscreen .panel-left,
+.layout:not(.side-dragging) .video-stage:fullscreen .panel-right {
   transition: transform var(--dur-panel) var(--ease-panel),
               opacity var(--dur-panel) var(--ease-panel),
               box-shadow var(--dur-panel) var(--ease-panel);
@@ -174,12 +174,11 @@ body {
    处理;backdrop 透明度由滚动位置驱动;开合状态由 drawer.js 的 IntersectionObserver 判定。 */
 /* 非 popover-open 态压平包装层:pinned 与全屏 Teleport 两套旧 CSS 无视 scroller/sheet 直接生效 */
 .drawer-scroller, .drawer-sheet { display: contents; }
-/* 打开时根重置为铺满视口的滑动面(覆盖 pinned 基类的定位/显隐)。
+/* 打开时根重置为铺满视口的滑动面(基类已清过 UA [popover] 样式,这里只覆盖 pinned 基类的定位/显隐)。
    --drawer-backdrop:backdrop 透明度 0=关 1=开,由下方 keyframes 滚动驱动(@property 提供初值) */
 :is(.panel-left, .panel-right):popover-open {
-  inset: 0; width: auto; height: auto; max-width: none;
-  margin: 0; padding: 0;
-  display: block; background: transparent; border: 0; overflow: visible;
+  inset: 0; width: auto;
+  display: block; background: transparent;
   transform: none; opacity: 1; box-shadow: none;
 }
 .panel-left:popover-open  { --drawer-w: min(var(--panel-left-w), 86vw); }    /* 86vw:防拖宽值超过窄屏视口 */
@@ -330,10 +329,8 @@ body {
 /* 全屏生词栏:WordPanel Teleport 进 stage,复用 .panel-right 的 fixed/滑入动画,
    --panel-right-w 沿 DOM 继承自 .layout 的 :style,与普通布局同一套宽度。
    注意 stage 本身在 .layout 里,宽屏 .layout.right-pinned .panel-right 的显示规则
-   会命中 Teleport 进来的 panel,这里同特异度、位置靠后,先强制隐藏再按 fs-word-open 放行。
-   display:flex 压过 UA 给未打开 popover 的 display:none(面板根带 popover 属性,全屏实例从不 showPopover) */
+   会命中 Teleport 进来的 panel,这里同特异度、位置靠后,先强制隐藏再按 fs-word-open 放行。 */
 .video-stage:fullscreen .panel-right {
-  display: flex;
   transform: translateX(100%); opacity: 0;
 }
 .video-stage:fullscreen.fs-word-open .panel-right {
@@ -346,7 +343,6 @@ body {
 
 /* 全屏设置栏:同上,镜像到左侧(--panel-left-w 由 VideoStage 全屏 :style 提供) */
 .video-stage:fullscreen .panel-left {
-  display: flex;
   transform: translateX(-100%); opacity: 0;
 }
 .video-stage:fullscreen.fs-left-open .panel-left {

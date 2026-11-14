@@ -97,6 +97,14 @@ const { playSentence, stopAll, replayCurrent, togglePlay, goPrev, goNext, attach
   toggleFabRight: () => isFsWord.value ? (fsWordOpen.value = !fsWordOpen.value) : toggleFab('right'),
   toggleVideoCollapse: () => stageRef.value?.toggleCollapse(),
   toggleFullscreen: () => stageRef.value?.toggleFullscreen(),
+  // Esc:先关打开的抽屉(返回 true 消费掉);原生 dialog 打开时让给 dialog
+  closeDrawers: () => {
+    if (document.querySelector('dialog[open]')) return false;
+    const d = leftDrawer.isOpen() ? leftDrawer : rightDrawer.isOpen() ? rightDrawer : null;
+    if (!d) return false;
+    d.close();
+    return true;
+  },
 });
 
 const { canRestore, onSrtFile, onMediaFile, onMediaHandle, clearSrt, clearMedia, loadSample, restoreLast } = createLoader({
@@ -231,27 +239,16 @@ const fabLeftRef = ref(null);
 const fabRightRef = ref(null);
 const leftDrawer = createDrawer({ side: 'left', getFab: () => fabLeftRef.value, onOpen: () => { leftOv.value = true; }, onClose: () => { leftOv.value = false; }, getOtherOpen: () => rightDrawer.isOpen() });
 const rightDrawer = createDrawer({ side: 'right', getFab: () => fabRightRef.value, onOpen: () => { rightOv.value = true; }, onClose: () => { rightOv.value = false; }, getOtherOpen: () => leftDrawer.isOpen() });
+// 跨断点由 useLayout 把 ov 置 false,同一回调里 pin 已是新值:宽屏侧瞬时转 pinned,不做滑出
 watch([leftOv, rightOv], ([l, r]) => {
-  l ? leftDrawer.open() : leftDrawer.close();
-  r ? rightDrawer.open() : rightDrawer.close();
+  l ? leftDrawer.open() : leftDrawer.close(leftPin.value);
+  r ? rightDrawer.open() : rightDrawer.close(rightPin.value);
 });
-// 跨断点:窄→宽时抽屉若还开着,瞬时收掉转 pinned(视觉直接切换,不滑出)
-watch([leftPin, rightPin], ([lp, rp], [lp0, rp0]) => {
-  if (lp && !lp0) leftDrawer.close(true);
-  if (rp && !rp0) rightDrawer.close(true);
-});
-// 进全屏时非全屏面板实例卸载(抽屉元素随之消失,detach 重置状态);退全屏重挂载后再接回
-function attachDrawers() {
-  nextTick(() => {
-    if (isFsWord.value) return;
-    if (leftPanelRef.value) leftDrawer.attach(leftPanelRef.value.$el);
-    if (rightPanelRef.value) rightDrawer.attach(rightPanelRef.value.$el);
-  });
-}
-watch(isFsWord, fs => {
-  if (fs) { leftDrawer.detach(); rightDrawer.detach(); }
-  else attachDrawers();
-});
+// 面板元素生命周期即接线生命周期:进全屏时非全屏实例卸载(ref 置 null)则 detach,退全屏重挂后 attach
+watch([leftPanelRef, rightPanelRef], ([lp, rp]) => {
+  lp ? leftDrawer.attach(lp.$el) : leftDrawer.detach();
+  rp ? rightDrawer.attach(rp.$el) : rightDrawer.detach();
+}, { flush: 'post' });
 
 // ===== 挂载 =====
 onMounted(() => {
@@ -265,7 +262,6 @@ onMounted(() => {
     }
   });
   attachPlayback();
-  attachDrawers();
   // 加载 TTS 声音列表(异步,部分浏览器会多次触发 voiceschanged)。
   // getVoices() 中途可能返回空数组 → loadVoices 空结果返回 null,不覆盖已加载声音。
   const syncVoices = () => { const l = loadVoices(); if (l) voices.value = l; };
@@ -347,12 +343,12 @@ onUnmounted(() => {
       <WordPanel v-bind="wpProps"
                  @collapse="onWordCollapse" @resizestart="onWordResizeStart" />
     </Teleport>
-    <!-- FAB=抽屉触发按钮:aria-expanded 由 drawer.js 命令/IO 同步 -->
+    <!-- FAB=抽屉触发按钮:aria-expanded 跟 leftOv/rightOv(IO 确认开合时回写) -->
     <button ref="fabLeftRef" class="float-btn float-btn-left" title="展开设置栏（[）"
-            aria-label="设置栏" aria-controls="drawer-left" aria-expanded="false"
+            aria-label="设置栏" aria-controls="drawer-left" :aria-expanded="leftOv"
             @click="toggleFab('left')"><i class="fas fa-bars"></i></button>
     <button ref="fabRightRef" class="float-btn float-btn-right" title="展开词卡栏（]）"
-            aria-label="生词栏" aria-controls="drawer-right" aria-expanded="false"
+            aria-label="生词栏" aria-controls="drawer-right" :aria-expanded="rightOv"
             @click="toggleFab('right')"><i class="fas fa-bars"></i></button>
   </div>
   <Toasts :toasts="toasts" @dismiss="dismiss" @pause="pauseToast" @resume="resumeToast" />

@@ -27,7 +27,6 @@ export function createDrawer({ side, getFab, getOtherOpen, onOpen, onClose }) {
   function finish(restoreFocus) {
     root.hidePopover();
     root.removeAttribute('aria-modal');
-    getFab().setAttribute('aria-expanded', 'false');
     onClose();
     // 另一侧抽屉已接管页面模态：inert 归它维护，焦点也不该抢
     if (getOtherOpen()) return;
@@ -55,7 +54,6 @@ export function createDrawer({ side, getFab, getOtherOpen, onOpen, onClose }) {
     }
     root.showPopover();
     root.setAttribute('aria-modal', 'true');   // popover 非模态，模态语义手动补齐
-    getFab().setAttribute('aria-expanded', 'true');
     setPageInert(true);
     // behavior:auto 交给 CSS scroll-behavior（尊重 reduced-motion）
     scroller.scrollTo({ left: openPos(), behavior: 'auto' });
@@ -73,13 +71,6 @@ export function createDrawer({ side, getFab, getOtherOpen, onOpen, onClose }) {
     if (!sheet.contains(e.target)) close();   // 点 sheet 外（=backdrop 区）只关本侧
   }
 
-  function onEsc(e) {
-    if (e.key !== 'Escape') return;
-    if (!isShown()) return;
-    if (document.querySelector('dialog[open]')) return;   // MKV 轨道弹窗开着时，Esc 让给原生 dialog
-    close();
-  }
-
   function attach(el) {
     root = el;
     page = el.parentElement;   // 卸载时子树已脱离文档，父节点须在挂载期缓存
@@ -88,19 +79,16 @@ export function createDrawer({ side, getFab, getOtherOpen, onOpen, onClose }) {
     observer = new IntersectionObserver(onIO, { root, threshold: [1 / window.innerWidth, 1] });
     observer.observe(sheet);
     scroller.addEventListener('click', onScrollerClick);
-    document.addEventListener('keydown', onEsc);
   }
 
   function detach() {
     if (!root) return;   // 卸载时可能从未 attach
     observer.disconnect();
     scroller.removeEventListener('click', onScrollerClick);
-    document.removeEventListener('keydown', onEsc);
     // aria-modal 存在 = 进入全屏时抽屉正开着；元素随卸载消失，无需 hidePopover。
     // 进入全屏/卸载时两侧实例总是一起 detach，无需看另一侧，直接清页面模态
     if (root.hasAttribute('aria-modal')) {
       root.removeAttribute('aria-modal');
-      getFab().setAttribute('aria-expanded', 'false');
       onClose();
       setPageInert(false);
     }
